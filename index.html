@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'self';">
+  <title>Termeedor</title>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/themes.css">
+  <!-- Imported theme files are injected here (see src/settings.js) -->
+  <style id="customThemes"></style>
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Title bar: sidebar toggle, current group, tabs -->
+  <header class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <button class="tb-btn sbToggle" id="toggleSidebar" title="Show/hide sidebar (Alt+B)" aria-pressed="true">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="1.5" y="2.5" width="13" height="11" rx="2"/>
+        <line x1="6" y1="2.5" x2="6" y2="13.5"/>
+        <rect id="sbFill" x="2" y="3" width="3.5" height="10" fill="currentColor" stroke="none" opacity=".5"/>
+      </svg>
+    </button>
+    <button class="tb-btn" id="toggleAllGroups"></button>
+    <div class="tabs" id="tabs"></div>
+    <button class="tb-btn" id="newTabBtn" title="New tab (Alt+T)">＋</button>
+    <button class="tb-btn" id="settingsBtn" title="Settings (Alt+,)">⚙</button>
+  </header>
+
+  <!-- Sidebar (resizable) and the strip shown when it is hidden -->
+  <div class="resizer" id="resizer" title="Drag to resize · double-click to reset"></div>
+  <div class="rail" id="rail" title="Show sidebar (Alt+B)">
+    <span class="arrow">»</span><span class="vlabel">Groups &amp; sessions</span>
+  </div>
+  <aside class="sidebar">
+    <div class="sbhead"><button class="hideBtn" id="hideSidebar" title="Hide sidebar (Alt+B)">« Hide</button></div>
+    <div class="sec">Groups <button id="newGroupBtn" title="New group (Alt+G)">＋</button></div>
+    <div id="groups"></div>
+    <div class="sec">Past sessions</div>
+    <input class="pastSearch" id="pastSearch" placeholder="Search closed tabs…" maxlength="60">
+    <div id="pastSessions"></div>
+  </aside>
+
+  <!-- Terminal: an editable text area with line numbers -->
+  <main class="main">
+    <div class="colorbar" id="colorbar"></div>
+    <div class="gutter" id="gutter"></div>
+    <textarea class="editor" id="editor" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+  </main>
+
+  <footer class="status">
+    <span id="stTab"></span><span id="stCwd"></span><span id="stRunning"></span><span class="sp"></span>
+    <span id="stPos"></span>
+  </footer>
+</div>
+
+<dialog id="settings">
+  <div class="setHead"><b>Settings</b><button class="icon-btn shown" id="closeSettings" title="Close (Esc)">✕</button></div>
+  <div class="setBody">
+    <h4>Theme</h4>
+    <div class="themes" id="themes"></div>
+    <div class="themeActions">
+      <button class="btn" id="importTheme">＋ Add theme from .css file</button>
+      <input type="file" id="themeFile" accept=".css,text/css" hidden>
+      <a class="btn" href="themes/example.css" target="_blank" rel="noopener">Open example theme .css</a>
+    </div>
+
+    <h4>Display</h4>
+    <label class="setRow">Font size <span><input type="range" id="fontSize" min="10" max="20" step="1"> <output id="fontSizeOut"></output></span></label>
+    <div class="setRow">Default color for new tabs <span class="colorPick" id="defaultTabColor"></span></div>
+    <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
+    <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>
+
+    <h4>Shortcuts</h4>
+    <div class="hint">
+      Alt+T new tab · Alt+G new group · Alt+W close tab · Alt+Shift+T reopen closed tab ·
+      Alt+B sidebar · Alt+1–9 / Alt+←→ switch tabs · Alt+F fold/unfold all groups · Alt+, settings · double-click any name to rename
+    </div>
+  </div>
+</dialog>
+</body>
+</html>

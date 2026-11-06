@@ -1,0 +1,34 @@
+/*
+ * Example Termeedor theme. Import it from Settings → Theme → "Add theme from .css file".
+ *
+ * @name Sunset
+ *
+ * Rules:
+ *  - Set variables on :root. Termeedor scopes them to this theme automatically,
+ *    so they only apply while the theme is selected.
+ *  - --panel, --term and --accent are used for the small preview card.
+ *  - Any other selector works too (e.g. .editor, .tab.active) and is scoped the same way.
+ *  - @import and external url() are ignored/blocked.
+ */
+
+:root {
+  --bg: #1d1520;
+  --panel: #261b29;
+  --panel2: #302234;
+  --line: #433047;
+  --text: #f6e7e1;
+  --dim: #a88f99;
+  --accent: #ff8a5c;
+  --term: #170f19;
+  --sel: #5a3348;
+  --gutter: #4d3a50;
+  --danger: #ff5c7a;
+  /* optional tab/group colors */
+  --c1: #ff6b81; --c2: #ff9f5c; --c3: #ffd36b; --c4: #8fd694;
+  --c5: #5cd6c8; --c6: #6fa8ff; --c7: #b48cff; --c8: #ff8ad1;
+  color-scheme: dark;
+}
+
+:root .tab.active {
+  font-weight: 600;
+}

@@ -1,0 +1,85 @@
+/*
+ * Built-in themes. Every color in the UI comes from these variables.
+ * "default" is plain :root; the others are selected with <html data-theme="...">.
+ * --c1 … --c8 are the optional tab/group colors; tabs and groups have no color by default.
+ * To add your own theme without editing this file, import a .css file from
+ * Settings → Theme (see themes/example.css).
+ */
+
+:root {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #e06c75; --c2: #d19a66; --c3: #e5c07b; --c4: #98c379; --c5: #56b6c2; --c6: #61afef; --c7: #a98bdc; --c8: #d67fb1;
+  --bg: #0f1115;
+  --panel: #151821;
+  --panel2: #1b1f2a;
+  --line: #262b38;
+  --text: #d7dbe4;
+  --dim: #7d8597;
+  --accent: #6aa8ff;
+  --term: #0b0d12;
+  --sel: #2a3a5c;
+  --gutter: #3d4454;
+  --danger: #ff6b6b;
+  --mono: "SF Mono", Menlo, Monaco, "JetBrains Mono", Consolas, monospace;
+  --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size: 13px;
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #b07070; --c2: #b08a64; --c3: #b5a46a; --c4: #7fa577; --c5: #6a9fa3; --c6: #7393b8; --c7: #9384b3; --c8: #ab7d9c;
+  --bg: #000; --panel: #0c0c0c; --panel2: #161616; --line: #242424;
+  --text: #e6e6e6; --dim: #8a8a8a; --accent: #e6e6e6;
+  --term: #000; --sel: #333; --gutter: #333;
+}
+
+:root[data-theme="light"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #d1495b; --c2: #d9822b; --c3: #c9a227; --c4: #3f9b5a; --c5: #219ea6; --c6: #2f6fde; --c7: #7d55c7; --c8: #c2508f;
+  --bg: #f3f4f6; --panel: #ebedf0; --panel2: #fff; --line: #d5d9e0;
+  --text: #1f2328; --dim: #667085; --accent: #2563eb;
+  --term: #fff; --sel: #cfe0ff; --gutter: #b8bec9; --danger: #d92d20;
+  color-scheme: light;
+}
+
+:root[data-theme="paper"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #b5533c; --c2: #c27c3a; --c3: #b8962e; --c4: #6b8f4e; --c5: #4a8c86; --c6: #4f6fa3; --c7: #7d5f9a; --c8: #a85a7a;
+  --bg: #efe9dc; --panel: #e8e1d1; --panel2: #f7f2e7; --line: #d6cdb8;
+  --text: #3b3428; --dim: #857a66; --accent: #b5651d;
+  --term: #fbf7ee; --sel: #eedcbf; --gutter: #c9bea6;
+  color-scheme: light;
+}
+
+:root[data-theme="ocean"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #f08a8a; --c2: #f2b279; --c3: #e8d27c; --c4: #8fd19e; --c5: #4fd1c5; --c6: #6cb6ff; --c7: #a99cf0; --c8: #e597c6;
+  --bg: #0b1a26; --panel: #0f2232; --panel2: #13293c; --line: #1d3a52;
+  --text: #cfe7f5; --dim: #6f93ab; --accent: #4fd1c5;
+  --term: #081520; --sel: #1b4462; --gutter: #2a4a63;
+}
+
+:root[data-theme="forest"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #d98b7a; --c2: #d9a865; --c3: #cfc46e; --c4: #8bd17c; --c5: #6fc2a5; --c6: #7fb0c9; --c7: #a99bc9; --c8: #c993a8;
+  --bg: #111a14; --panel: #16211a; --panel2: #1c2a21; --line: #2a3a2f;
+  --text: #d8e6da; --dim: #7f9884; --accent: #8bd17c;
+  --term: #0d1510; --sel: #2c4632; --gutter: #36493b;
+}
+
+:root[data-theme="dusk"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #f28fa0; --c2: #f5b38a; --c3: #f0d78c; --c4: #a8d8a0; --c5: #8ad3d0; --c6: #8fb4f5; --c7: #c3a6f5; --c8: #f0a6ca;
+  --bg: #1a1424; --panel: #211a2e; --panel2: #2a2139; --line: #3a2f4d;
+  --text: #ece3f7; --dim: #9a8bb0; --accent: #f0a6ca;
+  --term: #150f1e; --sel: #45345e; --gutter: #45385a;
+}
+
+:root[data-theme="contrast"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #ff4d4d; --c2: #ff9d00; --c3: #ffea00; --c4: #00e676; --c5: #00e5ff; --c6: #448aff; --c7: #d500f9; --c8: #ff4081;
+  --bg: #000; --panel: #000; --panel2: #111; --line: #fff;
+  --text: #fff; --dim: #fff; --accent: #ffea00;
+  --term: #000; --sel: #0050ff; --gutter: #aaa;
+}
