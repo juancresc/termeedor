@@ -1,0 +1,9 @@
+/* Contrast: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
+
+:root[data-theme="contrast"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #ff4d4d; --c2: #ff9d00; --c3: #ffea00; --c4: #00e676; --c5: #00e5ff; --c6: #448aff; --c7: #d500f9; --c8: #ff4081;
+  --bg: #000; --panel: #000; --panel2: #111; --line: #fff;
+  --text: #fff; --dim: #fff; --accent: #ffea00;
+  --term: #000; --sel: #0050ff; --gutter: #aaa;
+}

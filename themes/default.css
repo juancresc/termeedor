@@ -1,0 +1,28 @@
+/* Default: built-in Termeedor theme. Always loaded: every other theme starts from these values and overrides what it needs. */
+
+:root {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #e06c75; --c2: #d19a66; --c3: #e5c07b; --c4: #98c379; --c5: #56b6c2; --c6: #61afef; --c7: #a98bdc; --c8: #d67fb1;
+  --bg: #0f1115;
+  --panel: #151821;
+  --panel2: #1b1f2a;
+  --line: #262b38;
+  --text: #d7dbe4;
+  --dim: #7d8597;
+  --accent: #6aa8ff;
+  --term: #0b0d12;
+  --sel: #2a3a5c;
+  --gutter: #3d4454;
+  --danger: #ff6b6b;
+  --mono: "SF Mono", Menlo, Monaco, "JetBrains Mono", Consolas, monospace;
+  --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size: 13px;
+  /* details that are not plain surfaces or text */
+  --light-close: #ff5f57; --light-min: #febc2e; --light-max: #28c840; /* title bar dots */
+  --on-color: #0b0d12; /* text on a colored group label */
+  --menu-shadow: 0 10px 30px rgba(0,0,0,.5);
+  --tooltip-shadow: 0 6px 18px rgba(0,0,0,.35);
+  --backdrop: rgba(0,0,0,.5); /* behind the settings dialog */
+  --badge-bg: rgba(0,0,0,.5); --badge-text: #fff; /* remove button on theme cards */
+  color-scheme: dark;
+}

@@ -1,6 +1,6 @@
 /*
  * Termeedor layout and components.
- * Colors and fonts come only from theme variables (styles/themes.css).
+ * Colors and fonts come only from theme variables (themes/default.css lists them all).
  */
 
 * { box-sizing: border-box; }
@@ -24,9 +24,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .titlebar { grid-column: 1 / 3; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .lights { display: flex; gap: 7px; margin-right: 8px; }
 .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
-.lights i:nth-child(1) { background: #ff5f57; }
-.lights i:nth-child(2) { background: #febc2e; }
-.lights i:nth-child(3) { background: #28c840; }
+.lights i:nth-child(1) { background: var(--light-close); }
+.lights i:nth-child(2) { background: var(--light-min); }
+.lights i:nth-child(3) { background: var(--light-max); }
 
 .tb-btn { padding: 4px 8px; border-radius: 6px; color: var(--dim); }
 .tb-btn:hover { background: var(--panel2); color: var(--text); }
@@ -59,9 +59,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   background: var(--panel2); color: var(--text); border: 1px solid var(--line);
   font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none;
 }
-.groupChip.colored { color: #0b0d12; border-color: transparent; }
+.groupChip.colored { color: var(--on-color); border-color: transparent; }
 .groupChip:first-child { margin-left: 0; }
-.groupChip.folded { padding-right: 6px; opacity: .85; }
+.groupChip.folded { opacity: .85; }
+.groupTray { border-style: dashed; color: var(--dim); }
 .groupChip.folded:hover, .groupChip:hover { filter: brightness(1.08); }
 .groupChip.dragover, .tab.dragover { outline: 2px dashed var(--text); outline-offset: 1px; }
 .groupChip .chipName { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
@@ -105,12 +106,15 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .ghead { display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
 .ghead:hover { background: var(--panel2); }
 .ghead .caret { width: 10px; color: var(--dim); font-size: 10px; transition: transform .15s; }
-.group.collapsed .caret { transform: rotate(-90deg); }
+.group.collapsed .caret, .group.minimized .caret { transform: rotate(-90deg); }
+.group.minimized .ghead { opacity: .6; }
+.group.minimized .gname { font-style: italic; }
+.ghead .icon-btn.gmin:not(:hover) { opacity: .8; }
 .ghead .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .ghead .gname { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ghead .count { color: var(--dim); font-size: 11px; }
 .glist { padding-left: 14px; }
-.group.collapsed .glist { display: none; }
+.group.collapsed .glist, .group.minimized .glist { display: none; }
 
 /* tab rows */
 .item { display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 6px; cursor: pointer; color: var(--dim); user-select: none; }
@@ -140,11 +144,17 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .tab .inlineInput { width: 130px; }
 
 /* ---------- Terminal / editor ---------- */
-.main { position: relative; display: flex; min-width: 0; background: var(--term); }
+.main { position: relative; display: flex; min-width: 0; min-height: 0; background: var(--term); } /* min-height: 0 so the text scrolls inside instead of stretching the page */
 .colorbar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
 .gutter { flex: none; width: 44px; padding: 12px 8px 12px 0; text-align: right; color: var(--gutter); font: var(--font-size)/1.55 var(--mono); overflow: hidden; user-select: none; white-space: pre; }
 .editor { flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: var(--font-size)/1.55 var(--mono); padding: 12px 16px 12px 6px; caret-color: var(--accent); white-space: pre; overflow: auto; tab-size: 4; }
 .editor::selection { background: var(--sel); }
+/* hairline above each command, drawn over the text area only (positioned from JS) */
+.cmdLines { position: absolute; top: 0; bottom: 0; overflow: hidden; pointer-events: none; }
+.cmdLines div { position: absolute; left: 0; right: 0; border-top: .5px solid color-mix(in srgb, var(--line) 70%, transparent); }
+/* same text metrics as the editor, used to measure its real line height */
+.lineProbeBox { position: absolute; height: 0; overflow: hidden; visibility: hidden; }
+.lineProbe { font: var(--font-size)/1.55 var(--mono); white-space: pre; }
 .app.nolines .gutter { display: none; }
 .app.nolines .editor { padding-left: 16px; }
 
@@ -153,7 +163,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .status .sp { flex: 1; }
 
 /* ---------- Context menu ---------- */
-.menu { position: fixed; z-index: 20; min-width: 180px; padding: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.menu { position: fixed; z-index: 20; min-width: 180px; padding: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--menu-shadow); }
 .menu button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 10px; border-radius: 5px; }
 .menu button:hover { background: var(--sel); }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
@@ -164,9 +174,28 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .menu .sw.none { background: transparent; border: 1px dashed var(--dim); }
 .menu .danger { color: var(--danger); }
 
+/* ---------- Tab completion dropdown ---------- */
+.completions { position: fixed; z-index: 20; min-width: 160px; max-width: 420px; max-height: 220px; overflow-y: auto; padding: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--menu-shadow); font: var(--font-size)/1.4 var(--mono); cursor: default; user-select: none; }
+.completions div { display: flex; justify-content: space-between; gap: 16px; padding: 2px 8px; border-radius: 5px; }
+.completions div:hover { background: color-mix(in srgb, var(--sel) 50%, transparent); }
+.completions div.on { background: var(--sel); }
+.completions span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+.completions span:last-child { flex: none; color: var(--dim); font: 11px/1.6 var(--ui); }
+
+/* ---------- Tooltip ---------- */
+.tooltip {
+  position: fixed; inset: auto; margin: 0; max-width: 280px; padding: 5px 9px; overflow: visible;
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 7px;
+  box-shadow: var(--tooltip-shadow); font: 12px/1.35 var(--ui); overflow-wrap: anywhere; pointer-events: none;
+}
+.tooltip:popover-open { display: flex; align-items: center; gap: 8px; animation: tooltip-in .12s ease-out; }
+.tooltip kbd { flex: none; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--term); color: var(--dim); font: 10px/16px var(--mono); }
+@keyframes tooltip-in { from { opacity: 0; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .tooltip:popover-open { animation: none; } }
+
 /* ---------- Settings dialog ---------- */
 dialog { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; }
-dialog::backdrop { background: rgba(0,0,0,.5); }
+dialog::backdrop { background: var(--backdrop); }
 #settings { width: min(560px, 94vw); max-height: 88vh; padding: 0; overflow: hidden; }
 #settings[open] { display: flex; flex-direction: column; }
 .setHead { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -189,15 +218,46 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 
 /* theme cards (compact) */
 .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
-.themeCard { position: relative; padding: 0; overflow: hidden; text-align: left; border: 2px solid var(--line); border-radius: 6px; }
+.themeCard { position: relative; overflow: hidden; border: 2px solid var(--line); border-radius: 6px; }
 .themeCard.on { border-color: var(--accent); }
+.themePick { display: block; width: 100%; padding: 0; text-align: left; }
 .themeCard .pv { display: flex; height: 18px; }
 .themeCard .pv i { display: block; flex: 1; }
 .themeCard .pv i:last-child { flex: .3; }
 .themeCard .label { display: block; padding: 2px 6px; font-size: 11px; background: var(--panel); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.themeCard .remove { position: absolute; top: 1px; right: 2px; font-size: 10px; line-height: 1; padding: 1px 3px; border-radius: 3px; background: rgba(0,0,0,.5); color: #fff; opacity: 0; }
-.themeCard:hover .remove { opacity: 1; }
+.themeLink { display: block; width: 100%; padding: 2px 0; border-top: 1px solid var(--line); background: var(--panel); text-align: center; font-size: 10px; color: var(--dim); text-decoration: none; }
+.themeLink:hover, .themeLink:focus-visible { background: var(--sel); color: var(--text); }
+.themeCard .remove { position: absolute; top: 1px; right: 2px; font-size: 10px; line-height: 1; padding: 1px 3px; border-radius: 3px; background: var(--badge-bg); color: var(--badge-text); opacity: 0; }
+.themeCard:hover .remove, .themeCard .remove:focus-visible { opacity: 1; }
 .themeActions { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+/* ---------- Plugins ---------- */
+#stPlugins { display: flex; align-items: center; gap: 12px; }
+#stPlugins:empty { display: none; }
+.stPlugin { padding: 0 4px; border-radius: 4px; font-size: 11px; color: var(--dim); }
+button.stPlugin:hover { background: var(--panel2); color: var(--text); }
+.pluginRow { gap: 12px; cursor: pointer; }
+.pluginInfo { min-width: 0; overflow-wrap: anywhere; }
+.setRow .pluginMeta { display: inline; color: var(--dim); font-size: 11px; }
+.pluginError { color: var(--danger); font-size: 12px; line-height: 1.5; }
+.pluginsHint { margin-top: 8px; overflow-wrap: anywhere; }
+
+/* ---------- Desktop app window ---------- */
+.desktop .titlebar { -webkit-app-region: drag; }
+.desktop .titlebar button, .desktop .tabs > * { -webkit-app-region: no-drag; }
+.desktop .lights { display: none; }
+.desktop.platform-darwin .lights { display: flex; visibility: hidden; } /* keeps room for the real window buttons */
+
+/* ---------- Theme CSS dialog ---------- */
+#themeEditor { width: min(860px, 94vw); height: 84vh; padding: 0; overflow: hidden; }
+#themeEditor[open] { display: flex; flex-direction: column; }
+.themeBar { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 4px 8px 4px 14px; flex-wrap: wrap; background: var(--panel); border-bottom: 1px solid var(--line); }
+.themeKind { color: var(--dim); font-size: 11px; }
+.themeMsg { flex: 1; min-width: 120px; color: var(--dim); font-size: 12px; }
+.themeMsg.error { color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; background: var(--line); }
+.themeCss { flex: 1; min-height: 0; resize: none; border: 0; outline: 0; padding: 12px 16px; background: var(--term); color: var(--text); font: var(--font-size)/1.55 var(--mono); caret-color: var(--accent); white-space: pre; overflow: auto; tab-size: 2; }
+.themeCss::selection { background: var(--sel); }
 
 /* ---------- Running indicator (cycles like Claude Code's thinking spinner) ---------- */
 .spinner { display: inline-block; flex: none; width: 12px; text-align: center; color: var(--accent); font-size: 12px; line-height: 1; }

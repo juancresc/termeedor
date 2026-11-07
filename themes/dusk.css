@@ -1,0 +1,9 @@
+/* Dusk: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
+
+:root[data-theme="dusk"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #f28fa0; --c2: #f5b38a; --c3: #f0d78c; --c4: #a8d8a0; --c5: #8ad3d0; --c6: #8fb4f5; --c7: #c3a6f5; --c8: #f0a6ca;
+  --bg: #1a1424; --panel: #211a2e; --panel2: #2a2139; --line: #3a2f4d;
+  --text: #ece3f7; --dim: #9a8bb0; --accent: #f0a6ca;
+  --term: #150f1e; --sel: #45345e; --gutter: #45385a;
+}

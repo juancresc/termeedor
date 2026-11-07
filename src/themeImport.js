@@ -6,10 +6,10 @@ import { LIMITS } from "./constants.js";
 import { uid } from "./util.js";
 import { cssColor } from "./storage.js";
 
-export function parseThemeFile(fileName, cssText) {
+export function parseThemeFile(fileName, cssText, id = `c-${uid()}`) {
   if (cssText.length > LIMITS.themeCss) throw new Error("Theme file is too large (max 100 KB).");
+  if (!bracesBalance(cssText)) throw new Error("A { or } is missing.");
 
-  const id = `c-${uid()}`;
   const scope = `:root[data-theme="${id}"]`;
 
   const sheet = new CSSStyleSheet();
@@ -18,12 +18,14 @@ export function parseThemeFile(fileName, cssText) {
 
   const css = [...sheet.cssRules].map((rule) => rule.cssText).join("\n");
   if (!css.trim()) throw new Error("No CSS rules found in this file.");
+  if (css.length > LIMITS.themeScopedCss) throw new Error("Theme is too large.");
 
   const vars = readRootVars(sheet.cssRules, scope);
   return {
     id,
     name: themeName(fileName, cssText),
     css,
+    source: cssText,
     preview: ["--panel", "--term", "--accent"].map((v) => cssColor(vars.getPropertyValue(v)) ?? "#888"),
   };
 }
@@ -31,11 +33,53 @@ export function parseThemeFile(fileName, cssText) {
 function scopeRules(rules, scope) {
   for (const rule of rules) {
     if (rule instanceof CSSStyleRule) {
-      rule.selectorText = rule.selectorText.split(",").map((s) => scopeSelector(s.trim(), scope)).join(", ");
+      rule.selectorText = splitSelectors(rule.selectorText).map((s) => scopeSelector(s, scope)).join(", ");
     } else if (rule.cssRules) {
       scopeRules(rule.cssRules, scope); // @media, @supports, …
     }
   }
+}
+
+/** The browser drops bad CSS without an error, so catch the mistake that loses the most rules. */
+function bracesBalance(cssText) {
+  const code = cssText.replace(/\/\*[\s\S]*?(\*\/|$)|"(\\.|[^"\\\n])*"|'(\\.|[^'\\\n])*'/g, "");
+  let depth = 0;
+  for (const char of code) {
+    if (char === "{") depth++;
+    else if (char === "}" && --depth < 0) return false;
+  }
+  return depth === 0;
+}
+
+/** Splits on top-level commas only, so ":is(.a, .b)" and [title="a,b"] stay whole. */
+function splitSelectors(selectorText) {
+  const parts = [];
+  let current = "";
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < selectorText.length; i++) {
+    const char = selectorText[i];
+    if (char === "\\") {
+      current += char + (selectorText[++i] ?? "");
+      continue;
+    }
+    if (quote) {
+      if (char === quote) quote = null;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === "(" || char === "[") {
+      depth++;
+    } else if (char === ")" || char === "]") {
+      depth--;
+    } else if (char === "," && depth === 0) {
+      parts.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  parts.push(current.trim());
+  return parts;
 }
 
 function scopeSelector(selector, scope) {

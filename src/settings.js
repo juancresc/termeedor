@@ -4,7 +4,10 @@ import { BUILTIN_THEMES, TAB_COLORS, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
 import { state, updateSettings, addCustomTheme, removeCustomTheme, setSidebarOpen } from "./store.js";
 import { parseThemeFile } from "./themeImport.js";
+import { applyTheme } from "./themes.js";
+import { initThemeEditor, openThemeEditor } from "./themeEditor.js";
 import { focusEditor } from "./editor.js";
+import { renderPluginSettings } from "./plugins/ui.js";
 
 const dialog = $("settings");
 
@@ -20,6 +23,7 @@ export function initSettings() {
 
   $("importTheme").onclick = () => $("themeFile").click();
   $("themeFile").onchange = importThemeFile;
+  initThemeEditor();
 }
 
 export function openSettings() {
@@ -29,17 +33,8 @@ export function openSettings() {
 
 /** Applies theme, font size, etc. to the page. Runs on every render. */
 export function applySettings() {
-  const { theme, fontSize, lineNumbers, customThemes } = state.settings;
-  const root = document.documentElement;
-  if (theme === "default") delete root.dataset.theme;
-  else root.dataset.theme = theme;
-  root.style.setProperty("--font-size", `${fontSize}px`);
-  $("app").classList.toggle("nolines", !lineNumbers);
-
-  // imported themes are already scoped CSS; set as text, never parsed as HTML
-  const css = customThemes.map((t) => t.css).join("\n");
-  const styleTag = $("customThemes");
-  if (styleTag.textContent !== css) styleTag.textContent = css;
+  applyTheme(state.settings);
+  $("app").classList.toggle("nolines", !state.settings.lineNumbers);
 }
 
 export function renderSettings() {
@@ -51,6 +46,7 @@ export function renderSettings() {
   $("showSidebar").checked = state.ws.sidebarOpen;
   renderDefaultTabColor();
   renderThemeGrid();
+  renderPluginSettings();
 }
 
 function renderDefaultTabColor() {
@@ -64,8 +60,8 @@ function renderDefaultTabColor() {
   const none = option("none", "sw none", "No color");
   const group = option("group", "sw groupOpt", "Same as the group");
   group.textContent = "G";
-  const colors = TAB_COLORS.map((c) => {
-    const swatch = option(c, "sw", "Theme color");
+  const colors = TAB_COLORS.map((c, index) => {
+    const swatch = option(c, "sw", `Color ${index + 1}`);
     swatch.style.background = colorVar(c);
     return swatch;
   });
@@ -81,23 +77,28 @@ function renderThemeGrid() {
 }
 
 function themeCard({ id, name, preview }, removable) {
-  const card = el("button", `themeCard${state.settings.theme === id ? " on" : ""}`);
-  card.title = name;
+  const card = el("div", `themeCard${state.settings.theme === id ? " on" : ""}`);
 
+  const pick = el("button", "themePick");
+  pick.title = name;
+  pick.onclick = () => updateSettings({ theme: id });
   const swatches = el("div", "pv");
   for (const color of preview) {
     const swatch = el("i");
     swatch.style.background = color;
     swatches.append(swatch);
   }
-  card.append(swatches, el("span", "label", name));
-  card.onclick = () => updateSettings({ theme: id });
+  pick.append(swatches, el("span", "label", name));
+
+  const cssButton = el("button", "themeLink", "CSS");
+  cssButton.title = "Open this theme's CSS";
+  cssButton.onclick = () => openThemeEditor(id);
+  card.append(pick, cssButton);
 
   if (removable) {
-    const remove = el("span", "remove", "✕");
+    const remove = el("button", "remove", "✕");
     remove.title = "Remove theme";
-    remove.onclick = (e) => {
-      e.stopPropagation();
+    remove.onclick = () => {
       if (confirm(`Remove theme "${name}"?`)) removeCustomTheme(id);
     };
     card.append(remove);

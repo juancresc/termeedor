@@ -7,7 +7,7 @@ import { load, save, sanitizeWorkspace, sanitizePastEntry, sanitizeSettings } fr
 
 // ---------- factories ----------
 const banner = () =>
-  `Termeedor — ${new Date().toLocaleString()}\nType 'help' for commands. Click anywhere to edit — it's a text editor.\n\n`;
+  `Termeedor — ${new Date().toLocaleString()}\nType 'help' for commands.\n\n`;
 
 export function createTab(groupId, name = "shell") {
   return { id: uid(), groupId, name, color: null, collapsed: false, minimized: false, content: banner() + PROMPT, cwd: "~", history: [] };
@@ -20,7 +20,7 @@ function defaultTabColorFor(group) {
 }
 
 function createGroup(name, color = null) {
-  return { id: uid(), name, color, collapsed: false };
+  return { id: uid(), name, color, collapsed: false, minimized: false };
 }
 
 function defaultWorkspace() {
@@ -72,8 +72,11 @@ export const getTab = (id) => state.ws.tabs.find((t) => t.id === id);
 export const getGroup = (id) => state.ws.groups.find((g) => g.id === id);
 export const activeTab = () => getTab(state.ws.activeTab);
 export const tabsIn = (groupId) => state.ws.tabs.filter((t) => t.groupId === groupId);
-/** Tabs shown in the top bar, in order: every expanded group's non-minimized tabs. */
-export const barTabs = () => state.ws.groups.filter((g) => !g.collapsed).flatMap((g) => tabsIn(g.id).filter((t) => !t.minimized));
+/** Tabs shown in the top bar, in order: every expanded, non-minimized group's non-minimized tabs. */
+export const barTabs = () => state.ws.groups.filter((g) => !g.collapsed && !g.minimized).flatMap((g) => tabsIn(g.id).filter((t) => !t.minimized));
+export const minimizedGroups = () => state.ws.groups.filter((g) => g.minimized);
+const barGroups = () => state.ws.groups.filter((g) => !g.minimized);
+export const allGroupsCollapsed = () => barGroups().length > 0 && barGroups().every((g) => g.collapsed);
 
 function ensureActiveTab() {
   if (activeTab()) return;
@@ -108,7 +111,7 @@ export function activateTab(id) {
   if (!tab) return;
   state.ws.activeTab = id;
   tab.minimized = false;
-  getGroup(tab.groupId).collapsed = false;
+  showGroup(getGroup(tab.groupId));
   commit();
 }
 
@@ -118,7 +121,7 @@ export function addTab(groupId = activeTab()?.groupId ?? state.ws.groups[0]?.id)
     group = createGroup("Group 1");
     state.ws.groups.push(group);
   }
-  group.collapsed = false;
+  showGroup(group);
   const tab = createTab(group.id, `shell ${state.ws.tabs.filter((t) => t.groupId === group.id).length + 1}`);
   tab.color = defaultTabColorFor(group);
   state.ws.tabs.push(tab);
@@ -154,7 +157,7 @@ export function moveTab(tab, groupId) {
   state.ws.tabs.splice(state.ws.tabs.indexOf(tab), 1);
   state.ws.tabs.push(tab);
   tab.groupId = groupId;
-  getGroup(groupId).collapsed = false;
+  showGroup(getGroup(groupId));
   state.ws.activeTab = tab.id;
   commit();
 }
@@ -185,7 +188,7 @@ export function setTabMinimized(tab, minimized) {
 
 export function restoreMinimized(group) {
   tabsIn(group.id).forEach((t) => { t.minimized = false; });
-  group.collapsed = false;
+  showGroup(group);
   commit();
 }
 
@@ -212,13 +215,32 @@ export function closeGroup(group) {
   commit("workspace", "past");
 }
 
+function showGroup(group) {
+  group.collapsed = false;
+  group.minimized = false;
+}
+
+/** If the active tab's group was just hidden, switch to a tab that is still visible. */
+function leaveHiddenGroup(group) {
+  if (activeTab()?.groupId !== group.id) return;
+  const next = barTabs()[0];
+  if (next) state.ws.activeTab = next.id;
+}
+
 /** Collapsing folds a group's tabs into its label (top bar and sidebar). */
 export function setGroupCollapsed(group, collapsed) {
   group.collapsed = collapsed;
-  // if the active tab just got folded away, switch to a tab that is still visible
-  if (collapsed && activeTab()?.groupId === group.id) {
-    const next = barTabs()[0];
-    if (next) state.ws.activeTab = next.id;
+  if (collapsed) leaveHiddenGroup(group);
+  commit();
+}
+
+/** Minimizing takes the whole group, label included, out of the top bar. Restoring brings it back expanded. */
+export function setGroupMinimized(group, minimized) {
+  if (minimized) {
+    group.minimized = true;
+    leaveHiddenGroup(group);
+  } else {
+    showGroup(group);
   }
   commit();
 }
@@ -226,7 +248,7 @@ export function setGroupCollapsed(group, collapsed) {
 export const toggleGroupCollapsed = (group) => setGroupCollapsed(group, !group.collapsed);
 
 export function setAllGroupsCollapsed(collapsed) {
-  state.ws.groups.forEach((g) => { g.collapsed = collapsed; });
+  barGroups().forEach((g) => { g.collapsed = collapsed; });
   commit();
 }
 
@@ -262,7 +284,7 @@ export function reopenPast(entry, intoGroupId) {
     group = createGroup(entry.groupName, entry.groupColor);
     state.ws.groups.push(group);
   }
-  group.collapsed = false;
+  showGroup(group);
   const tab = { id: uid(), groupId: group.id, name: entry.name, collapsed: false, minimized: false, ...entry.tab, history: [...entry.tab.history] };
   state.ws.tabs.push(tab);
   state.ws.activeTab = tab.id;
@@ -304,11 +326,24 @@ export function updateSettings(changes) {
   commit("settings");
 }
 
+/** Theme text can hit the storage limit, so a failed save is undone and reported instead of silently lost. */
+function commitThemes(customThemes, selectedId) {
+  const before = state.settings;
+  state.settings = { ...before, customThemes, theme: selectedId };
+  if (!savers.settings()) {
+    state.settings = before;
+    throw new Error("Storage is full, so this was not saved.");
+  }
+  listeners.forEach((fn) => fn());
+}
+
 export function addCustomTheme(theme) {
-  if (state.settings.customThemes.length >= LIMITS.customThemes) throw new Error(`You can import up to ${LIMITS.customThemes} themes.`);
-  state.settings.customThemes.push(theme);
-  state.settings.theme = theme.id;
-  commit("settings");
+  if (state.settings.customThemes.length >= LIMITS.customThemes) throw new Error(`You can have up to ${LIMITS.customThemes} of your own themes.`);
+  commitThemes([...state.settings.customThemes, theme], theme.id);
+}
+
+export function updateCustomTheme(theme) {
+  commitThemes(state.settings.customThemes.map((t) => (t.id === theme.id ? theme : t)), theme.id);
 }
 
 export function removeCustomTheme(id) {

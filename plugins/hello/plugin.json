@@ -1,0 +1,6 @@
+{
+  "name": "Hello",
+  "version": "1.0.0",
+  "description": "Example plugin: a command, a shortcut, a tab menu item and a status bar counter.",
+  "apiVersion": 1
+}

@@ -15,8 +15,10 @@ export function load(key) {
 export function save(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch (err) {
     console.warn(`Termeedor: could not save "${key}"`, err);
+    return false;
   }
 }
 
@@ -52,6 +54,7 @@ export function sanitizeWorkspace(raw) {
     name: text(g.name, LIMITS.name, "Group"),
     color: tabColor(g.color),
     collapsed: !!g.collapsed,
+    minimized: !!g.minimized,
   }));
   if (!groups.length) return null;
 
@@ -88,7 +91,8 @@ function sanitizeCustomTheme(raw) {
   return {
     id: raw.id,
     name: text(raw.name, LIMITS.themeName, "Custom"),
-    css: raw.css.slice(0, LIMITS.themeCss),
+    css: raw.css.slice(0, LIMITS.themeScopedCss),
+    source: text(raw.source, LIMITS.themeCss, null), // as written by the user; null if imported before this was kept
     preview: [0, 1, 2].map((i) => cssColor(preview[i]) ?? "#888"),
   };
 }
@@ -105,5 +109,7 @@ export function sanitizeSettings(raw) {
     // color for new tabs: "none", "group" (use the group's color) or one of TAB_COLORS
     defaultTabColor: s.defaultTabColor === "group" || TAB_COLORS.includes(s.defaultTabColor) ? s.defaultTabColor : "none",
     customThemes,
+    enabledPlugins: (Array.isArray(s.enabledPlugins) ? s.enabledPlugins : [])
+      .filter((id) => typeof id === "string").slice(0, LIMITS.plugins),
   };
 }

@@ -1,0 +1,9 @@
+/* Ocean: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
+
+:root[data-theme="ocean"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #f08a8a; --c2: #f2b279; --c3: #e8d27c; --c4: #8fd19e; --c5: #4fd1c5; --c6: #6cb6ff; --c7: #a99cf0; --c8: #e597c6;
+  --bg: #0b1a26; --panel: #0f2232; --panel2: #13293c; --line: #1d3a52;
+  --text: #cfe7f5; --dim: #6f93ab; --accent: #4fd1c5;
+  --term: #081520; --sel: #1b4462; --gutter: #2a4a63;
+}

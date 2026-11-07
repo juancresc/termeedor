@@ -7,6 +7,7 @@
 //   signal: AbortSignal, aborted on Ctrl+C or when the tab closes
 
 import { TAB_COLORS } from "./constants.js";
+import { getCommand, listCommands, reserve } from "./plugins/registry.js";
 
 const MOCK_FS = {
   "~": ["projects/", "notes.md", ".zshrc"],
@@ -23,8 +24,14 @@ const HELP = [
   "  rename <name>     rename this tab",
   "  color <1-8|none>  set this tab's color",
   "",
+  "Tab completes a command or path. Up/Down browse history.",
   "Ctrl+C stops a running command.",
 ].join("\n");
+
+function helpText() {
+  const fromPlugins = listCommands().map(({ name, description }) => `  ${name}${description ? `  ${description}` : ""}`);
+  return fromPlugins.length ? `${HELP}\n\nFrom plugins:\n${fromPlugins.join("\n")}` : HELP;
+}
 
 /** Resolves after ms, rejects with AbortError if the signal fires first. */
 function wait(ms, signal) {
@@ -50,7 +57,7 @@ function changeDir(session, arg) {
 }
 
 const COMMANDS = {
-  help: () => ({ output: HELP }),
+  help: () => ({ output: helpText() }),
   clear: () => ({ clear: true }),
   echo: ({ arg }) => ({ output: arg }),
   date: () => ({ output: new Date().toString() }),
@@ -89,9 +96,53 @@ const COMMANDS = {
   },
 };
 
+/** Files and folders that can complete `path`, relative to the session's cwd. */
+function pathCompletions(line, path, session, dirsOnly) {
+  const slash = path.lastIndexOf("/") + 1;
+  const [dir, partial] = [path.slice(0, slash), path.slice(slash)];
+  const entries = MOCK_FS[dir ? `${session.cwd}/${dir.slice(0, -1)}` : session.cwd] ?? [];
+  return entries
+    .filter((name) => name.startsWith(partial) && (!dirsOnly || name.endsWith("/")))
+    .map((name) => ({
+      value: line + name.slice(partial.length) + (name.endsWith("/") ? "" : " "),
+      label: name,
+      kind: name.endsWith("/") ? "folder" : "file",
+    }));
+}
+
+/**
+ * Suggestions for the text typed so far.
+ * Each one is { value, label, kind }, where value is the whole new input and always starts with `input`.
+ */
+export function getCompletions(input, session) {
+  const typed = input.trimStart();
+  const leading = input.slice(0, input.length - typed.length);
+
+  const arg = typed.match(/^(cd|ls)\s+(\S*)$/);
+  if (arg) return pathCompletions(input, arg[2], session, arg[1] === "cd");
+
+  const commands = /\s/.test(typed) ? [] : Object.keys(COMMANDS)
+    .sort()
+    .filter((name) => name.startsWith(typed))
+    .map((name) => ({ value: `${leading}${name} `, label: name, kind: "command" }));
+  if (!typed) return commands;
+
+  const past = [...new Set(session.history)]
+    .reverse()
+    .filter((h) => h.startsWith(typed) && h !== typed && !Object.hasOwn(COMMANDS, h))
+    .map((h) => ({ value: leading + h, label: h, kind: "history" }));
+  return [...commands, ...past];
+}
+
+reserve("commands", Object.keys(COMMANDS));
+
 export async function runCommand(input, session, { emit, signal }) {
   const [name, ...rest] = input.trim().split(/\s+/);
   if (!name) return { output: "" };
-  if (!Object.hasOwn(COMMANDS, name)) return { output: `zsh: command not found: ${name}` };
-  return COMMANDS[name]({ arg: rest.join(" "), session, emit, signal });
+  const context = { arg: rest.join(" "), args: rest, session, emit, signal };
+  if (Object.hasOwn(COMMANDS, name)) return COMMANDS[name](context);
+  const plugin = getCommand(name);
+  if (!plugin) return { output: `zsh: command not found: ${name}` };
+  const result = await plugin.handler(context);
+  return typeof result === "string" ? { output: result } : result ?? { output: "" };
 }

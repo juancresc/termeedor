@@ -1,0 +1,10 @@
+/* Light: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
+
+:root[data-theme="light"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #d1495b; --c2: #d9822b; --c3: #c9a227; --c4: #3f9b5a; --c5: #219ea6; --c6: #2f6fde; --c7: #7d55c7; --c8: #c2508f;
+  --bg: #f3f4f6; --panel: #ebedf0; --panel2: #fff; --line: #d5d9e0;
+  --text: #1f2328; --dim: #667085; --accent: #2563eb;
+  --term: #fff; --sel: #cfe0ff; --gutter: #b8bec9; --danger: #d92d20;
+  color-scheme: light;
+}

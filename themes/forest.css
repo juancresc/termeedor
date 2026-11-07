@@ -1,0 +1,9 @@
+/* Forest: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
+
+:root[data-theme="forest"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #d98b7a; --c2: #d9a865; --c3: #cfc46e; --c4: #8bd17c; --c5: #6fc2a5; --c6: #7fb0c9; --c7: #a99bc9; --c8: #c993a8;
+  --bg: #111a14; --panel: #16211a; --panel2: #1c2a21; --line: #2a3a2f;
+  --text: #d8e6da; --dim: #7f9884; --accent: #8bd17c;
+  --term: #0d1510; --sel: #2c4632; --gutter: #36493b;
+}

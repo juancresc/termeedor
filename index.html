@@ -18,7 +18,7 @@
   <!-- Title bar: sidebar toggle, current group, tabs -->
   <header class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
-    <button class="tb-btn sbToggle" id="toggleSidebar" title="Show/hide sidebar (Alt+B)" aria-pressed="true">
+    <button class="tb-btn sbToggle" id="toggleSidebar" title="Show/hide sidebar" data-shortcut="toggleSidebar" aria-pressed="true">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
         <rect x="1.5" y="2.5" width="13" height="11" rx="2"/>
         <line x1="6" y1="2.5" x2="6" y2="13.5"/>
@@ -27,20 +27,20 @@
     </button>
     <button class="tb-btn" id="toggleAllGroups"></button>
     <div class="tabs" id="tabs"></div>
-    <button class="tb-btn" id="newTabBtn" title="New tab (Alt+T)">＋</button>
-    <button class="tb-btn" id="settingsBtn" title="Settings (Alt+,)">⚙</button>
+    <button class="tb-btn" id="newTabBtn" title="New tab" data-shortcut="newTab">＋</button>
+    <button class="tb-btn" id="settingsBtn" title="Settings" data-shortcut="openSettings">⚙</button>
   </header>
 
   <!-- Sidebar (resizable) and the strip shown when it is hidden -->
   <div class="resizer" id="resizer" title="Drag to resize · double-click to reset"></div>
-  <div class="rail" id="rail" title="Show sidebar (Alt+B)">
+  <div class="rail" id="rail" title="Show sidebar" data-shortcut="toggleSidebar">
     <span class="arrow">»</span><span class="vlabel">Groups &amp; sessions</span>
   </div>
   <aside class="sidebar">
-    <div class="sbhead"><button class="hideBtn" id="hideSidebar" title="Hide sidebar (Alt+B)">« Hide</button></div>
-    <div class="sec">Groups <button id="newGroupBtn" title="New group (Alt+G)">＋</button></div>
+    <div class="sbhead"><button class="hideBtn" id="hideSidebar" title="Hide sidebar" data-shortcut="toggleSidebar">« Hide</button></div>
+    <div class="sec">Groups <button id="newGroupBtn" title="New group" data-shortcut="newGroup">＋</button></div>
     <div id="groups"></div>
-    <div class="sec">Past sessions</div>
+    <div class="sec">Sessions</div>
     <input class="pastSearch" id="pastSearch" placeholder="Search closed tabs…" maxlength="60">
     <div id="pastSessions"></div>
   </aside>
@@ -50,10 +50,13 @@
     <div class="colorbar" id="colorbar"></div>
     <div class="gutter" id="gutter"></div>
     <textarea class="editor" id="editor" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    <div class="cmdLines" id="cmdLines"></div>
+    <div class="lineProbeBox" aria-hidden="true"><div class="lineProbe" id="lineProbe"></div></div>
   </main>
 
   <footer class="status">
     <span id="stTab"></span><span id="stCwd"></span><span id="stRunning"></span><span class="sp"></span>
+    <span id="stPlugins"></span>
     <span id="stPos"></span>
   </footer>
 </div>
@@ -64,9 +67,9 @@
     <h4>Theme</h4>
     <div class="themes" id="themes"></div>
     <div class="themeActions">
-      <button class="btn" id="importTheme">＋ Add theme from .css file</button>
+      <button class="btn" id="importTheme" title="Choose a .css file to add as a theme">＋ Add theme from .css file</button>
       <input type="file" id="themeFile" accept=".css,text/css" hidden>
-      <a class="btn" href="themes/example.css" target="_blank" rel="noopener">Open example theme .css</a>
+      <span class="hint">CSS shows a theme's code, where you can copy it or save it as a new theme.</span>
     </div>
 
     <h4>Display</h4>
@@ -75,12 +78,33 @@
     <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
     <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>
 
+    <h4>Plugins</h4>
+    <div id="pluginList"></div>
+    <div class="themeActions">
+      <button class="btn" id="openPluginsDir" title="Open the folder your plugins go in">Open plugins folder</button>
+      <button class="btn" id="reloadPlugins" title="Reload the app to pick up new or edited plugins">Reload plugins</button>
+    </div>
+    <div class="hint pluginsHint" id="pluginsHint"></div>
+
     <h4>Shortcuts</h4>
     <div class="hint">
-      Alt+T new tab · Alt+G new group · Alt+W close tab · Alt+Shift+T reopen closed tab ·
-      Alt+B sidebar · Alt+1–9 / Alt+←→ switch tabs · Alt+F fold/unfold all groups · Alt+, settings · double-click any name to rename
+      <span id="shortcutList"></span> · double-click any name to rename ·
+      Tab complete · ↑/↓ browse history
     </div>
   </div>
+</dialog>
+
+<dialog id="themeEditor" aria-labelledby="themeName">
+  <header class="themeBar">
+    <b id="themeName"></b>
+    <span class="themeKind" id="themeKind"></span>
+    <span class="themeMsg" id="themeMsg" role="status"></span>
+    <button class="btn" id="copyTheme" title="Copy this CSS to the clipboard">Copy</button>
+    <button class="btn" id="saveAsNew" title="Create a new theme from this text and select it">Save as new theme</button>
+    <button class="btn" id="saveTheme" title="Save (Ctrl+S)">Save</button>
+    <button class="icon-btn shown" id="closeThemeEditor" title="Close (Esc)">✕</button>
+  </header>
+  <textarea class="themeCss" id="themeCss" aria-label="Theme CSS" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
 </dialog>
 </body>
 </html>

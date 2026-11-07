@@ -7,9 +7,19 @@
 //   tabbar.js       top tabs        sidebar.js   groups, past sessions
 //   rename.js       inline rename   contextMenus.js / menu.js   right-click menus
 //   settings.js     settings dialog themeImport.js  .css theme files
-//   shortcuts.js    keyboard shortcuts
+//   themes.js       theme helpers   themeEditor.js  theme CSS dialog
+//   keymap.js       which keys do what (browser vs Electron)
+//   shortcuts.js    runs those actions from the keyboard
+//   tooltip.js      styled tooltips for every `title` attribute
+//   plugins/        registry.js  what plugins added     host.js  plugin lifecycle
+//                   api.js       the plugin API         index.js wiring    ui.js  settings, status bar
+//
+// The desktop app (electron/) loads this same page; window.termeedorHost is how it differs.
 
+import { initPlugins } from "./plugins/index.js";
+import { initPluginUi } from "./plugins/ui.js";
 import { subscribe, saveNow } from "./store.js";
+import { initTooltips } from "./tooltip.js";
 import { initMenu } from "./menu.js";
 import { initEditor, renderEditor } from "./editor.js";
 import { initTabbar, renderTabbar } from "./tabbar.js";
@@ -25,13 +35,20 @@ function render() {
   renderSettings();
 }
 
+if (window.termeedorHost) {
+  document.documentElement.classList.add("desktop", `platform-${window.termeedorHost.platform}`);
+}
+
+initTooltips();
 initMenu();
 initEditor();
 initTabbar();
 initSidebar();
 initSettings();
 initShortcuts();
+initPluginUi();
 
 subscribe(render);
 window.addEventListener("beforeunload", saveNow);
 render();
+initPlugins();

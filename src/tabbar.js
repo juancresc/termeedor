@@ -1,37 +1,49 @@
 // Top bar: every group at once, each as a colored label followed by its tabs.
 // Clicking a label folds the group's tabs into it (and back). One button folds/unfolds all.
+// A label's minimize button takes the whole group off the bar; a tray at the end restores it.
 // Drag a tab onto a label to send it to that group.
 
 import { $, el, spinner } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
-  state, getTab, tabsIn, isRunning, groupHasRunning,
+  state, getTab, tabsIn, isRunning, groupHasRunning, minimizedGroups, allGroupsCollapsed,
   activateTab, addTab, moveTab, toggleGroupCollapsed, restoreMinimized, setAllGroupsCollapsed, setSidebarOpen,
 } from "./store.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
-import { tabMenu, groupMenu } from "./contextMenus.js";
+import { tabMenu, groupMenu, minimizedGroupsMenu } from "./contextMenus.js";
 import { tabButtons, groupMinimizeButton } from "./controls.js";
+import { withShortcut } from "./keymap.js";
 
 export function initTabbar() {
   $("newTabBtn").onclick = () => addTab();
   $("toggleSidebar").onclick = () => setSidebarOpen(!state.ws.sidebarOpen);
-  $("toggleAllGroups").onclick = () => setAllGroupsCollapsed(!allCollapsed());
+  $("toggleAllGroups").onclick = () => setAllGroupsCollapsed(!allGroupsCollapsed());
 }
 
-const allCollapsed = () => state.ws.groups.length > 0 && state.ws.groups.every((g) => g.collapsed);
-
 export function renderTabbar() {
-  const folded = allCollapsed();
+  const folded = allGroupsCollapsed();
   const toggleAll = $("toggleAllGroups");
   toggleAll.textContent = folded ? "⊞" : "⊟";
-  toggleAll.title = folded ? "Unfold all groups (Alt+F)" : "Fold all groups into their labels (Alt+F)";
+  toggleAll.title = withShortcut(folded ? "Unfold all groups" : "Fold all groups into their labels", "toggleAllGroups");
 
   const nodes = [];
   for (const group of state.ws.groups) {
+    if (group.minimized) continue;
     nodes.push(groupLabel(group));
     if (!group.collapsed) nodes.push(...tabsIn(group.id).filter((t) => !t.minimized).map((tab) => tabNode(tab, group)));
   }
+  if (minimizedGroups().length) nodes.push(minimizedTray());
   $("tabs").replaceChildren(...nodes);
+}
+
+function minimizedTray() {
+  const hidden = minimizedGroups();
+  const tray = el("div", "groupChip groupTray");
+  tray.title = `${hidden.length} minimized group${hidden.length === 1 ? "" : "s"} — click to restore`;
+  if (hidden.some((g) => groupHasRunning(g.id))) tray.append(spinner());
+  tray.append(el("span", "chipName", "▢"), el("span", "chipCount", String(hidden.length)));
+  tray.onclick = minimizedGroupsMenu;
+  return tray;
 }
 
 function groupLabel(group) {
@@ -39,7 +51,7 @@ function groupLabel(group) {
   const minimizedCount = tabs.filter((t) => t.minimized).length;
   const label = el("div", `groupChip${group.collapsed ? " folded" : ""}${group.color ? " colored" : ""}`);
   if (group.color) label.style.background = colorVar(group.color);
-  label.title = group.collapsed ? "Click to restore" : "Click to minimize the group into its label";
+  label.title = group.collapsed ? "Click to expand" : "Click to collapse the group into its label";
 
   label.append(nameLabel("group", group, "tabbar", "span", "chipName"));
   if (group.collapsed) {
@@ -53,8 +65,8 @@ function groupLabel(group) {
       badge.onclick = (e) => { e.stopPropagation(); restoreMinimized(group); };
       label.append(badge);
     }
-    label.append(groupMinimizeButton(group, "chipBtn"));
   }
+  label.append(groupMinimizeButton(group, "chipBtn"));
 
   label.onclick = () => toggleGroupCollapsed(group);
   label.ondblclick = (e) => { e.stopPropagation(); startRename("group", group, "tabbar"); };

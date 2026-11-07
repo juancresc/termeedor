@@ -54,8 +54,9 @@ function renderSwatches({ label, colors, current, allowNone, onPick }) {
     none.onclick = () => pick(null);
     row.append(none);
   }
-  for (const color of colors) {
+  for (const [index, color] of colors.entries()) {
     const swatch = el("button", `sw${color === current ? " on" : ""}`);
+    swatch.title = `Color ${index + 1}`;
     swatch.style.background = colorVar(color);
     swatch.onclick = () => pick(color);
     row.append(swatch);

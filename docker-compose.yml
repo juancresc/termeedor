@@ -1,0 +1,11 @@
+services:
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "8876:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./src:/usr/share/nginx/html/src:ro
+      - ./styles:/usr/share/nginx/html/styles:ro
+      - ./themes:/usr/share/nginx/html/themes:ro

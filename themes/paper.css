@@ -1,0 +1,10 @@
+/* Paper: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
+
+:root[data-theme="paper"] {
+  /* optional tab/group colors (picked from menus) */
+  --c1: #b5533c; --c2: #c27c3a; --c3: #b8962e; --c4: #6b8f4e; --c5: #4a8c86; --c6: #4f6fa3; --c7: #7d5f9a; --c8: #a85a7a;
+  --bg: #efe9dc; --panel: #e8e1d1; --panel2: #f7f2e7; --line: #d6cdb8;
+  --text: #3b3428; --dim: #857a66; --accent: #b5651d;
+  --term: #fbf7ee; --sel: #eedcbf; --gutter: #c9bea6;
+  color-scheme: light;
+}

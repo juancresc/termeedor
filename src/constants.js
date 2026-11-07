@@ -3,7 +3,7 @@
 export const PROMPT = "❯ ";
 
 // Optional tab/group colors. Stored as tokens; each theme defines the actual shade
-// (--c1 … --c8 in styles/themes.css), so colors always match the current theme.
+// (--c1 … --c8 in themes/*.css), so colors always match the current theme.
 // null = no color: the item just uses the theme's normal colors (the default).
 export const TAB_COLORS = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"];
 export const colorVar = (token) => (token ? `var(--${token})` : null);
@@ -24,7 +24,10 @@ export const LIMITS = {
   cwd: 200,
   themeName: 40,
   themeCss: 100_000,
+  themeScopedCss: 300_000, // the same CSS after every selector is scoped to its theme
   customThemes: 30,
+  plugins: 200,
+  pluginStorage: 500_000, // characters of JSON per api.storage key
 };
 
 export const SIDEBAR = { default: 240, min: 160, max: 520, collapseBelow: 110 };

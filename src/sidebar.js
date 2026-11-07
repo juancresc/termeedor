@@ -5,7 +5,7 @@ import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, spinner, timeAgo } from "./util.js";
 import {
   state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
-  activateTab, addTab, addGroup, moveTab, toggleGroupCollapsed,
+  activateTab, addTab, addGroup, moveTab, toggleGroupCollapsed, setGroupMinimized,
   reopenPast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
 import { nameLabel, startRename, isEditing, isRenaming } from "./rename.js";
@@ -45,13 +45,17 @@ function renderGroups() {
 
 function groupNode(group) {
   const tabs = tabsIn(group.id);
-  const box = el("div", `group${group.collapsed ? " collapsed" : ""}`);
+  const box = el("div", `group${group.collapsed ? " collapsed" : ""}${group.minimized ? " minimized" : ""}`);
 
   const add = el("button", "icon-btn", "＋");
   add.title = "New tab in group";
   add.onclick = (e) => { e.stopPropagation(); addTab(group.id); };
   const more = el("button", "icon-btn", "⋯");
+  more.title = "More actions";
   more.onclick = (e) => groupMenu(group, e);
+
+  const minimize = groupMinimizeButton(group);
+  minimize.classList.add("gmin");
 
   const head = el("div", "ghead");
   head.append(
@@ -62,10 +66,10 @@ function groupNode(group) {
     ...(group.collapsed && groupHasRunning(group.id) ? [spinner()] : []),
     el("span", "count", String(tabs.length)),
     add,
-    groupMinimizeButton(group),
+    minimize,
     more,
   );
-  head.onclick = () => toggleGroupCollapsed(group);
+  head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : toggleGroupCollapsed(group));
   head.ondblclick = (e) => { e.stopPropagation(); startRename("group", group); };
   head.oncontextmenu = (e) => groupMenu(group, e);
 
@@ -90,7 +94,7 @@ function tabRow(tab) {
   const row = el("div", `item${tab.id === state.ws.activeTab ? " active" : ""}${tab.minimized ? " minimized" : ""}`);
   row.title = tab.minimized ? "Minimized — click to restore" : "";
 
-  const [minimize, close] = tabButtons(tab);
+  const [, minimize, close] = tabButtons(tab);
 
   row.append(
     isRunning(tab.id) ? spinner() : colorDot(tab.color),
@@ -136,6 +140,7 @@ function pastRow(entry) {
   reopen.title = "Reopen";
   reopen.onclick = (e) => { e.stopPropagation(); reopenPast(entry); };
   const more = el("button", "icon-btn", "⋯");
+  more.title = "More actions";
   more.onclick = (e) => pastMenu(entry, e);
 
   row.append(colorDot(entry.tab.color ?? entry.groupColor), info, reopen, more);
