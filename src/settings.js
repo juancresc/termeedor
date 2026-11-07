@@ -9,6 +9,7 @@ import { initThemeEditor, openThemeEditor } from "./themeEditor.js";
 import { focusEditor } from "./editor.js";
 import { askConfirm, showNotice } from "./dialogs.js";
 import { renderPluginSettings } from "./plugins/ui.js";
+import { applySettingsSearch } from "./settingsSearch.js";
 
 const dialog = $("settings");
 
@@ -24,6 +25,8 @@ export function initSettings() {
   $("lineNumbers").onchange = (e) => updateSettings({ lineNumbers: e.target.checked });
   $("showAllGroups").onchange = (e) => updateSettings({ showAllGroups: e.target.checked });
   $("showSidebar").onchange = (e) => setSidebarOpen(e.target.checked);
+  $("newTabInCurrentPath").onchange = (e) => updateSettings({ newTabInCurrentPath: e.target.checked });
+  $("settingsSearch").oninput = applySettingsSearch;
 
   $("importTheme").onclick = () => $("themeFile").click();
   $("themeFile").onchange = importThemeFile;
@@ -31,6 +34,7 @@ export function initSettings() {
 }
 
 export function openSettings() {
+  $("settingsSearch").value = "";
   dialog.showModal();
   renderSettings();
 }
@@ -51,9 +55,11 @@ export function renderSettings() {
   $("lineNumbers").checked = lineNumbers;
   $("showAllGroups").checked = state.settings.showAllGroups;
   $("showSidebar").checked = state.ws.sidebarOpen;
+  $("newTabInCurrentPath").checked = state.settings.newTabInCurrentPath;
   renderDefaultTabColor();
   renderThemeGrid();
   renderPluginSettings();
+  applySettingsSearch();
 }
 
 function renderDefaultTabColor() {

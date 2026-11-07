@@ -140,3 +140,34 @@ test("a saved tab is capped with the usual trimming, and the tab itself isn't to
   assert.equal(file.history.length, LIMITS.history);
   assert.equal(block.output.length, length);
 });
+
+test("a new tab starts in the active tab's path when the setting is on", () => {
+  state.settings.newTabInCurrentPath = true;
+  addTab().cwd = "~/work/api";
+  assert.equal(addTab().cwd, "~/work/api");
+});
+
+test("a new tab starts at home when the setting is off", () => {
+  addTab().cwd = "~/work/api";
+  assert.equal(addTab().cwd, "~");
+});
+
+test("the first tab starts at home even with the setting on", () => {
+  state.settings.newTabInCurrentPath = true;
+  assert.equal(addTab().cwd, "~");
+});
+
+test("the new-tab path setting survives a reload and defaults to off", () => {
+  assert.equal(sanitizeSettings({ newTabInCurrentPath: true }).newTabInCurrentPath, true);
+  assert.equal(sanitizeSettings({ newTabInCurrentPath: "yes" }).newTabInCurrentPath, false);
+  assert.equal(sanitizeSettings(null).newTabInCurrentPath, false);
+});
+
+test("a new tab in another group takes the path of the tab that was active", () => {
+  state.settings.newTabInCurrentPath = true;
+  const other = addGroup();
+  state.ws.tabs[0].cwd = "~/other";
+  addGroup();
+  state.ws.tabs[1].cwd = "~/current";
+  assert.equal(addTab(other.id).cwd, "~/current");
+});

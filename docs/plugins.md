@@ -85,7 +85,7 @@ Adds an item to the status bar. Besides `dispose()`, the returned object has `up
 | Event | Payload |
 | --- | --- |
 | `tab:open`, `tab:close`, `tab:activate` | `{ tab }` |
-| `command:start` | `{ tab, command }` |
+| `command:start` | `{ tab, command }`. A command can span several lines |
 | `command:finish` | `{ tab, command, output, aborted }` |
 
 ### `api.styles.add(path)`

@@ -1,13 +1,17 @@
-// What a tab shows: { blocks: [{ command, output, exit, cwd }], draft }. A block with a null
-// command is plain text (banner, migrated tabs, workspace.print). The text area only displays
-// this, so whether a line is a command comes from here and never from what the line says.
+// What a tab shows: { blocks: [{ command, output, exit, cwd, styles? }], draft }. A block with a
+// null command is plain text (banner, migrated tabs, workspace.print). The output view only
+// displays this, so what is a command comes from here and never from what a line of text says.
+// `output` is always plain text; `styles` are its colors, left out when it has none (see styles.js).
+// A block's styles list is never changed in place, because copies of a block share it.
 // No DOM or storage. Functions that change a transcript change it in place, because a tab is one.
 
 import { LIMITS, PROMPT } from "../constants.js";
+import { shiftStyleRanges, validStyleRanges } from "./styles.js";
 
 const isObject = (v) => v !== null && typeof v === "object";
-const hasLineBreak = (v) => /[\r\n]/.test(v);
-export const oneLine = (v) => v.replace(/\r?\n|\r/g, " ");
+const unixLines = (v) => v.replace(/\r\n?/g, "\n");
+const hasControlChars = (v) => /[\x00-\x08\x0b-\x1f\x7f]/.test(v); // anything but a tab or a line break
+const oneLine = (v) => v.replace(/\r?\n|\r/g, " ");
 
 /** The prompt for a directory: its last name, so `~/dev/app` shows `app ❯ `. No directory, just the symbol. */
 export function promptFor(cwd) {
@@ -22,7 +26,7 @@ export const copyBlocks = (blocks) => blocks.map((block) => ({ ...block }));
 
 // ---------- changes ----------
 export function addCommandBlock(transcript, command, cwd) {
-  const block = { command: oneLine(command), output: "", exit: null, cwd };
+  const block = { command: unixLines(command), output: "", exit: null, cwd };
   transcript.blocks.push(block);
   return block;
 }
@@ -30,11 +34,22 @@ export function addCommandBlock(transcript, command, cwd) {
 /** Plain text at the bottom, or above `before`, the running command whose output is still changing. */
 export function addTextBlock(transcript, text, before = null) {
   const at = before ? transcript.blocks.indexOf(before) : -1;
-  transcript.blocks.splice(at === -1 ? transcript.blocks.length : at, 0, textBlock(text));
+  transcript.blocks.splice(at === -1 ? transcript.blocks.length : at, 0, textBlock(unixLines(text)));
 }
 
 export function appendOutput(block, text) {
   block.output += `${block.output ? "\n" : ""}${text}`;
+}
+
+function setStyles(block, styles) {
+  if (styles.length) block.styles = styles;
+  else delete block.styles;
+}
+
+/** Replaces a block's output and its colors together, so that they always match. */
+export function setBlockOutput(block, text, styles = []) {
+  block.output = text;
+  setStyles(block, styles);
 }
 
 /** The program erased the scrollback: everything above its output goes, its own command line too. */
@@ -55,73 +70,15 @@ export function finishBlock(transcript, block, exit) {
 }
 
 // ---------- text ----------
-/**
- * The text for the text area and what each part of it is. `prompt` is false while a command runs.
- * Each segment is { kind: "command" | "output" | "draft", index, start, end, promptLength }, with
- * `index` the block's position (null for the draft) and start/end offsets in `text`. A command
- * shows the directory it ran in, and the draft the tab's directory now.
- */
-export function layoutTranscript(transcript, { prompt = true } = {}) {
+/** The whole transcript as one text, for search and line counts. `prompt` is false while a command runs. */
+export function renderTranscript(transcript, { prompt = true } = {}) {
   const parts = [];
-  const segments = [];
-  const commandLines = [];
-  let offset = 0;
-  let line = 0;
-
-  const add = (raw, kind, index, promptLength = 0) => {
-    const text = raw.replace(/\r\n?/g, "\n"); // a textarea does this to its value, and offsets must match it
-    if (parts.length) { offset++; line++; }
-    if (kind !== "output") commandLines.push(line);
-    parts.push(text);
-    segments.push({ kind, index, start: offset, end: offset + text.length, promptLength });
-    offset += text.length;
-    if (kind === "output") line += countLineBreaks(text);
-  };
-
-  transcript.blocks.forEach((block, index) => {
-    if (block.command !== null) {
-      const blockPrompt = promptFor(block.cwd);
-      add(blockPrompt + block.command, "command", index, blockPrompt.length);
-    }
-    if (block.output || block.command === null) add(block.output, "output", index);
-  });
-  if (prompt) {
-    const draftPrompt = promptFor(transcript.cwd);
-    add(draftPrompt + transcript.draft, "draft", null, draftPrompt.length);
-  } else {
-    // A command with no output yet: the cursor waits on the next line, as in a terminal.
-    const last = transcript.blocks.at(-1);
-    if (last && last.command !== null && !last.output) add("", "output", transcript.blocks.length - 1);
+  for (const block of transcript.blocks) {
+    if (block.command !== null) parts.push(promptFor(block.cwd) + block.command);
+    if (block.output || block.command === null) parts.push(unixLines(block.output));
   }
-
-  const draftStart = prompt ? segments.at(-1).start + segments.at(-1).promptLength : null;
-  return { text: parts.join("\n"), segments, commandLines, draftStart };
-}
-
-function countLineBreaks(text) {
-  let count = 0;
-  for (let at = text.indexOf("\n"); at !== -1; at = text.indexOf("\n", at + 1)) count++;
-  return count;
-}
-
-export const renderTranscript = (transcript, options) => layoutTranscript(transcript, options).text;
-
-/** Which block and kind of line an offset is on. A line's end belongs to that line. */
-export function locateOffset(layout, offset) {
-  const segment = layout.segments.find((s) => offset <= s.end) ?? layout.segments.at(-1);
-  return segment ? { kind: segment.kind, index: segment.index } : { kind: "output", index: null };
-}
-
-/** How long the prompt is on the line at an offset. 0 on output. */
-export const promptLengthAt = (layout, offset) =>
-  (layout.segments.find((s) => offset <= s.end) ?? layout.segments.at(-1))?.promptLength ?? 0;
-
-/** What Enter runs at an offset: a real command line's own command, otherwise the draft. */
-export function commandForEnter(transcript, offset) {
-  const { kind, index } = locateOffset(layoutTranscript(transcript), offset);
-  return kind === "command"
-    ? { command: transcript.blocks[index].command, rerun: true }
-    : { command: transcript.draft, rerun: false };
+  if (prompt) parts.push(promptFor(transcript.cwd) + transcript.draft);
+  return parts.join("\n");
 }
 
 // ---------- size ----------
@@ -138,19 +95,43 @@ const blockLength = (block) => {
   return promptFor(block.cwd).length + block.command.length + (block.output ? 1 + block.output.length : 0);
 };
 
+/** Keeps the end of the block's output, and moves its colors to match. */
+function keepNewestOutput(block, max) {
+  const text = newestText(block.output, max);
+  const cut = block.output.length - text.length;
+  block.output = text;
+  if (block.styles && cut) setStyles(block, shiftStyleRanges(block.styles, cut));
+}
+
 /** Fits the block into `room`. A command is kept whole or not at all: part of one must never run. */
 function shrinkBlock(block, room) {
   const commandLine = block.command === null ? 0 : promptFor(block.cwd).length + block.command.length;
   if (block.command !== null && commandLine < room) {
-    block.output = newestText(block.output, room - commandLine - 1);
+    keepNewestOutput(block, room - commandLine - 1);
   } else {
     block.command = null;
-    block.output = newestText(block.output, room);
+    keepNewestOutput(block, room);
+  }
+}
+
+/** Colors are capped apart from text: a screenful can hold thousands. The oldest output goes plain first. */
+function trimStyles(blocks, max) {
+  let room = max;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const { styles } = blocks[i];
+    if (!styles) continue;
+    if (styles.length > room) setStyles(blocks[i], styles.slice(styles.length - room));
+    room -= blocks[i].styles?.length ?? 0;
   }
 }
 
 /** The oldest text goes first once the blocks hold more than can be saved. The draft isn't counted. */
 export function trimTranscript(transcript, max = LIMITS.content) {
+  trimText(transcript, max);
+  trimStyles(transcript.blocks, LIMITS.styleRanges);
+}
+
+function trimText(transcript, max) {
   const { blocks } = transcript;
   let room = max;
   let first = blocks.length;
@@ -169,13 +150,21 @@ export function trimTranscript(transcript, max = LIMITS.content) {
 }
 
 // ---------- saved data (untrusted) ----------
+function savedCommand(raw) {
+  if (typeof raw !== "string" || raw.length > LIMITS.content) return null;
+  const command = unixLines(raw);
+  return hasControlChars(command) ? null : command; // can't be typed, and a re-run must send what is shown
+}
+
 function sanitizeBlock(raw) {
-  const runnable = typeof raw.command === "string" && raw.command.length <= LIMITS.content && !hasLineBreak(raw.command);
+  const output = typeof raw.output === "string" ? unixLines(raw.output) : "";
+  const styles = validStyleRanges(raw.styles, output.length);
   return {
-    command: runnable ? raw.command : null, // we never save a line break in one, so don't trust it
-    output: typeof raw.output === "string" ? raw.output : "",
+    command: savedCommand(raw.command),
+    output,
     exit: Number.isInteger(raw.exit) ? raw.exit : null,
     cwd: typeof raw.cwd === "string" ? raw.cwd.slice(0, LIMITS.cwd) : null,
+    ...(styles.length ? { styles } : {}),
   };
 }
 
@@ -185,7 +174,7 @@ function sanitizeBlock(raw) {
  * starts the last line is the input; anywhere else it is just output.
  */
 export function migrateLegacyContent(content) {
-  const text = newestText(content, LIMITS.content);
+  const text = typeof content === "string" ? unixLines(newestText(content, LIMITS.content)) : "";
   const lastLine = text.lastIndexOf("\n") + 1;
   const hasPrompt = text.startsWith(PROMPT, lastLine);
   const output = hasPrompt ? text.slice(0, Math.max(0, lastLine - 1)) : text;
@@ -200,7 +189,7 @@ export function sanitizeTranscript(raw) {
   if (!Array.isArray(raw.blocks)) return migrateLegacyContent(raw.content);
   const transcript = {
     blocks: raw.blocks.slice(-LIMITS.content).filter(isObject).map(sanitizeBlock),
-    draft: typeof raw.draft === "string" ? oneLine(raw.draft).slice(0, LIMITS.content) : "",
+    draft: typeof raw.draft === "string" ? unixLines(raw.draft).slice(0, LIMITS.content) : "",
   };
   trimTranscript(transcript);
   return transcript;

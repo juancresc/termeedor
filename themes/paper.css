@@ -1,6 +1,9 @@
 /* Paper: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
 
 :root[data-theme="paper"] {
+  /* program output colors, dark enough for a pale page */
+  --ansi-0: #3b3428; --ansi-1: #a8432d; --ansi-2: #55763c; --ansi-3: #8c6d14; --ansi-4: #3f5c8e; --ansi-5: #7d4f8c; --ansi-6: #37736d; --ansi-7: #857a66;
+  --ansi-8: #6d6352; --ansi-9: #b5533c; --ansi-10: #6b8f4e; --ansi-11: #a5841f; --ansi-12: #4f6fa3; --ansi-13: #96679f; --ansi-14: #4a8c86; --ansi-15: #51483a;
   /* optional tab/group colors (picked from menus) */
   --c1: #b5533c; --c2: #c27c3a; --c3: #b8962e; --c4: #6b8f4e; --c5: #4a8c86; --c6: #4f6fa3; --c7: #7d5f9a; --c8: #a85a7a;
   --bg: #efe9dc; --panel: #e8e1d1; --panel2: #f7f2e7; --line: #d6cdb8;

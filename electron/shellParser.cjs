@@ -8,7 +8,8 @@
 //
 // Everything outside C..D is the shell drawing its prompt and echoing what it was sent, and is
 // dropped. The exception is a command the shell rejects before running it (a syntax error):
-// no C is sent, so the error has to be recovered from the text between sending and D.
+// no C is sent, so the error has to be recovered from the text between sending and D. Bash reads
+// a multi-line command one line at a time, so there the error can also come before a C.
 
 const ESC = "\x1b";
 const ALT_SCREEN = /\x1b\[\?(?:1049|1047|47)([hl])/;
@@ -18,6 +19,8 @@ const QUERIES = [
   [/\x1b\[5n/g, "\x1b[0n"], // device status
 ];
 const MAX_HELD = 8192; // an unfinished escape sequence longer than this is not one of ours
+const EDITOR_DONE = "\x1b[?2004l"; // zsh and bash turn bracketed paste off as they leave their line editor
+const STYLING = /\x1b\[[0-9;?]*[A-Za-z]/g;
 
 /** How much of the end of `text` might be the start of a sequence split across chunks. */
 function heldTail(text) {
@@ -31,6 +34,24 @@ function heldTail(text) {
   return "";
 }
 
+/**
+ * What a shell said after it took a command and before it ran anything. Most shells announce
+ * leaving the line editor, which is the end of the echo however it was drawn. With that turned
+ * off, the echo ends on the line after the command's last line.
+ */
+function complaintAfterEcho(text, lastLine) {
+  const done = text.lastIndexOf(EDITOR_DONE);
+  if (done !== -1) return text.slice(done + EDITOR_DONE.length).replace(/^\r*\n?/, "");
+  if (lastLine === null) {
+    const newline = text.indexOf("\n");
+    return newline === -1 ? "" : text.slice(newline + 1);
+  }
+  const plain = text.replace(STYLING, "");
+  const echoed = plain.lastIndexOf(lastLine);
+  const newline = plain.indexOf("\n", echoed === -1 ? 0 : echoed + lastLine.length);
+  return echoed === -1 || newline === -1 ? "" : plain.slice(newline + 1);
+}
+
 function createShellParser(token) {
   const marker = new RegExp(`\\x1b\\]133;([ACD]);${token}(?:;([^\\x07]*))?\\x07`);
   let held = "";
@@ -38,6 +59,7 @@ function createShellParser(token) {
   let inAlt = false;
   let awaitingRejected = false; // a command was sent and hasn't started yet
   let rejected = "";
+  let lastLine = null; // a multi-line command's last line; null for a one-line command
 
   function answerQueries(text, events) {
     for (const [pattern, reply] of QUERIES) {
@@ -68,9 +90,16 @@ function createShellParser(token) {
     emit(rest);
   }
 
+  function reportRejected(events) {
+    const error = complaintAfterEcho(rejected, lastLine);
+    if (error) events.push({ type: "output", data: error });
+  }
+
   function onMarker(kind, payload, events) {
     if (kind === "C") {
       inOutput = true;
+      // Without the announcement this is only the echo. With it, whatever follows was really said.
+      if (awaitingRejected && rejected.includes(EDITOR_DONE)) reportRejected(events);
       awaitingRejected = false;
       rejected = "";
       events.push({ type: "start" });
@@ -79,12 +108,7 @@ function createShellParser(token) {
         inAlt = false;
         events.push({ type: "alt", on: false });
       }
-      if (awaitingRejected) {
-        // The first line is the shell echoing the command; what follows is its complaint.
-        const newline = rejected.indexOf("\n");
-        const error = newline === -1 ? "" : rejected.slice(newline + 1);
-        if (error) events.push({ type: "output", data: error });
-      }
+      if (awaitingRejected) reportRejected(events);
       awaitingRejected = false;
       rejected = "";
       inOutput = false;
@@ -97,9 +121,10 @@ function createShellParser(token) {
 
   return {
     /** Call when a command is sent to the shell. */
-    commandSent() {
+    commandSent(command = "") {
       awaitingRejected = true;
       rejected = "";
+      lastLine = command.includes("\n") ? command.slice(command.lastIndexOf("\n") + 1) : null;
     },
     /** Takes a chunk of PTY output, returns events in order. */
     write(chunk) {

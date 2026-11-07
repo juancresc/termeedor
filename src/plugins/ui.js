@@ -3,6 +3,7 @@
 import { $, el } from "../util.js";
 import { onPluginsChange, openPluginsFolder, pluginList, pluginsDir, pluginsSupported, setPluginEnabled } from "./index.js";
 import { onStatusChange, statusItems } from "./registry.js";
+import { applySettingsSearch } from "../settingsSearch.js";
 
 const SOURCE_LABEL = { bundled: "built in", install: "install folder", user: "your folder" };
 
@@ -24,6 +25,7 @@ export function renderPluginSettings() {
 
   const plugins = pluginList();
   $("pluginList").replaceChildren(...(plugins.length ? plugins.map(pluginRow) : (supported ? [el("div", "hint", "No plugins found.")] : [])));
+  applySettingsSearch();
 }
 
 function pluginRow(plugin) {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { LIMITS } from "../src/constants.js";
 import { createTextModel } from "../src/terminal/textModel.js";
 import { keyToBytes } from "../src/terminal/keys.js";
 
@@ -14,8 +15,77 @@ test("plain lines, with CRLF and trailing blank lines removed", async () => {
   assert.equal(await render("one\r\ntwo\r\n\r\n"), "one\ntwo");
 });
 
-test("colors and other styling are dropped", async () => {
+test("the text stays plain whatever the styling", async () => {
   assert.equal(await render("\x1b[1;31mred\x1b[0m \x1b]0;title\x07text\x1b(B"), "red text");
+});
+
+async function styled(...chunks) {
+  const model = createTextModel();
+  chunks.forEach((chunk) => model.write(chunk));
+  await model.settled();
+  const { text, styles } = model.styled();
+  assert.equal(text, model.text());
+  return { text, styles };
+}
+
+test("each kind of styling comes out as a range over the plain text", async () => {
+  const cases = [
+    ["\x1b[31mx\x1b[0m", "31"], ["\x1b[97mx\x1b[0m", "97"], ["\x1b[41mx\x1b[0m", "41"], ["\x1b[107mx\x1b[0m", "107"],
+    ["\x1b[38;5;200mx\x1b[0m", "38;5;200"], ["\x1b[48;5;16mx\x1b[0m", "48;5;16"], ["\x1b[38;5;3mx\x1b[0m", "33"], ["\x1b[38;5;9mx\x1b[0m", "91"],
+    ["\x1b[38;2;1;2;3mx\x1b[0m", "38;2;1;2;3"], ["\x1b[48;2;255;0;9mx\x1b[0m", "48;2;255;0;9"],
+    ["\x1b[38:2::1:2:3mx\x1b[0m", "38;2;1;2;3"], ["\x1b[38:5:200mx\x1b[0m", "38;5;200"],
+    ["\x1b[1mx\x1b[0m", "1"], ["\x1b[2mx\x1b[0m", "2"], ["\x1b[3mx\x1b[0m", "3"], ["\x1b[4mx\x1b[0m", "4"], ["\x1b[4:3mx\x1b[0m", "4"], ["\x1b[7mx\x1b[0m", "7"],
+    ["\x1b[1;2;3;4;7;31;42mx\x1b[m", "1;2;3;4;7;31;42"],
+  ];
+  for (const [input, code] of cases) assert.deepEqual(await styled(input), { text: "x", styles: [[0, 1, code]] }, JSON.stringify(input));
+});
+
+test("styling turns off the way the program says", async () => {
+  assert.deepEqual((await styled("\x1b[1;31ma\x1b[22mb\x1b[39mc")).styles, [[0, 1, "1;31"], [1, 2, "31"]]);
+  assert.deepEqual((await styled("\x1b[3;4;7;41ma\x1b[23;24;27;49mb")).styles, [[0, 1, "3;4;7;41"]]);
+  assert.deepEqual((await styled("\x1b[31ma\x1b[mb")).styles, [[0, 1, "31"]]);
+});
+
+test("broken or private sequences leave the text alone and print nothing", async () => {
+  for (const input of ["\x1b[>4;2mx", "\x1b[?1mx", "\x1b[999mx", "\x1b[58;5;9mx"]) {
+    assert.deepEqual(await styled(input), { text: "x", styles: [] }, JSON.stringify(input));
+  }
+});
+
+test("a sequence cut across chunks still takes effect", async () => {
+  assert.deepEqual(await styled("\x1b", "[3", "1mred"), { text: "red", styles: [[0, 3, "31"]] });
+});
+
+test("overwriting redraws the style too: progress bars and cursor movement", async () => {
+  assert.deepEqual(await styled("\x1b[31m 10%\x1b[0m\r\x1b[32m100%\x1b[0m"), { text: "100%", styles: [[0, 4, "32"]] });
+  assert.deepEqual(await styled("\x1b[31mabc\x1b[0m\rX"), { text: "Xbc", styles: [[1, 3, "31"]] });
+  assert.deepEqual(await styled("a: \x1b[31m0\x1b[0m\r\nb: 0\r\n\x1b[2A\x1b[Ka: \x1b[32m1\x1b[0m\r\n\r\n"), { text: "a: 1\nb: 0", styles: [[3, 4, "32"]] });
+});
+
+test("clearing the screen clears its colors", async () => {
+  assert.deepEqual(await styled("\x1b[31mold\x1b[2J\x1b[Hnew"), { text: "new", styles: [[0, 3, "31"]] });
+  assert.deepEqual(await styled("\x1b[31ma\r\nb\x1b[1A\x1b[1G\x1b[J\x1b[0mc"), { text: "c", styles: [] });
+});
+
+test("ranges stay inside the text, past blank ends and gaps", async () => {
+  assert.deepEqual(await styled("\x1b[41mab\x1b[K\x1b[0m\r\n\x1b[41m\x1b[K\x1b[0m\r\n"), { text: "ab", styles: [[0, 2, "41"]] });
+  assert.deepEqual(await styled("one\r\n\x1b[5C\x1b[31mx"), { text: "one\n     x", styles: [[9, 10, "31"]] });
+  assert.deepEqual(await styled("héllo ✓ \x1b[31mok"), { text: "héllo ✓ ok", styles: [[8, 10, "31"]] });
+});
+
+test("wide characters take one place in the text, however many cells they fill", async () => {
+  assert.deepEqual(await styled("\x1b[31m日本\x1b[0m語\x1b[32mz"), { text: "日本語z", styles: [[0, 2, "31"], [3, 4, "32"]] });
+});
+
+test("a prompt with no line break keeps its space, so typing lands after it", async () => {
+  assert.equal((await styled(">>> ")).text, ">>> ");
+});
+
+test("a long line's color carries over the wrap as one range", async () => {
+  const model = createTextModel({ cols: 5, rows: 3 });
+  model.write("\x1b[31mabcdefgh\x1b[0m");
+  await model.settled();
+  assert.deepEqual(model.styled().styles, [[0, 8, "31"]]);
 });
 
 test("a carriage return overwrites: progress bars stay on one line", async () => {
@@ -111,6 +181,138 @@ test("endless output keeps only the most recent lines", async () => {
   const lines = model.text().split("\n");
   assert.ok(lines.length <= 20024);
   assert.equal(lines.at(-1), "line 29999");
+});
+
+test("endless colored output keeps the newest ranges, and they still match", async () => {
+  const model = createTextModel();
+  for (let i = 0; i < 25000; i++) model.write(`\x1b[${31 + (i % 2)}m${i % 10}\x1b[0m\r\n`);
+  await model.settled();
+  const { text, styles } = model.styled();
+  assert.ok(styles.length <= LIMITS.styleRanges);
+  assert.ok(styles.every(([start, end]) => end <= text.length && start < end));
+  assert.equal(text.slice(styles.at(-1)[0], styles.at(-1)[1]), "9");
+  assert.deepEqual(styles.at(-1).slice(2), ["32"]);
+});
+
+// ---------- only reading what can have changed ----------
+const lineOf = (n) => `\x1b[${31 + (n % 7)}mline\x1b[0m ${n} ${"x".repeat(n % 45)}\r\n`;
+
+test("a snapshot only reads the screen and what newly scrolled off it", async () => {
+  const model = createTextModel({ cols: 40, rows: 10 });
+  for (let n = 0; n < 500; n++) model.write(lineOf(n));
+  await model.settled();
+  model.styled();
+  const before = model.rowsRead();
+  model.write("one more\r\n");
+  await model.settled();
+  model.styled();
+  assert.ok(model.rowsRead() - before <= 11, `read ${model.rowsRead() - before} rows`);
+});
+
+test("what can't change any more is reported, and it really doesn't change", async () => {
+  const model = createTextModel({ cols: 20, rows: 3 });
+  model.write("a\r\nb\r\nc\r\nd\r\ne");
+  await model.settled();
+  const first = model.styled();
+  assert.equal(first.text, "a\nb\nc\nd\ne");
+  assert.equal(first.text.slice(0, first.stable), "a\nb\n");
+  model.write("\x1b[2J\x1b[Hz");
+  await model.settled();
+  const second = model.styled();
+  assert.equal(second.since, first.text);
+  assert.equal(second.text, "a\nb\nz");
+  assert.equal(second.text.slice(0, second.stable), "a\nb\n");
+});
+
+test("cached lines and a first read agree, whatever the program does", async () => {
+  let seed = 12345;
+  const random = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  const moves = [
+    () => lineOf(random(200)),
+    () => `\x1b[3${random(8)}m${"long ".repeat(random(30))}\x1b[0m\r\n`,
+    () => "progress\r\x1b[K",
+    () => `\x1b[${1 + random(4)}A\x1b[Kup\x1b[${1 + random(4)}B\r`,
+    () => "\x1b[2J\x1b[H",
+    () => "\x1b7\x1b[6;1H\x1b[2Kmenu\x1b8",
+    () => "日本語 ".repeat(random(12)),
+    () => "\r\n",
+  ];
+  const stream = createTextModel({ cols: 24, rows: 6, scrollback: 40 });
+  const chunks = [];
+  for (let step = 0; step < 600; step++) {
+    const chunk = moves[random(moves.length)]();
+    chunks.push(chunk);
+    stream.write(chunk);
+    if (step % 7 === 0) {
+      await stream.settled();
+      const seen = stream.styled();
+      const fresh = createTextModel({ cols: 24, rows: 6, scrollback: 40 });
+      chunks.forEach((c) => fresh.write(c));
+      await fresh.settled();
+      const expected = fresh.styled();
+      fresh.dispose();
+      assert.equal(seen.text, expected.text, `text at step ${step}`);
+      assert.deepEqual(seen.styles, expected.styles, `styles at step ${step}`);
+      assert.ok(seen.text.slice(0, seen.stable).length === seen.stable);
+    }
+  }
+  stream.dispose();
+});
+
+test("once the scrollback is full, what goes from the front is reported", async () => {
+  const model = createTextModel({ cols: 20, rows: 3, scrollback: 5 });
+  for (let n = 0; n < 7; n++) model.write(`\x1b[32ml${n}\x1b[0m\r\n`);
+  await model.settled();
+  const first = model.styled();
+  for (let n = 7; n < 9; n++) model.write(`\x1b[32ml${n}\x1b[0m\r\n`);
+  await model.settled();
+  const second = model.styled();
+  assert.equal(second.cut, "l1\nl2\n".length);
+  assert.equal(second.since, first.text);
+  assert.ok(second.text.startsWith(first.text.slice(second.cut, first.stable)));
+  assert.equal(second.text.slice(second.styles[0][0], second.styles[0][1]), second.text.split("\n")[0]);
+  assert.ok(second.styles.every(([, end]) => end <= second.text.length));
+});
+
+test("a wrapped line cut in half by the scrollback limit keeps its end", async () => {
+  const model = createTextModel({ cols: 5, rows: 2, scrollback: 2 });
+  model.write("\x1b[31mabcdefghijklmno\x1b[0m\r\nend\r\n");
+  await model.settled();
+  const seen = model.styled();
+  model.write("more\r\n");
+  await model.settled();
+  const fresh = createTextModel({ cols: 5, rows: 2, scrollback: 2 });
+  fresh.write("\x1b[31mabcdefghijklmno\x1b[0m\r\nend\r\nmore\r\n");
+  await fresh.settled();
+  const after = model.styled();
+  const expected = fresh.styled();
+  assert.equal(after.text, expected.text);
+  assert.deepEqual(after.styles, expected.styles);
+  assert.ok(seen.since === null);
+});
+
+test("erasing the scrollback, a reset or a resize starts over", async () => {
+  const model = createTextModel({ cols: 20, rows: 3 });
+  const fill = async () => {
+    for (let n = 0; n < 10; n++) model.write(`l${n}\r\n`);
+    await model.settled();
+    return model.styled();
+  };
+  await fill();
+  model.write("\x1b[3Jx");
+  await model.settled();
+  assert.equal(model.styled().since, null);
+
+  await fill();
+  model.write("\x1bcfresh");
+  await model.settled();
+  const reset = model.styled();
+  assert.equal(reset.since, null);
+  assert.equal(reset.text, "fresh");
+
+  await fill();
+  model.resize(30, 3);
+  assert.equal(model.styled().since, null);
 });
 
 const key = (key, extra = {}) => ({ key, code: "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...extra });

@@ -7,7 +7,7 @@
  *  - Set variables on :root. Termeedor scopes them to this theme automatically,
  *    so they only apply while the theme is selected.
  *  - --panel, --term and --accent are used for the small preview card.
- *  - Any other selector works too (e.g. .editor, .tab.active) and is scoped the same way.
+ *  - Any other selector works too (e.g. .output, .editor, .tab.active) and is scoped the same way.
  *  - @import and external url() are ignored/blocked.
  */
 

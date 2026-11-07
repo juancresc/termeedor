@@ -1,6 +1,9 @@
 /* Light: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
 
 :root[data-theme="light"] {
+  /* program output colors, dark enough for a white page */
+  --ansi-0: #1f2328; --ansi-1: #c4314b; --ansi-2: #2f7d3f; --ansi-3: #946800; --ansi-4: #2257c5; --ansi-5: #8a3fb5; --ansi-6: #0f7a82; --ansi-7: #667085;
+  --ansi-8: #4b5563; --ansi-9: #d92d20; --ansi-10: #3f9b5a; --ansi-11: #b5850b; --ansi-12: #2f6fde; --ansi-13: #a44fcf; --ansi-14: #219ea6; --ansi-15: #344054;
   /* optional tab/group colors (picked from menus) */
   --c1: #d1495b; --c2: #d9822b; --c3: #c9a227; --c4: #3f9b5a; --c5: #219ea6; --c6: #2f6fde; --c7: #7d55c7; --c8: #c2508f;
   --bg: #f3f4f6; --panel: #ebedf0; --panel2: #fff; --line: #d5d9e0;

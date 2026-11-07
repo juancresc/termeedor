@@ -1,5 +1,5 @@
 // Runs a tab's commands on the backend (ports/backend.js) and shows the results. Its events
-// become text through textModel, or go to xterm while a full-screen program runs.
+// become styled text through textModel, or go to xterm while a full-screen program runs.
 // It doesn't know which backend it has: that is chosen in adapters/index.js.
 
 import { $ } from "../util.js";
@@ -18,7 +18,7 @@ const started = new Set(); // tabs that have a shell
 function flush(run) {
   clearTimeout(run.timer);
   run.timer = null;
-  run.setOutput(run.model.text(), run.model.takeErasedScrollback());
+  run.setOutput(run.model.styled(), run.model.takeErasedScrollback());
 }
 
 function onEvent({ tabId, event }) {
@@ -80,9 +80,9 @@ function setFullscreen(tabId, run, on) {
 
 /**
  * Resolves when the command finishes, with { output, shown?, exit? }; shown means the output is
- * already on screen. setOutput(text, clearEarlier) replaces what the command has shown so far;
- * clearEarlier means the tab's earlier content should go too. signal is aborted on Ctrl+C or
- * when the tab closes.
+ * already on screen. setOutput(snapshot, clearEarlier) replaces what the command has shown so
+ * far with what the text model read (see textModel.js); clearEarlier means the tab's earlier
+ * content should go too. signal is aborted on Ctrl+C or when the tab closes.
  */
 export async function runCommand(input, tab, { setOutput, signal }) {
   const command = input.trim();

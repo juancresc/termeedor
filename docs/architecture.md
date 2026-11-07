@@ -19,8 +19,8 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `src/ports/backend.js`, `src/adapters/` | The backend interface: `run`, `write`, `resize`, `kill`, `complete`, and `output`, `alt`, `finish`, `exit` events. `electronBackend` is the IPC client, and `mockBackend` is the browser's fake shell, the only place fake commands exist. `adapters/index.js` chooses |
 | `src/platform.js` | Desktop or browser, Mac or not, and the desktop host. The only code that reads `termeedorHost` or `navigator.platform` |
 | `src/storage.js` | localStorage helpers, for the browser build, the migration and plugins' `api.storage` |
-| `src/editor.js` | Textarea: input rules, history, completion UI, runs, gutter |
-| `src/terminal/` | `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the text area in characters), `textModel` (a terminal with no display, `@xterm/headless`, read back as plain text), `fullscreen` (xterm for vim, top), `keys` |
+| `src/editor.js` | The terminal area: connects the output and the input, runs commands, status bar |
+| `src/terminal/` | `outputView` (blocks as read-only DOM, scrolling), `inputEditor` (the input: keys, history, completion UI), `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the output area in characters), `textModel` (a terminal with no display, `@xterm/headless`, read back as text and styling), `styles` (styling's saved form, validation, CSS), `fullscreen` (xterm for vim, top), `keys` |
 | `src/plugins/` | Host, scope, registry, public API |
 | `src/*.js` (the rest) | UI: tab bar, sidebar, menus, settings, themes |
 
@@ -28,8 +28,12 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 
 1. Enter: `editor` calls `runner.runCommand`, which calls the backend's `run`. On the desktop that is `electronBackend`, then IPC, then `shellSessions`, then the PTY.
 2. PTY output: `shellParser` emits `output`, `alt`, `finish` events, which `electronBackend` passes on to `runner`.
-3. `output` goes through `textModel` into the textarea, or to xterm while a full-screen program runs.
-4. While a command runs, keys and pastes go to the program. The mock's commands read nothing, so in the browser the editor keeps them, and Ctrl+C reaches the mock through `write`.
+3. `output` goes through `textModel` into the block, which `outputView` redraws, or to xterm while a full-screen program runs.
+4. While a command runs, the input is out of sight but keeps focus, and keys and pastes go to the program. The mock's commands read nothing, so in the browser they go nowhere, and Ctrl+C reaches the mock through `write`.
+
+A command with a line break, or any other character a line editor would act on, goes to the shell as a bracketed paste followed by Enter, so the editor inserts it as text and runs it as one input. zsh then parses all of it before running anything; bash reads it a line at a time, as with any paste, so an earlier line can have run before a later line's syntax error. A command can't end its own paste. An unterminated quote or heredoc leaves the shell at a continuation prompt: keys are forwarded and Ctrl+C recovers, but until a command starts nothing the shell draws is shown, so what is typed there isn't visible.
+
+Lines that have scrolled off a terminal's screen can't change, so `textModel` reads each of them once, and a flush reads only the screen and what newly scrolled off. It tells `outputView` how much of the text is that stable part, which goes into chunks that are never redrawn, and the rest is compared piece by piece. A resize, a full reset or an erased scrollback starts both over.
 
 In the browser, `mockBackend` takes the place of everything after `run` and sends the same events.
 
@@ -39,7 +43,7 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 ~/.termeedor/        0700, files 0600: scrollback can contain secrets
   settings.json      theme, font size
   workspace.json     groups, tab order, layout (no scrollback)
-  tabs/<id>.json     a tab's blocks, draft, history, cwd
+  tabs/<id>.json     a tab's blocks (with their styling), draft, history, cwd
   past/<id>.json     a closed tab
   plugins/           not part of this
 ```
@@ -48,6 +52,7 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 - **What gets written:** the editor and plugins change tabs in place, so `saver` compares each tab with what was last saved instead of relying on marks. A batch holds only the files that differ. Only one async batch runs at a time, and what arrives meanwhile joins the next.
 - **Order:** settings, past, tabs, workspace, then removals, stopping at the first failure. So a closed tab reaches `past/` before its file goes, and once `workspace.json` is written, everything before it was too.
 - **Final save:** async IPC may not finish during unload, so `beforeunload` calls `saveNow`, which sends what is left over a synchronous IPC. Saving a theme uses the same path, so a failed save can still be undone and reported. Batches are numbered, and the data store refuses an older one arriving after a newer one. A renderer crash loses at most the last debounce.
+- **Styling:** a block's `styles` is `[[start, end, code], ...]` over its plain `output`, in order and not overlapping, left out when there is none. It is read from the terminal's cells, never parsed from the stream. `code` is the SGR numbers in one fixed order, such as `1;31` or `38;2;1;2;3`. On load a range counts only if its offsets fit and its code is exactly what the app would write. A tab keeps at most `LIMITS.styleRanges` ranges, and past that the oldest output goes plain.
 - **Damage:** a file that can't be used moves to `<name>.corrupt-<time>`. A tab file no layout mentions comes back as a past session.
 - **Migration:** on the desktop, usable `STORAGE_KEYS` values move to files when there is no `workspace.json`. They are removed only after every file was written and read back. If it fails, the app runs from them, reports it, and tries again next start. Values that can't be read are left in place.
 
@@ -56,6 +61,8 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 - It behaves like a real terminal: everything typed goes to the user's shell. There are no custom commands, from the app or from plugins. App actions live in menus and shortcuts.
 - Output is an event stream, never a returned string.
 - Command boundaries come from shell markers, never from matching text. Whether a line is a command comes from the transcript. Only the migration of old saved tabs reads the prompt out of text.
+- Text reaches the page only as text nodes, and colors only as theme variables or `rgb()` of checked numbers.
+- The output has no line numbers. They belong to the input only.
 - Plugins are fully trusted. `api` is the only supported surface.
 - `src/` must keep working without Electron: the browser build uses the mock.
 - Stored data is untrusted and validated on load.
@@ -70,7 +77,11 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 | `core` still imports the transcript model from `terminal/` | `core/saved.js`, `core/workspace.js` |
 | A desktop shell that ends between commands sends no `exit` event, so the tab's next `run` is what notices | `electron/shellSessions.cjs` |
 | Plugins get live `tab` objects | `plugins/api.js` |
-| Colors are dropped; completion doesn't know flags or branches | `textModel.js`, `completions.cjs` |
+| Completion doesn't know flags or branches | `completions.cjs` |
+| What the shell draws at a continuation prompt isn't shown, so an unterminated quote looks like a silent running command | `electron/shellParser.cjs` |
+| Erased cells with a background color are trimmed with the line's end, so a background that fills a line stops at its last character | `terminal/textModel.js` |
+| A running program's cursor always shows at the end of its output, whatever column it is really in | `styles/base.css` |
+| Only the window's own resize reaches the PTY: dragging the sidebar or changing the font size waits for the next one | `terminal/runner.js` |
 
 ## Target
 
@@ -94,7 +105,7 @@ Each step ships alone. New features can continue between steps.
 2. **Transcript model (done).** `tab.content` became `blocks` and `draft`, and saved tabs migrate on load. A migrated tab's history is one plain block, so its old commands can't be re-run. `runState` replaces the renderer's three run records; `shellSessions` keeps the PTY's own state. The textarea stays, rendered from blocks, so re-running a line uses its block and the `❯ ` matching is gone.
 3. **Store split (done).** State and actions moved to `core`, with tests, and `store.js` stays the import path. Data moved from localStorage to files in `~/.termeedor`: layout and scrollback are separate, one tab's output rewrites one file, and scrollback is capped per tab.
 4. **Backend port (done).** `adapters/index.js` chooses Electron or mock, and `platform.js` is the one answer to desktop or browser and Mac or not. `shell.js` became the mock adapter, the only place fake commands remain. `realShell.js` became `terminal/runner.js` and `size.js`, and its IPC moved to the Electron adapter. The mock now sends events through the same path as the real shell.
-5. **Editor-style view.** A separate input editor over command blocks. Keep color in the model and render it. Multi-line input.
+5. **Editor-style view (done).** Blocks are read-only DOM with native selection, and only what changed is redrawn. The input is a separate plain textarea right after the output, scrolling with it, so the rules guarding the caret and the prompt are gone. Multi-line commands go to the shell as a bracketed paste. Each real command has a re-run button, and clicking text never runs anything. Color is read from the terminal's cells and saved with each block. Line numbers apply to the input only.
 6. **Completion.** Hidden zsh helper behind `complete(input, cwd)`, with `completions.cjs` as the fallback. First prove it with a real `.zshrc`, and find out why `git log --ona` returned nothing in the prototype.
 7. **Cleanup.** Action registry for shortcuts, menus and plugins. Render only what changed. Plugin API v2.
 

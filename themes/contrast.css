@@ -1,6 +1,9 @@
 /* Contrast: built-in Termeedor theme. Anything not set here comes from themes/default.css. */
 
 :root[data-theme="contrast"] {
+  /* program output colors at full strength */
+  --ansi-0: #808080; --ansi-1: #ff4d4d; --ansi-2: #00e676; --ansi-3: #ffea00; --ansi-4: #66a3ff; --ansi-5: #e666ff; --ansi-6: #00e5ff; --ansi-7: #fff;
+  --ansi-8: #aaa; --ansi-9: #ff8080; --ansi-10: #69f0ae; --ansi-11: #ffff66; --ansi-12: #99c2ff; --ansi-13: #f099ff; --ansi-14: #84ffff; --ansi-15: #fff;
   /* optional tab/group colors (picked from menus) */
   --c1: #ff4d4d; --c2: #ff9d00; --c3: #ffea00; --c4: #00e676; --c5: #00e5ff; --c6: #448aff; --c7: #d500f9; --c8: #ff4081;
   --bg: #000; --panel: #000; --panel2: #111; --line: #fff;

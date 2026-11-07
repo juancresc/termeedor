@@ -43,14 +43,18 @@
     <div id="pastSessions"></div>
   </aside>
 
-  <!-- Terminal: an editable text area with line numbers -->
+  <!-- Terminal: read-only command blocks over an input editor -->
   <main class="main">
     <div class="colorbar" id="colorbar"></div>
-    <div class="gutter" id="gutter"></div>
-    <textarea class="editor" id="editor" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
-    <div class="cmdLines" id="cmdLines"></div>
+    <div class="termScroll" id="termScroll">
+      <div class="output" id="output" role="log"></div>
+      <div class="inputRow" id="inputRow">
+        <div class="inputLines" id="inputLines" aria-hidden="true"></div>
+        <span class="promptMark" id="promptMark" aria-hidden="true"></span>
+        <textarea class="editor" id="editor" rows="1" aria-label="Command" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+      </div>
+    </div>
     <div id="fullTerms"></div>
-    <div class="lineProbeBox" aria-hidden="true"><div class="lineProbe" id="lineProbe"></div></div>
   </main>
 
   <footer class="status">
@@ -61,36 +65,51 @@
 </div>
 
 <dialog id="settings">
-  <div class="setHead"><b>Settings</b><button class="icon-btn shown" id="closeSettings" title="Close (Esc)">✕</button></div>
-  <div class="setBody">
-    <h4>Theme</h4>
-    <div class="themes" id="themes"></div>
-    <div class="themeActions">
-      <button class="btn" id="importTheme" title="Choose a .css file to add as a theme">＋ Add theme from .css file</button>
-      <input type="file" id="themeFile" accept=".css,text/css" hidden>
-      <span class="hint">CSS shows a theme's code, where you can copy it or save it as a new theme.</span>
-    </div>
+  <div class="setHead"><b>Settings</b><input type="text" class="setSearch" id="settingsSearch" placeholder="Search settings" aria-label="Search settings" spellcheck="false" autocomplete="off" autofocus><button class="icon-btn shown" id="closeSettings" title="Close (Esc)">✕</button></div>
+  <div class="setBody" id="settingsBody">
+    <div class="hint" id="settingsNoMatch" hidden>No settings match your search.</div>
 
-    <h4>Display</h4>
-    <div class="setRow"><label for="fontSize">Font size</label> <span><button type="button" class="btn stepBtn" id="fontSizeDown" title="Reduce font size" aria-label="Reduce font size">−</button> <input type="range" id="fontSize" min="10" max="20" step="1"> <button type="button" class="btn stepBtn" id="fontSizeUp" title="Increase font size" aria-label="Increase font size">+</button> <output id="fontSizeOut"></output></span></div>
-    <div class="setRow">Default color for new tabs <span class="colorPick" id="defaultTabColor"></span></div>
-    <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
-    <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>
-    <label class="setRow">Show all tabs <input type="checkbox" id="showAllGroups"></label>
+    <section class="setGroup">
+      <h4>Theme</h4>
+      <div class="themes" id="themes"></div>
+      <div class="themeActions">
+        <button class="btn" id="importTheme" title="Choose a .css file to add as a theme">＋ Add theme from .css file</button>
+        <input type="file" id="themeFile" accept=".css,text/css" hidden>
+        <span class="hint">CSS shows a theme's code, where you can copy it or save it as a new theme.</span>
+      </div>
+    </section>
 
-    <h4>Plugins</h4>
-    <div id="pluginList"></div>
-    <div class="themeActions">
-      <button class="btn" id="openPluginsDir" title="Open the folder your plugins go in">Open plugins folder</button>
-      <button class="btn" id="reloadPlugins" title="Reload the app to pick up new or edited plugins">Reload plugins</button>
-    </div>
-    <div class="hint pluginsHint" id="pluginsHint"></div>
+    <section class="setGroup">
+      <h4>Display</h4>
+      <div class="setRow"><label for="fontSize">Font size</label> <span><button type="button" class="btn stepBtn" id="fontSizeDown" title="Reduce font size" aria-label="Reduce font size">−</button> <input type="range" id="fontSize" min="10" max="20" step="1"> <button type="button" class="btn stepBtn" id="fontSizeUp" title="Increase font size" aria-label="Increase font size">+</button> <output id="fontSizeOut"></output></span></div>
+      <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
+      <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>
+    </section>
 
-    <h4>Shortcuts</h4>
-    <div class="hint">
-      <span id="shortcutList"></span> · double-click any name to rename ·
-      Tab complete · ↑/↓ browse history
-    </div>
+    <section class="setGroup">
+      <h4>Tabs</h4>
+      <label class="setRow" data-keywords="directory folder cwd working">Open new tabs in the current path <input type="checkbox" id="newTabInCurrentPath"></label>
+      <div class="setRow">Default color for new tabs <span class="colorPick" id="defaultTabColor"></span></div>
+      <label class="setRow" data-keywords="groups">Show all tabs <input type="checkbox" id="showAllGroups"></label>
+    </section>
+
+    <section class="setGroup">
+      <h4>Plugins</h4>
+      <div id="pluginList"></div>
+      <div class="themeActions">
+        <button class="btn" id="openPluginsDir" title="Open the folder your plugins go in">Open plugins folder</button>
+        <button class="btn" id="reloadPlugins" title="Reload the app to pick up new or edited plugins">Reload plugins</button>
+      </div>
+      <div class="hint pluginsHint" id="pluginsHint"></div>
+    </section>
+
+    <section class="setGroup">
+      <h4>Shortcuts</h4>
+      <div class="hint">
+        <span id="shortcutList"></span> · double-click any name to rename ·
+        Tab complete · ↑/↓ browse history
+      </div>
+    </section>
   </div>
 </dialog>
 

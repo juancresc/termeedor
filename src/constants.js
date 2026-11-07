@@ -20,6 +20,8 @@ export const LIMITS = {
   tabs: 500,
   past: 200,
   content: 500_000,
+  styleRanges: 20_000, // colored stretches kept per tab; past this, the oldest output goes plain
+  styleCache: 1024, // different styles remembered for drawing
   history: 200,
   cwd: 200,
   themeName: 40,

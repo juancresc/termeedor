@@ -53,6 +53,9 @@ const REFERENCE = `/*
  *   Text       --text --dim --gutter --accent --danger --on-color
  *   Fonts      --mono --ui
  *   Tab colors --c1 --c2 --c3 --c4 --c5 --c6 --c7 --c8
+ *   Output colors (black, red, green, yellow, blue, magenta, cyan, white, then the bright ones)
+ *              --ansi-0 --ansi-1 --ansi-2 --ansi-3 --ansi-4 --ansi-5 --ansi-6 --ansi-7
+ *              --ansi-8 --ansi-9 --ansi-10 --ansi-11 --ansi-12 --ansi-13 --ansi-14 --ansi-15
  *   Details    --light-close --light-min --light-max --menu-shadow --tooltip-shadow
  *              --backdrop --badge-bg --badge-text
  *   Also       color-scheme: dark or light (scrollbars and form controls)
@@ -71,13 +74,16 @@ const REFERENCE = `/*
  *              .group .group.collapsed .group.minimized .group.dragover .ghead .gchevron .ghead .dot .ghead .gname .glist
  *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
- *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLines div
+ *   Output     .main .colorbar .termScroll .output .output.running .output ::selection .block .block.isCommand
+ *              .commandLine .commandPrompt .commandText .blockOutput .outputChunk .outputTail .rerun
+ *              .ansiBold .ansiDim .ansiItalic .ansiUnderline
+ *   Input      .inputRow .inputRow.running .inputLines .promptMark .editor .editor::selection
  *   Full screen .fullTerm (vim, top and friends)
  *   Completion .completions .completions div
  *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
  *   Menus      .menu .menu button .menu hr .menu .lbl .menu .swatches .menu .sw .menu .sw.none .menu .danger
  *   Tooltips   .tooltip .tooltip kbd
- *   Settings   dialog dialog::backdrop .setHead .setBody .setRow .stepBtn .hint .btn
+ *   Settings   dialog dialog::backdrop .setHead .setSearch .searchHidden .setBody .setRow .stepBtn .hint .btn
  *              .colorPick .colorPick .sw .colorPick .sw.none .colorPick .sw.groupOpt
  *              .themes .themeActions .themePick .themeCard .themeCard.on .themeCard .pv .themeCard .label
  *              .themeCard .remove .themeLink

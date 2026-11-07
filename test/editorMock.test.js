@@ -15,9 +15,10 @@ renderEditor();
 const tab = () => store.activeTab();
 const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 const SETTLE_MS = 10; // long enough for the terminal behind the text to parse what it was given
+const output = nodeFor("output");
 
 function enter(command) {
-  textarea.setRangeText(command, textarea.value.length, textarea.value.length);
+  textarea.setRangeText(command, textarea.selectionStart, textarea.selectionEnd);
   textarea.listeners.input();
   textarea.listeners.keydown({ key: "Enter", code: "", preventDefault: noop });
 }
@@ -27,18 +28,29 @@ test("a mock command's returned output lands in its block", async () => {
   await pause(SETTLE_MS);
   assert.equal(store.isRunning(tab().id), false);
   assert.deepEqual(tab().blocks.at(-1), { command: "echo hello", output: "hello", exit: null, cwd: "~" });
-  assert.ok(textarea.value.endsWith("❯ echo hello\nhello\n~ ❯ "));
+  assert.equal(output.children.at(-1).allWithClass("commandText")[0].textContent, "echo hello");
+  assert.equal(output.children.at(-1).allWithClass("blockOutput")[0].textContent, "hello");
+  assert.equal(textarea.value, "");
 });
 
-test("Enter on mock output that looks like a command runs the draft", async () => {
+test("mock output that looks like a command gets no button, and Enter runs the input", async () => {
   enter("echo ❯ whoami");
   await pause(SETTLE_MS);
-  // The last "❯ whoami" is the output line; the command's own line says "❯ echo ❯ whoami".
-  const output = textarea.value.lastIndexOf("❯ whoami");
-  textarea.setSelectionRange(output, output);
+  const block = output.children.at(-1);
+  assert.equal(block.allWithClass("blockOutput")[0].textContent, "❯ whoami");
+  assert.equal(block.allWithClass("rerun").length, 1); // only its own command's
   textarea.listeners.keydown({ key: "Enter", code: "", preventDefault: noop });
   await pause(SETTLE_MS);
   assert.equal(tab().blocks.at(-1).command, "");
+});
+
+test("the re-run button works on the mock too", async () => {
+  store.addTab();
+  enter("echo twice");
+  await pause(SETTLE_MS);
+  output.allWithClass("rerun")[0].listeners.click();
+  await pause(SETTLE_MS);
+  assert.deepEqual(tab().blocks.slice(-2).map((b) => [b.command, b.output]), [["echo twice", "twice"], ["echo twice", "twice"]]);
 });
 
 test("Ctrl+C stops a mock command and shows ^C", async () => {
@@ -50,11 +62,12 @@ test("Ctrl+C stops a mock command and shows ^C", async () => {
   assert.equal(tab().blocks.at(-1).output, "^C");
 });
 
-test("the mock's clear leaves only a prompt", async () => {
+test("the mock's clear leaves only the input", async () => {
   enter("clear");
   await pause(SETTLE_MS);
   assert.deepEqual(tab().blocks, []);
-  assert.equal(textarea.value, "~ ❯ ");
+  assert.equal(output.children.length, 0);
+  assert.equal(textarea.value, "");
 });
 
 test("keys and pastes stay with the editor while a mock command runs", async () => {
@@ -62,6 +75,17 @@ test("keys and pastes stay with the editor while a mock command runs", async () 
   const key = { key: "a", code: "KeyA", ctrlKey: false, metaKey: false, altKey: false, shiftKey: false };
   assert.equal(forwardKey(tab().id, key), false);
   assert.equal(forwardPaste(tab().id, "text"), false);
+  store.stopRun(tab().id);
+  await pause(SETTLE_MS);
+});
+
+test("while a mock command runs, nothing can edit the hidden draft", async () => {
+  enter("sleep 60");
+  let stopped = false;
+  textarea.listeners.beforeinput({ inputType: "insertText", data: "x", preventDefault: () => { stopped = true; } });
+  assert.equal(stopped, true);
+  textarea.listeners.keydown({ key: "Enter", code: "", preventDefault: noop });
+  assert.equal(tab().blocks.at(-1).command, "sleep 60"); // nothing new started
   store.stopRun(tab().id);
   await pause(SETTLE_MS);
 });

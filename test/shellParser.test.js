@@ -64,6 +64,53 @@ test("a command the shell rejects before running still shows its error", () => {
   assert.equal(output(events), "zsh: parse error near ')'\r\n");
 });
 
+// zsh and bash turn bracketed paste off as they leave their line editor.
+const EDITOR_DONE = "\x1b[?2004l";
+
+test("a rejected multi-line command loses its whole echo, however the editor drew it", () => {
+  const zsh = createShellParser(TOKEN);
+  zsh.commandSent("echo one\necho )\necho two");
+  const echo = "\x1b[7mecho one\x1b[27m\r\r\n\x1b[7mecho )\x1b[27m\x1b[K\r\r\n\x1b[7mecho two\x1b[27m\x1b[K\x1b[A\x1b[A\x1b[17C\x1b[27me\x1b[27mc";
+  assert.equal(output(feed(zsh, `${echo}${EDITOR_DONE}\r\r\nzsh: parse error near \`)'\r\n${D(1, "/x")}${A}`)), "zsh: parse error near `)'\r\n");
+
+  const bash = createShellParser(TOKEN);
+  bash.commandSent("echo )");
+  assert.equal(output(feed(bash, `echo )\r\n${EDITOR_DONE}\rbash: syntax error\r\n${D(2, "/x")}${A}`)), "bash: syntax error\r\n");
+});
+
+test("with that announcement turned off, a multi-line echo ends after its last line", () => {
+  const parser = createShellParser(TOKEN);
+  parser.commandSent("echo one\necho )");
+  const events = feed(parser, `\x1b[7mecho one\x1b[27m\r\r\n\x1b[7mecho )\x1b[27m\r\r\nzsh: parse error\r\n${D(1, "/x")}${A}`);
+  assert.equal(output(events), "zsh: parse error\r\n");
+});
+
+test("what bash says about a first line before running the next one isn't lost", () => {
+  const parser = createShellParser(TOKEN);
+  parser.commandSent("echo )\necho two");
+  const events = feed(parser, `echo )\r\necho two\r\n${EDITOR_DONE}\rbash: syntax error\r\n${C}two\r\n${D(0, "/x")}${A}`);
+  assert.equal(output(events), "bash: syntax error\r\ntwo\r\n");
+});
+
+test("Ctrl+C at a continuation prompt ends the command and shows no leftovers", () => {
+  const zsh = createShellParser(TOKEN);
+  zsh.commandSent('echo "open');
+  const events = feed(zsh, `echo "open${EDITOR_DONE}\r\r\n\x1b[Jdquote> \x1b[K\x1b[?2004h`, `${EDITOR_DONE}\r\r\n${D(130, "/x")}${A}`);
+  assert.equal(output(events), "");
+  assert.equal(events.find((e) => e.type === "finish").exit, 130);
+
+  const bash = createShellParser(TOKEN);
+  bash.commandSent('echo "open');
+  const fromBash = feed(bash, `echo "open\r\n${EDITOR_DONE}\r\x1b[?2004h> `, `^C${EDITOR_DONE}\r\x1b[?2004h${EDITOR_DONE}\r\r\n${D(130, "/x")}${A}`);
+  assert.equal(output(fromBash), "");
+});
+
+test("the echo of a normal command leaves nothing once the editor announces it is done", () => {
+  const parser = createShellParser(TOKEN);
+  parser.commandSent("ls");
+  assert.equal(output(feed(parser, `ls${EDITOR_DONE}\r\r\n${C}file\r\n${D(0, "/x")}`)), "file\r\n");
+});
+
 test("the echo of a normal command doesn't count as a rejection", () => {
   const parser = createShellParser(TOKEN);
   parser.commandSent();

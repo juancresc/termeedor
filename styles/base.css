@@ -56,6 +56,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .groupTab { padding: 0 6px 0 12px; max-width: 300px; color: var(--dim); font-size: 12px; font-weight: 600; }
 .groupTab:hover { background: color-mix(in srgb, var(--panel2) 60%, transparent); color: var(--text); }
 .groupTab.active { background: var(--panel2); color: var(--text); }
+.groupTab.active .spinner { visibility: hidden; } /* its tabs show their own; hidden, not removed, so selecting moves nothing */
 .groupTray { padding-right: 12px; opacity: .8; }
 .groupTab.dragover, .tab.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
 .groupTab .chipName { overflow: hidden; text-overflow: ellipsis; }
@@ -151,19 +152,46 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .tab .inlineInput { width: 130px; }
 
 /* ---------- Terminal / editor ---------- */
-.main { position: relative; display: flex; min-width: 0; min-height: 0; background: var(--term); } /* min-height: 0 so the text scrolls inside instead of stretching the page */
+.main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--term); } /* min-height: 0 so the text scrolls inside instead of stretching the page */
 .colorbar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
-.gutter { flex: none; width: 44px; padding: 12px 8px 12px 0; text-align: right; color: var(--gutter); font: var(--font-size)/1.55 var(--mono); overflow: hidden; user-select: none; white-space: pre; }
-.editor { flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: var(--font-size)/1.55 var(--mono); padding: 12px 16px 12px 6px; caret-color: var(--accent); white-space: pre; overflow: auto; tab-size: 4; }
+
+/* the output: read-only blocks that wrap as a terminal does, so selecting and copying are native */
+/* output and input scroll together, so the prompt sits right after the last output, as in a terminal */
+.termScroll { flex: 1; min-height: 0; overflow: hidden auto; }
+.output { padding: 12px 16px 0; color: var(--text); font: var(--font-size)/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 8; cursor: text; }
+.output ::selection { background: var(--sel); }
+.block { position: relative; }
+.block.isCommand { border-top: .5px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.block.isCommand:first-child { border-top: 0; }
+.commandLine { padding-right: 24px; }
+.commandPrompt { color: var(--dim); }
+/* the glyph comes from CSS, so that selecting across blocks can't copy it */
+.rerun { position: absolute; top: 0; right: 0; width: 20px; height: 1.55em; padding: 0; border-radius: 4px; color: var(--dim); line-height: inherit; opacity: 0; user-select: none; }
+.rerun::before { content: "↻"; }
+.block:hover .rerun, .rerun:focus-visible { opacity: .8; }
+.rerun:hover { background: var(--line); color: var(--text); opacity: 1; }
+.output.running .rerun { display: none; }
+/* Output that can no longer change sits in its own boxes, so that adding to it doesn't lay all of it out again. */
+.outputChunk, .outputTail { display: block; }
+/* where a running program's text is going: its keys arrive even though the input is out of sight */
+.output.running .block:last-child .outputTail::after { content: ""; display: inline-block; width: .6em; height: 1.1em; vertical-align: text-bottom; background: var(--accent); opacity: .7; }
+
+/* colors come from --ansi-0 … --ansi-15 or from inline rgb(), set from JS (terminal/styles.js) */
+.ansiBold { font-weight: 700; }
+.ansiDim { opacity: .6; }
+.ansiItalic { font-style: italic; }
+.ansiUnderline { text-decoration: underline; }
+
+/* the input: grows with its lines, set in JS as rows */
+.inputRow { display: flex; padding: 0 16px 10px; font: var(--font-size)/1.55 var(--mono); cursor: text; }
+/* While a command runs the row is out of sight but its text box keeps focus, so keys still arrive. */
+.inputRow.running { height: 0; padding: 0; border: 0; overflow: hidden; opacity: 0; }
+/* max-height matches MAX_ROWS in inputEditor.js: all the numbers are here, but must not stretch the row */
+.inputLines { flex: none; min-width: 20px; max-height: calc(1.55em * 12); padding-right: 8px; overflow: hidden; color: var(--gutter); text-align: right; white-space: pre; user-select: none; }
+.promptMark { flex: none; color: var(--text); white-space: pre; user-select: none; }
+.editor { flex: 1; min-width: 0; padding: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; caret-color: var(--accent); white-space: pre; overflow: auto; scrollbar-width: none; tab-size: 4; }
 .editor::selection { background: var(--sel); }
-/* hairline above each command, drawn over the text area only (positioned from JS) */
-.cmdLines { position: absolute; top: 0; bottom: 0; overflow: hidden; pointer-events: none; }
-.cmdLines div { position: absolute; left: 0; right: 0; border-top: .5px solid color-mix(in srgb, var(--line) 70%, transparent); }
-/* same text metrics as the editor, used to measure its real line height */
-.lineProbeBox { position: absolute; height: 0; overflow: hidden; visibility: hidden; }
-.lineProbe { font: var(--font-size)/1.55 var(--mono); white-space: pre; }
-.app.nolines .gutter { display: none; }
-.app.nolines .editor { padding-left: 16px; }
+.app.nolines .inputLines { display: none; }
 
 /* ---------- Status bar ---------- */
 .status { grid-column: 1 / 3; display: flex; align-items: center; gap: 16px; padding: 0 12px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); font-size: 11px; }
@@ -206,7 +234,11 @@ dialog::backdrop { background: var(--backdrop); }
 #settings { width: min(560px, 94vw); max-height: 88vh; padding: 0; overflow: hidden; }
 #settings[open] { display: flex; flex-direction: column; }
 .setHead { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.setSearch { flex: 1; min-width: 0; margin: 0 12px; padding: 4px 8px; font: inherit; font-size: 12px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; outline: none; }
+.setSearch:focus { border-color: var(--accent); }
 .setBody { padding: 4px 16px 16px; overflow-y: auto; }
+#settingsNoMatch { padding-top: 12px; }
+.searchHidden { display: none !important; }
 .setBody h4 { margin: 16px 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
 .setRow { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
 .setRow span { display: flex; align-items: center; gap: 8px; }
@@ -251,7 +283,7 @@ dialog::backdrop { background: var(--backdrop); }
 .themeCard:hover .remove, .themeCard .remove:focus-visible { opacity: 1; }
 .themeActions { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 
-/* ---------- Full-screen programs (vim, top): a real terminal over the text area ---------- */
+/* ---------- Full-screen programs (vim, top): a real terminal over the terminal area ---------- */
 #fullTerms { display: contents; }
 .fullTerm { position: absolute; inset: 0; z-index: 3; padding: 6px 0 0 8px; background: var(--term); }
 .fullTerm[hidden] { display: none; }

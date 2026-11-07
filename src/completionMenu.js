@@ -1,5 +1,5 @@
 // The dropdown shown by Tab completion. It only displays the list and tracks the
-// selected row: focus stays in the editor, which forwards the keys (see editor.js).
+// selected row: focus stays in the input, which forwards the keys (see terminal/inputEditor.js).
 
 import { el } from "./util.js";
 
@@ -25,16 +25,16 @@ export function showMenu(nextItems, onPick) {
   if (!node) {
     node = el("div", "completions");
     node.setAttribute("role", "listbox");
-    node.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the editor
+    node.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the input
     document.body.append(node);
   }
   node.replaceChildren(...items.map((item) => {
     const row = el("div");
     row.setAttribute("role", "option");
-    row.append(el("span", null, item.label), el("span", null, item.kind));
+    row.append(el("span", null, item.label.replace(/\n/g, " ⏎ ")), el("span", null, item.kind));
     row.addEventListener("click", () => onPick(item));
     return row;
-  }));
+  })); // past commands can span lines, and a row can't
   renderSelection();
 }
 

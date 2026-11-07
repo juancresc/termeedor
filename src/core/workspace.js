@@ -145,13 +145,14 @@ export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id,
   showGroup(group);
   const tab = createTab(group.id, `shell ${state.ws.tabs.filter((t) => t.groupId === group.id).length + 1}`);
   tab.color = defaultTabColorFor(group);
+  if (state.settings.newTabInCurrentPath && activeTab()) tab.cwd = activeTab().cwd;
   state.ws.tabs.splice(after ? state.ws.tabs.indexOf(after) + 1 : state.ws.tabs.length, 0, tab);
   state.ws.activeTab = tab.id;
   commit();
   return tab;
 }
 
-/** Closing a tab moves it to Past sessions. */
+/** Closing a tab moves it to Past sessions. A group left with no tabs is minimized, to restore later. */
 export function closeTab(tab) {
   outside.stopRun(tab.id);
   archiveTab(tab);
@@ -162,6 +163,7 @@ export function closeTab(tab) {
     const remaining = siblings.filter((t) => t !== tab && !t.minimized);
     state.ws.activeTab = (remaining[Math.min(position, remaining.length - 1)] ?? barTabs()[0])?.id ?? null;
   }
+  if (siblings.length === 1) minimizeGroup(getGroup(tab.groupId));
   commit("workspace", "past");
 }
 
@@ -243,7 +245,7 @@ export function closeGroup(group) {
   commit("workspace", "past");
 }
 
-/** Closes the selected tab. With an empty group selected, closes the group instead. */
+/** Closes the selected tab. With an empty group selected (restored after its last tab closed), closes the group instead. */
 export function closeActive() {
   const tab = activeTab();
   if (tab) return closeTab(tab);
@@ -265,6 +267,12 @@ function leaveGroup(group) {
   show(bar[index + 1] ?? bar[index - 1]);
 }
 
+function minimizeGroup(group) {
+  leaveGroup(group);
+  group.minimized = true;
+  group.collapsed = true;
+}
+
 /** Collapse only hides the group's tabs in the sidebar. The group stays in the top row and stays selected. */
 export function setGroupCollapsed(group, collapsed) {
   group.collapsed = collapsed;
@@ -277,9 +285,7 @@ export function setGroupCollapsed(group, collapsed) {
  */
 export function setGroupMinimized(group, minimized) {
   if (minimized) {
-    leaveGroup(group);
-    group.minimized = true;
-    group.collapsed = true;
+    minimizeGroup(group);
   } else {
     showGroup(group);
     show(group);

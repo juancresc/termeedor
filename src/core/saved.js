@@ -41,9 +41,10 @@ export const allChanges = ({ ws, past, settings }) => ({
 // The editor and plugins change tabs in place, so nothing marks a tab as changed: a tab is compared
 // with what was last saved. These are flat lists of values holding the same strings as the tab,
 // and comparing a string with itself takes no time, so this stays cheap at any scrollback size.
+// A block's styles list is replaced whenever it changes, so comparing the list itself is enough.
 const bodyPrint = (tab) => [
   tab.draft, tab.cwd, ...tab.history,
-  ...tab.blocks.flatMap((block) => [block.command, block.output, block.exit, block.cwd]),
+  ...tab.blocks.flatMap((block) => [block.command, block.output, block.exit, block.cwd, block.styles]),
 ];
 export const tabPrint = bodyPrint;
 export const pastPrint = (entry) => [

@@ -8,7 +8,7 @@ import path from "node:path";
 import { after, describe, test } from "node:test";
 
 const require = createRequire(import.meta.url);
-const { createShellSessions } = require("../electron/shellSessions.cjs");
+const { commandBytes, createShellSessions } = require("../electron/shellSessions.cjs");
 const { removeIntegrationFiles } = require("../electron/shellIntegration.cjs");
 
 const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "termeedor-home-")));
@@ -42,7 +42,20 @@ function harness(shell, rc) {
   return { sessions, run, events, waitFinish: () => new Promise((resolve) => waiters.push(resolve)) };
 }
 
-const shells = [["zsh", "/bin/zsh"]];
+test("a one-line command is typed; anything a line editor would act on goes as one paste", () => {
+  assert.equal(commandBytes("echo hi"), "echo hi\r");
+  assert.equal(commandBytes("a\nb"), "\x1b[200~a\nb\x1b[201~\r");
+  assert.equal(commandBytes("a\r\nb\rc"), "\x1b[200~a\nb\nc\x1b[201~\r");
+  assert.equal(commandBytes("a\tb"), "\x1b[200~a\tb\x1b[201~\r");
+});
+
+test("a command can't end its own paste, even by leaving pieces that join up", () => {
+  assert.equal(commandBytes("a\n\x1b[201~rm -rf x"), "\x1b[200~a\nrm -rf x\x1b[201~\r");
+  assert.equal(commandBytes("a\n\x1b[20\x1b[201~1~rm -rf x"), "\x1b[200~a\nrm -rf x\x1b[201~\r");
+  assert.equal(commandBytes("a\n\x1b[200~b"), "\x1b[200~a\nb\x1b[201~\r");
+});
+
+const shells = fs.existsSync("/bin/zsh") ? [["zsh", "/bin/zsh"]] : [];
 for (const candidate of ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", "/usr/bin/bash", "/bin/bash"]) {
   if (!fs.existsSync(candidate)) continue;
   const { spawnSync } = require("node:child_process");
@@ -99,6 +112,18 @@ for (const [name, file] of shells) {
       sessions.killAll();
     });
 
+    test("Ctrl+C while the shell starts cancels the waiting command", { timeout: 15000 }, async () => {
+      const { sessions, run, waitFinish, events } = harness(file, "sleep 1\nexport TM_RC_DONE=yes\n");
+      const finished = waitFinish();
+      sessions.run("t", "echo should-not-run; sleep 30", { cwd: home });
+      sessions.write("t", "\x03");
+      const finish = await finished;
+      assert.equal(finish.exit, 130);
+      assert.equal((await run("echo $TM_RC_DONE")).text, "yes\n"); // the rc files weren't interrupted
+      assert.ok(!events.some((e) => e.type === "output" && e.data.includes("should-not-run")));
+      sessions.killAll();
+    });
+
     test("a running program can read typed input", async () => {
       const { sessions, waitFinish, events } = harness(file, "");
       const finished = waitFinish();
@@ -108,6 +133,19 @@ for (const [name, file] of shells) {
       await finished;
       const text = strip(events.filter((e) => e.type === "output").map((e) => e.data).join(""));
       assert.match(text, /got yes/);
+      sessions.killAll();
+    });
+
+    test("a program's prompt with no line break arrives before it reads anything", async () => {
+      const { sessions, waitFinish, events } = harness(file, "");
+      const finished = waitFinish();
+      sessions.run("t", "printf '>>> '; read answer; echo \"got $answer\"", { cwd: home });
+      await new Promise((r) => setTimeout(r, 1500));
+      assert.ok(strip(events.filter((e) => e.type === "output").map((e) => e.data).join("")).endsWith(">>> "));
+      assert.equal(events.some((e) => e.type === "finish"), false);
+      sessions.write("t", "yes\r");
+      await finished;
+      assert.match(strip(events.filter((e) => e.type === "output").map((e) => e.data).join("")), /^>>> yes\ngot yes\n$/);
       sessions.killAll();
     });
 
@@ -125,6 +163,141 @@ for (const [name, file] of shells) {
       await run("cd /tmp", "a");
       assert.equal((await run("pwd", "b")).text.trim(), home);
       assert.equal(fs.realpathSync((await run("pwd", "a")).text.trim()), fs.realpathSync("/tmp"));
+      sessions.killAll();
+    });
+
+    test("a multi-line for loop runs as one command", async () => {
+      const { sessions, run } = harness(file, "");
+      const { text, finish } = await run("for i in 1 2 3; do\n  echo \"got $i\"\ndone");
+      assert.equal(text, "got 1\ngot 2\ngot 3\n");
+      assert.equal(finish.exit, 0);
+      assert.equal((await run("echo after")).text, "after\n");
+      sessions.killAll();
+    });
+
+    test("a heredoc reaches its program, line breaks and tabs included", async () => {
+      const { sessions, run } = harness(file, "");
+      assert.equal((await run("cat <<'EOF'\nfirst $HOME\n\ttabbed\n\nlast\nEOF")).text, "first $HOME\n\ttabbed\n\nlast\n");
+      const piped = await run("cat <<EOF | tr a-z A-Z\nshout\nEOF");
+      assert.equal(piped.text, "SHOUT\n");
+      sessions.killAll();
+    });
+
+    test("several lines run in order and keep the shell's state; the last one's exit code counts", async () => {
+      const { sessions, run } = harness(file, "");
+      fs.mkdirSync(path.join(home, "multi"), { recursive: true });
+      const { text, finish } = await run("cd multi\nFOO=bar\npwd\necho $FOO\n(exit 3)");
+      assert.equal(text, `${path.join(home, "multi")}\nbar\n`);
+      assert.equal(finish.exit, 3);
+      assert.equal(finish.cwd, path.join(home, "multi"));
+      sessions.killAll();
+    });
+
+    test("multi-line works as the session's first command, and as the next one right after", async () => {
+      const { sessions, run } = harness(file, "");
+      assert.equal((await run("echo a\necho b")).text, "a\nb\n");
+      assert.equal((await run("echo c\necho d")).text, "c\nd\n");
+      sessions.killAll();
+    });
+
+    test("a long multi-line command gets through whole, even as the first command", async () => {
+      const { sessions, run } = harness(file, "");
+      const lines = Array.from({ length: 300 }, (_, i) => `echo line-${i}`);
+      const { text } = await run(lines.join("\n"));
+      assert.equal(text, `${lines.map((_, i) => `line-${i}`).join("\n")}\n`);
+      const wide = "x".repeat(4000);
+      assert.equal((await run(`cat <<EOF\n${wide}\nEOF`)).text, `${wide}\n`);
+      sessions.killAll();
+    });
+
+    test("a very long first line gets through as the session's first command", async () => {
+      const { sessions, run } = harness(file, "");
+      const wide = "y".repeat(4000);
+      assert.equal((await run(`cat <<EOF\n${wide}\nEOF`)).text, `${wide}\n`);
+      sessions.killAll();
+    });
+
+    test("a very long one-line command gets through as the session's first command", async () => {
+      const { sessions, run } = harness(file, "");
+      const wide = "z".repeat(4000);
+      assert.equal((await run(`echo ${wide}`)).text, `${wide}\n`);
+      sessions.killAll();
+    });
+
+    test("a multi-line command works with bracketed paste turned off, or in vi mode", async () => {
+      for (const rc of ["unset zle_bracketed_paste 2>/dev/null\nbind 'set enable-bracketed-paste off' 2>/dev/null\n", "set -o vi\n"]) {
+        const { sessions, run } = harness(file, rc);
+        assert.equal((await run("for i in 1 2; do\n  echo $i\ndone")).text, "1\n2\n");
+        assert.equal((await run("cat <<EOF\nhello\nEOF")).text, "hello\n");
+        assert.equal((await run("echo one")).text, "one\n");
+        sessions.killAll();
+      }
+    });
+
+    test("a multi-line command with a syntax error shows only the shell's message", async () => {
+      const { sessions, run } = harness(file, "");
+      const { text, finish } = await run("if true; then\n  echo )\nfi");
+      assert.match(text, /(parse|syntax) error/);
+      assert.ok(!text.includes("if true"), text);
+      assert.notEqual(finish.exit, 0);
+      assert.equal((await run("echo alive")).text, "alive\n");
+      sessions.killAll();
+    });
+
+    test("a syntax error on a first line shows the shell's message, and the shell carries on", async () => {
+      const { sessions, run } = harness(file, "");
+      const { text } = await run("echo )\necho next");
+      assert.match(text, /(parse|syntax) error/);
+      assert.ok(!text.includes("echo )\n"), text);
+      assert.equal((await run("echo alive")).text, "alive\n");
+      sessions.killAll();
+    });
+
+    // Bash runs each finished line as it reads it, so after `echo first` it is already showing
+    // output, and its continuation prompt shows too. Zsh reads everything first and runs nothing.
+    for (const [label, command, leftovers] of [
+      ["quote", 'echo "open', ""],
+      ["multi-line quote", 'echo first\necho "open\nstill', name === "bash" ? "first\n> ^C\n" : ""],
+      ["heredoc", "cat <<EOF\nno end", ""],
+    ]) {
+      test(`an unterminated ${label}: Ctrl+C recovers`, async () => {
+        const { sessions, run, waitFinish, events } = harness(file, "");
+        const finished = waitFinish();
+        const from = events.length;
+        sessions.run("t", command, { cwd: home });
+        await new Promise((r) => setTimeout(r, 1200));
+        assert.equal(events.slice(from).some((e) => e.type === "finish"), false); // the shell is waiting for more
+        sessions.write("t", "\x03");
+        const finish = await finished;
+        assert.notEqual(finish.exit, 0);
+        const text = strip(events.slice(from).filter((e) => e.type === "output").map((e) => e.data).join(""));
+        assert.equal(text, leftovers);
+        assert.equal((await run("echo alive")).text, "alive\n");
+        sessions.killAll();
+      });
+    }
+
+    test("typing completes an unterminated quote, because keys are forwarded to the shell", async () => {
+      const { sessions, run, waitFinish, events } = harness(file, "");
+      const finished = waitFinish();
+      const from = events.length;
+      sessions.run("t", 'echo "one\ntwo', { cwd: home });
+      await new Promise((r) => setTimeout(r, 1200));
+      sessions.write("t", 'three"\r');
+      await finished;
+      const text = strip(events.slice(from).filter((e) => e.type === "output").map((e) => e.data).join(""));
+      assert.equal(text, "one\ntwo\nthree\n");
+      assert.equal((await run("echo alive")).text, "alive\n");
+      sessions.killAll();
+    });
+
+    test("a command can't break out of its own paste", async () => {
+      const { sessions, run } = harness(file, "");
+      const marker = path.join(home, "escaped");
+      const { text } = await run(`echo a\n\x1b[201~echo b; touch ${marker}\necho c`);
+      assert.equal(fs.existsSync(marker), true); // it runs, but only as part of the same command
+      assert.equal(text, "a\nb\nc\n");
+      fs.rmSync(marker);
       sessions.killAll();
     });
 

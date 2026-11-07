@@ -1,6 +1,9 @@
 /* Default: built-in Termeedor theme. Always loaded: every other theme starts from these values and overrides what it needs. */
 
 :root {
+  /* program output colors: black, red, green, yellow, blue, magenta, cyan, white, then the bright ones */
+  --ansi-0: #3b4252; --ansi-1: #e06c75; --ansi-2: #98c379; --ansi-3: #e5c07b; --ansi-4: #61afef; --ansi-5: #c678dd; --ansi-6: #56b6c2; --ansi-7: #d7dbe4;
+  --ansi-8: #7d8597; --ansi-9: #ff7b86; --ansi-10: #b5e08f; --ansi-11: #f2d58f; --ansi-12: #82c0ff; --ansi-13: #da8ff0; --ansi-14: #73d0dc; --ansi-15: #ffffff;
   /* optional tab/group colors (picked from menus) */
   --c1: #e06c75; --c2: #d19a66; --c3: #e5c07b; --c4: #98c379; --c5: #56b6c2; --c6: #61afef; --c7: #a98bdc; --c8: #d67fb1;
   --bg: #0f1115;

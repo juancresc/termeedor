@@ -1,5 +1,5 @@
 // A real terminal (xterm.js) for programs that take over the screen, such as vim or top.
-// It covers the text area while the program runs, then goes away. Desktop only: it loads
+// It covers the terminal area while the program runs, then goes away. Desktop only: it loads
 // from /vendor, which the Electron main process serves.
 
 import { $, el } from "../util.js";

@@ -9,6 +9,8 @@ const { createShellParser } = require("./shellParser.cjs");
 const { chooseShell, shellLaunch } = require("./shellIntegration.cjs");
 
 const READY_TIMEOUT_MS = 20000;
+const PASTE_START = "\x1b[200~";
+const PASTE_END = "\x1b[201~";
 const DEFAULT_SIZE = { cols: 120, rows: 30 };
 
 /** "~/x" → absolute. Falls back to home if the folder is gone. */
@@ -27,6 +29,25 @@ function displayCwd(cwd) {
   const home = os.homedir();
   if (cwd === home) return "~";
   return cwd.startsWith(home + path.sep) ? `~/${cwd.slice(home.length + 1)}` : cwd;
+}
+
+/** Takes out anything that could end the paste early, even if removing one piece would form another. */
+function withoutPasteMarks(text) {
+  let clean = text;
+  while (clean.includes(PASTE_START) || clean.includes(PASTE_END)) clean = clean.replaceAll(PASTE_START, "").replaceAll(PASTE_END, "");
+  return clean;
+}
+
+/**
+ * What to type at the prompt to run a command. The shell's line editor reads every byte as a key,
+ * so a line break would run what came before it and a tab would start completing. Both editors
+ * take a bracketed paste as plain text to insert, whatever their key bindings, and then Enter
+ * runs all of it as one input. test/shellSessions.test.js proves this in real shells.
+ */
+function commandBytes(command) {
+  const text = command.replace(/\r\n?/g, "\n");
+  if (!/[\x00-\x1f\x7f]/.test(text)) return `${text}\r`;
+  return `${PASTE_START}${withoutPasteMarks(text)}${PASTE_END}\r`;
 }
 
 /** send(tabId, event) receives output, alt, finish and exit events. */
@@ -91,8 +112,8 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
 
   function writeCommand(session, command) {
     session.sent = true;
-    session.parser.commandSent();
-    session.pty.write(`${command}\r`);
+    session.parser.commandSent(command);
+    session.pty.write(commandBytes(command));
   }
 
   return {
@@ -106,7 +127,15 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       else session.queued = command;
     },
     write(tabId, data) {
-      sessions.get(tabId)?.pty.write(data);
+      const session = sessions.get(tabId);
+      if (session?.queued != null && data.includes("\x03")) {
+        // Stopped before the shell got it. Sent on, this would only interrupt the rc files.
+        session.queued = null;
+        session.running = false;
+        send(tabId, { type: "finish", exit: 130, cwd: session.cwd });
+        return;
+      }
+      session?.pty.write(data);
     },
     resize(tabId, cols, rows) {
       const session = sessions.get(tabId);
@@ -130,4 +159,4 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
   };
 }
 
-module.exports = { createShellSessions, displayCwd, resolveCwd };
+module.exports = { commandBytes, createShellSessions, displayCwd, resolveCwd };

@@ -7,9 +7,10 @@
 //   adapters/       files on the desktop, localStorage in the browser
 //                   the real shell on the desktop, a mock in the browser
 //   storage.js      localStorage helpers
-//   terminal/       runner.js     runs commands, shows results   textModel.js  output → plain text
+//   terminal/       runner.js     runs commands, shows results   textModel.js  output → styled text
+//                   outputView.js command blocks                 inputEditor.js  the input and completion
 //                   fullscreen.js vim, top and friends           keys.js       key press → bytes
-//   editor.js       terminal text area
+//   editor.js       the terminal area: connects the output and the input, and runs commands
 //   tabbar.js       top tabs        sidebar.js   groups, past sessions
 //   rename.js       inline rename   contextMenus.js / menu.js   right-click menus
 //   settings.js     settings dialog themeImport.js  .css theme files

@@ -26,7 +26,7 @@ export function initTabbar() {
   const [groups, tabs] = [$("groupTabs"), $("tabs")];
   groups.addEventListener("scroll", () => { if (state.settings.showAllGroups) tabs.scrollLeft = groups.scrollLeft; });
   tabs.addEventListener("scroll", () => { if (state.settings.showAllGroups) groups.scrollLeft = tabs.scrollLeft; });
-  window.addEventListener("resize", alignColumns);
+  window.addEventListener("resize", () => alignColumns());
 }
 
 export function renderTabbar() {
@@ -35,10 +35,11 @@ export function renderTabbar() {
   const group = getGroup(state.ws.activeGroup);
   $("groupTabs").classList.toggle("showAll", showAll);
   $("tabs").classList.toggle("showAll", showAll);
+  const scroll = $("groupTabs").scrollLeft; // read now: the new rows are narrower until they're aligned
   renderRows([
     { row: $("groupTabs"), nodes: [...barGroups().map(groupTab), ...tray] },
     { row: $("tabs"), nodes: tabRowNodes(group, showAll), enteringKey: newlyOpenedTab() },
-  ], alignColumns);
+  ], () => alignColumns(scroll));
   $("newTabBtn").hidden = !group || showAll; // in "show all" mode each group has its own
 
   const toggle = $("allGroupsBtn");
@@ -79,7 +80,7 @@ function groupSection(group) {
 }
 
 /** "Show all" mode: each group's tab starts where its box does. Whichever is narrower leaves the room. */
-function alignColumns() {
+function alignColumns(scroll = $("groupTabs").scrollLeft) {
   const [groups, tabs] = [$("groupTabs"), $("tabs")];
   tabs.style.marginLeft = tabs.style.maxWidth = "";
   tabs.querySelector(".trayRoom")?.remove();
@@ -104,7 +105,7 @@ function alignColumns() {
   }
   tabs.style.marginLeft = `${groups.getBoundingClientRect().left - tabs.getBoundingClientRect().left}px`;
   tabs.style.maxWidth = `${groups.clientWidth}px`;
-  tabs.scrollLeft = groups.scrollLeft;
+  groups.scrollLeft = tabs.scrollLeft = scroll; // measuring above clamped both to the unaligned width
 }
 
 function minimizedTray() {
@@ -124,7 +125,7 @@ function groupTab(group) {
   node.dataset.slideKey = group.id;
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
-  if (group.id !== state.ws.activeGroup && groupHasRunning(group.id)) node.append(spinner());
+  if (groupHasRunning(group.id)) node.append(spinner()); // hidden while selected, keeping its room
   node.append(nameLabel("group", group, "tabbar", "span", "chipName"), el("span", "chipCount", String(tabs.length)));
   if (minimizedCount) {
     const badge = el("button", "chipCount", `+${minimizedCount}`);

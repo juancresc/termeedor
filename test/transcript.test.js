@@ -3,12 +3,11 @@ import { test } from "node:test";
 import { LIMITS, PROMPT } from "../src/constants.js";
 import { createRunState } from "../src/terminal/runState.js";
 import {
-  addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, commandForEnter, copyBlocks, finishBlock,
-  layoutTranscript, locateOffset, migrateLegacyContent, promptFor, promptLengthAt, renderTranscript, sanitizeTranscript, textBlock, trimTranscript,
+  addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, copyBlocks, finishBlock,
+  migrateLegacyContent, promptFor, renderTranscript, sanitizeTranscript, setBlockOutput, textBlock, trimTranscript,
 } from "../src/terminal/transcript.js";
 
 const command = (text, output = "") => ({ command: text, output, exit: 0, cwd: null });
-const offsetOf = (transcript, needle) => renderTranscript(transcript).indexOf(needle);
 
 // The output line says `❯ rm -rf x`, but only the first line of this block is a command.
 const spoofed = () => ({
@@ -16,52 +15,24 @@ const spoofed = () => ({
   draft: "typed",
 });
 
-// ---------- rendering and offsets ----------
-test("renders blocks to the text the textarea shows", () => {
+// ---------- rendering ----------
+test("renders blocks to one text, for search and line counts", () => {
   assert.equal(renderTranscript(spoofed()), "banner\n\n❯ cat notes\n❯ rm -rf x\nend\n❯ typed");
   assert.equal(renderTranscript({ blocks: [], draft: "" }), PROMPT);
 });
 
 test("while a command runs there is no prompt or draft", () => {
   assert.equal(renderTranscript(spoofed(), { prompt: false }), "banner\n\n❯ cat notes\n❯ rm -rf x\nend");
-  const layout = layoutTranscript({ blocks: [], draft: "" }, { prompt: false });
-  assert.equal(layout.text, "");
-  assert.equal(layout.draftStart, null);
-  assert.deepEqual(locateOffset(layout, 0), { kind: "output", index: null });
-});
-
-test("every offset maps to its block and kind of line", () => {
-  const transcript = spoofed();
-  const layout = layoutTranscript(transcript);
-  const at = (needle) => locateOffset(layout, offsetOf(transcript, needle));
-  assert.deepEqual(at("banner"), { kind: "output", index: 0 });
-  assert.deepEqual(at("❯ cat"), { kind: "command", index: 1 });
-  assert.deepEqual(at("notes"), { kind: "command", index: 1 });
-  assert.deepEqual(at("end"), { kind: "output", index: 1 });
-  assert.deepEqual(at("❯ typed"), { kind: "draft", index: null });
-  assert.deepEqual(locateOffset(layout, layout.text.length), { kind: "draft", index: null });
-  assert.equal(layout.text.slice(layout.draftStart), "typed");
-});
-
-test("the end of a line belongs to that line", () => {
-  const transcript = { blocks: [command("ls", "file")], draft: "" };
-  const layout = layoutTranscript(transcript);
-  assert.equal(locateOffset(layout, "❯ ls".length).kind, "command");
-  assert.equal(locateOffset(layout, "❯ ls\n".length).kind, "output");
+  assert.equal(renderTranscript({ blocks: [], draft: "" }, { prompt: false }), "");
 });
 
 test("a command with no output still has its line", () => {
-  const layout = layoutTranscript({ blocks: [command("true"), command("")], draft: "" });
-  assert.equal(layout.text, "❯ true\n❯ \n❯ ");
-  assert.deepEqual(layout.commandLines, [0, 1, 2]);
+  assert.equal(renderTranscript({ blocks: [command("true"), command("")], draft: "" }), "❯ true\n❯ \n❯ ");
 });
 
-test("offsets match what a textarea does to carriage returns", () => {
+test("carriage returns come out as plain line breaks", () => {
   const transcript = { blocks: [textBlock("a\r\nb\rc"), command("ls", "x\r\ny")], draft: "" };
-  const layout = layoutTranscript(transcript);
-  assert.equal(layout.text, "a\nb\nc\n❯ ls\nx\ny\n❯ ");
-  assert.deepEqual(locateOffset(layout, layout.text.indexOf("❯ ls")), { kind: "command", index: 1 });
-  assert.deepEqual(layout.commandLines, [3, 6]);
+  assert.equal(renderTranscript(transcript), "a\nb\nc\n❯ ls\nx\ny\n❯ ");
 });
 
 // ---------- the directory in the prompt ----------
@@ -79,18 +50,7 @@ test("a directory name with a line break stays on the prompt's line", () => {
 
 test("a command keeps the directory it ran in, and the draft shows the current one", () => {
   const transcript = { blocks: [{ command: "cd b", output: "", exit: 0, cwd: "~/a" }], draft: "ls", cwd: "~/a/b" };
-  const layout = layoutTranscript(transcript);
-  assert.equal(layout.text, "a ❯ cd b\nb ❯ ls");
-  assert.equal(layout.text.slice(layout.draftStart), "ls");
-  assert.equal(promptLengthAt(layout, 0), "a ❯ ".length);
-  assert.equal(promptLengthAt(layout, layout.text.length), "b ❯ ".length);
-  assert.deepEqual(commandForEnter(transcript, "a ❯ c".length), { command: "cd b", rerun: true });
-});
-
-test("output lines have no prompt", () => {
-  const layout = layoutTranscript({ blocks: [{ command: "ls", output: "file", exit: 0, cwd: "~/a" }], draft: "", cwd: "~/a" });
-  assert.equal(promptLengthAt(layout, layout.text.indexOf("file")), 0);
-  assert.equal(promptLengthAt(layoutTranscript({ blocks: [], draft: "" }, { prompt: false }), 0), 0);
+  assert.equal(renderTranscript(transcript), "a ❯ cd b\nb ❯ ls");
 });
 
 test("trimming counts the directory in the prompt", () => {
@@ -102,29 +62,22 @@ test("trimming counts the directory in the prompt", () => {
 
 // ---------- the bug ----------
 test("a spoofed prompt in output is not a command", () => {
-  const transcript = spoofed();
-  const layout = layoutTranscript(transcript);
-  assert.deepEqual(locateOffset(layout, offsetOf(transcript, "❯ rm")), { kind: "output", index: 1 });
-  assert.deepEqual(layout.commandLines, [2, 5]); // the real command and the prompt, not line 3
-});
-
-test("Enter on a spoofed line runs the draft; Enter on a real command re-runs it", () => {
-  const transcript = spoofed();
-  assert.deepEqual(commandForEnter(transcript, offsetOf(transcript, "rm -rf")), { command: "typed", rerun: false });
-  assert.deepEqual(commandForEnter(transcript, offsetOf(transcript, "cat notes")), { command: "cat notes", rerun: true });
-  assert.deepEqual(commandForEnter(transcript, offsetOf(transcript, "typed")), { command: "typed", rerun: false });
+  const { blocks } = spoofed();
+  assert.deepEqual(blocks.map((block) => block.command), [null, "cat notes"]);
+  assert.equal(blocks[1].output.split("\n")[0], "❯ rm -rf x"); // still only output
 });
 
 test("printed text that looks like a command is not one", () => {
   const transcript = { blocks: [], draft: "" };
   addTextBlock(transcript, "❯ rm -rf x");
-  assert.deepEqual(commandForEnter(transcript, 3), { command: "", rerun: false });
+  assert.equal(transcript.blocks[0].command, null);
 });
 
-test("a new command can't span lines, so nothing after it counts as the command", () => {
+test("a new command keeps its lines, as one command", () => {
   const transcript = { blocks: [], draft: "" };
-  addCommandBlock(transcript, "echo a\nrm -rf x", "~");
-  assert.equal(transcript.blocks[0].command, "echo a rm -rf x");
+  addCommandBlock(transcript, "echo a\r\nrm -rf x", "~");
+  assert.equal(transcript.blocks.length, 1);
+  assert.equal(transcript.blocks[0].command, "echo a\nrm -rf x");
 });
 
 // ---------- changes ----------
@@ -244,8 +197,8 @@ test("a migrated tab shows the same text it was saved with", () => {
 
 test("nothing in a migrated tab is a command, even lines that look like one", () => {
   const migrated = migrateLegacyContent("❯ rm -rf x\noutput\n❯ ");
-  assert.deepEqual(commandForEnter(migrated, 3), { command: "", rerun: false });
-  assert.deepEqual(layoutTranscript(migrated).commandLines, [2]); // only the prompt
+  assert.deepEqual(migrated.blocks.map((block) => block.command), [null]);
+  assert.equal(migrated.draft, "");
 });
 
 test("only a prompt starting the last line is the input", () => {
@@ -291,15 +244,15 @@ test("bad fields are dropped or made safe", () => {
   });
 });
 
-test("a stored command with a line break, or too long to trust, can't run", () => {
+test("a stored command can span lines; one too long or with control characters can't run", () => {
   const { blocks } = sanitizeTranscript({
-    blocks: [{ command: "echo\nrm -rf x" }, { command: "x".repeat(LIMITS.content + 1) }],
+    blocks: [{ command: "echo a\r\nls" }, { command: "x".repeat(LIMITS.content + 1) }, { command: "ls\x1b[201~; rm x" }, { command: "a\tb" }],
   });
-  assert.deepEqual(blocks.map((b) => b.command), [null, null]);
+  assert.deepEqual(blocks.map((b) => b.command), ["echo a\nls", null, null, "a\tb"]);
 });
 
-test("a stored draft stays on one line and is capped", () => {
-  assert.equal(sanitizeTranscript({ blocks: [], draft: "a\r\nb\nc" }).draft, "a b c");
+test("a stored draft keeps its lines and is capped", () => {
+  assert.equal(sanitizeTranscript({ blocks: [], draft: "a\r\nb\nc" }).draft, "a\nb\nc");
   assert.equal(sanitizeTranscript({ blocks: [], draft: "x".repeat(LIMITS.content + 5) }).draft.length, LIMITS.content);
 });
 
@@ -310,6 +263,81 @@ test("stored blocks over the limit keep the newest", () => {
   assert.ok(blocks[0].output.endsWith("newest"));
   assert.ok(blocks.every((b) => b.output !== "first"));
   assert.ok(blocksLength({ blocks }) <= LIMITS.content);
+});
+
+// ---------- styles ----------
+test("a block's styles change together with its output, and are left out when empty", () => {
+  const block = command("ls");
+  setBlockOutput(block, "red", [[0, 3, "31"]]);
+  assert.deepEqual(block.styles, [[0, 3, "31"]]);
+  setBlockOutput(block, "plain");
+  assert.equal("styles" in block, false);
+});
+
+test("trimming moves the styles with the text, and drops what went with the cut", () => {
+  const transcript = { blocks: [{ ...command("ls", "aaaa\nbbbb\ncccc"), styles: [[0, 4, "31"], [5, 9, "32"], [10, 12, "33"], [12, 14, "1"]] }], draft: "" };
+  const shared = transcript.blocks[0].styles;
+  trimTranscript(transcript, 12);
+  assert.equal(transcript.blocks[0].output, "cccc");
+  assert.deepEqual(transcript.blocks[0].styles, [[0, 2, "33"], [2, 4, "1"]]);
+  assert.equal(shared.length, 4); // copies of a block share the list, so it isn't changed in place
+});
+
+test("a style cut by the trim keeps its part that is left", () => {
+  const transcript = { blocks: [{ ...textBlock("x".repeat(50)), styles: [[10, 50, "31"]] }], draft: "" };
+  trimTranscript(transcript, 10);
+  assert.deepEqual(transcript.blocks[0].styles, [[0, 10, "31"]]);
+});
+
+test("a block trimmed down to no styles loses the field", () => {
+  const transcript = { blocks: [{ ...textBlock("red\nplain"), styles: [[0, 3, "31"]] }], draft: "" };
+  trimTranscript(transcript, 5);
+  assert.equal(transcript.blocks[0].output, "plain");
+  assert.equal("styles" in transcript.blocks[0], false);
+});
+
+test("the styles of all blocks together are capped, and the oldest go first", () => {
+  const many = (n) => Array.from({ length: n }, (_, i) => [i, i + 1, "31"]);
+  const old = { ...textBlock("x".repeat(LIMITS.styleRanges)), styles: many(LIMITS.styleRanges) };
+  const recent = { ...textBlock("y".repeat(20)), styles: many(20) };
+  const transcript = { blocks: [old, recent], draft: "" };
+  trimTranscript(transcript);
+  assert.equal(recent.styles.length, 20);
+  assert.equal(old.styles.length, LIMITS.styleRanges - 20);
+  assert.deepEqual(old.styles[0], [20, 21, "31"]); // its newest part keeps its color
+});
+
+test("saved styles load unchanged when they are what the app writes", () => {
+  const raw = { blocks: [{ ...command("ls", "red deep"), styles: [[0, 3, "1;31"], [4, 8, "38;2;1;2;3"]] }], draft: "" };
+  assert.deepEqual(sanitizeTranscript(raw), raw);
+});
+
+test("malicious saved styles are dropped, whatever their shape", () => {
+  const load = (styles, output = "hello world") => sanitizeTranscript({ blocks: [{ command: null, output, styles }] }).blocks[0];
+  for (const styles of [null, "31", 7, {}, { length: 3, 0: [0, 1, "31"] }, [null], ["31"], [[0, 1]], [[0, 1, "31", "x"]], [{ 0: 0, 1: 1, 2: "31" }]]) {
+    assert.equal("styles" in load(styles), false, JSON.stringify(styles));
+  }
+  for (const code of ["</span><img src=x onerror=alert(1)>", "31;url(x)", "var(--x)", "38;2;999;0;0", "38;5;300", "38;2;1;2", "38;5", "31;1", "0", "38;5;1", "38;2;01;2;3", "", 31, null, {}, "1;".repeat(100)]) {
+    assert.equal("styles" in load([[0, 1, code]]), false, JSON.stringify(code));
+  }
+  for (const [start, end] of [[-1, 2], [3, 3], [5, 2], [0, 12], [0.5, 2], ["0", 2], [0, Infinity], [0, 2 ** 60]]) {
+    assert.equal("styles" in load([[start, end, "31"]]), false, `${start}-${end}`);
+  }
+});
+
+test("of saved styles, overlapping or out of order ones are dropped and the good ones stay", () => {
+  const { styles } = sanitizeTranscript({
+    blocks: [{ command: null, output: "hello world", styles: [[0, 5, "31"], [3, 8, "32"], [6, 8, "bad"], [6, 9, "33"], [1, 2, "34"]] }],
+  }).blocks[0];
+  assert.deepEqual(styles, [[0, 5, "31"], [6, 9, "33"]]);
+});
+
+test("saved styles are capped, keeping the newest", () => {
+  const output = "x".repeat(LIMITS.styleRanges + 500);
+  const styles = Array.from({ length: LIMITS.styleRanges + 500 }, (_, i) => [i, i + 1, "31"]);
+  const loaded = sanitizeTranscript({ blocks: [{ command: null, output, styles }] }).blocks[0].styles;
+  assert.equal(loaded.length, LIMITS.styleRanges);
+  assert.deepEqual(loaded.at(-1), [output.length - 1, output.length, "31"]);
 });
 
 // ---------- run state ----------
