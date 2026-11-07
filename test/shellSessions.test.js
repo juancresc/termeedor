@@ -64,7 +64,7 @@ for (const [name, file] of shells) {
       const { sessions, run } = harness(file, "export FROM_RC=yes\nalias hi='echo aliased'\nshopt -s expand_aliases 2>/dev/null\n");
       fs.mkdirSync(path.join(home, "sub dir"), { recursive: true });
       const moved = await run('cd "sub dir"');
-      assert.equal(moved.finish.cwd, "~/sub dir".replace("~", "~"));
+      assert.equal(moved.finish.cwd, path.join(home, "sub dir"));
       assert.equal((await run("pwd")).text.trim(), path.join(home, "sub dir"));
       await run("export LATER=1");
       assert.equal((await run('echo "$LATER $FROM_RC"')).text, "1 yes\n");
@@ -88,11 +88,10 @@ for (const [name, file] of shells) {
     });
 
     test("Ctrl+C interrupts and the session keeps working", async () => {
-      const { sessions, run, waitFinish, events } = harness(file, "");
+      const { sessions, run, waitFinish } = harness(file, "");
       const finished = waitFinish();
       sessions.run("t", "sleep 30", { cwd: home });
-      while (!events.some((e) => e.type === "start" || e.type === "output")) await new Promise((r) => setTimeout(r, 20));
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 1500));
       sessions.write("t", "\x03");
       const finish = await finished;
       assert.equal(finish.exit, 130);

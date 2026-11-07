@@ -22,6 +22,7 @@ function addStylesheet(plugin, path) {
 }
 
 export function createApi(plugin, scope) {
+  if (plugin.hostFile) scope.track(() => window.termeedorHost.stopPluginHost(plugin.id));
   const { id } = plugin;
   return Object.freeze({
     apiVersion: 1,
@@ -61,6 +62,13 @@ export function createApi(plugin, scope) {
       setTabColor,
       /** Prints a line of output to a tab, keeping a prompt at the bottom. */
       print: printToTab,
+    },
+    host: {
+      /** Calls a function exported by the plugin's OS-side file ("host" in plugin.json). */
+      call(method, ...args) {
+        if (!plugin.hostFile) return Promise.reject(new Error('This plugin has no "host" file in plugin.json'));
+        return window.termeedorHost.callPluginHost(id, method, args);
+      },
     },
     storage: {
       get: (key, fallback = null) => load(storageKey(id, key)) ?? fallback,

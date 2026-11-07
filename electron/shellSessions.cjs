@@ -44,7 +44,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       ...DEFAULT_SIZE,
       ...size,
     });
-    const session = { pty: process_, parser, ready: false, running: false, queued: null, path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
+    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
     sessions.set(tabId, session);
 
     session.readyTimer = setTimeout(() => {
@@ -80,7 +80,8 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       }
     } else if (event.type === "finish") {
       session.cwd = displayCwd(event.cwd || resolveCwd(session.cwd));
-      if (!session.running) return; // the shell's first prompt, not a command
+      if (!session.sent) return; // the shell's first prompt, not a command
+      session.sent = false;
       session.running = false;
       send(tabId, { ...event, cwd: session.cwd });
     } else if (event.type === "output" || event.type === "alt") {
@@ -89,6 +90,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
   }
 
   function writeCommand(session, command) {
+    session.sent = true;
     session.parser.commandSent();
     session.pty.write(`${command}\r`);
   }

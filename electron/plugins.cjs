@@ -1,7 +1,7 @@
 // Finds plugin folders on disk. No Electron imports, so it can be tested with plain Node.
 //
 // A plugin is a folder, like a zsh plugin:   <root>/<id>/plugin.js
-// plugin.json is optional:                   { name, version, description, main, apiVersion }
+// plugin.json is optional:                   { name, version, description, main, host, apiVersion }
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -49,6 +49,12 @@ function readPlugin(dir, id, source) {
   const main = text(manifest.main, 200, "plugin.js");
   if (!resolveInside(dir, main)) return { ...plugin, error: `Entry file not found: ${main}` };
   plugin.entry = `/plugins/${id}/${main.split(path.sep).join("/")}`;
+
+  if (manifest.host !== undefined) {
+    const hostFile = typeof manifest.host === "string" ? resolveInside(dir, manifest.host) : null;
+    if (!hostFile) return { ...plugin, entry: null, error: `Host file not found: ${manifest.host}` };
+    plugin.hostFile = hostFile;
+  }
   return plugin;
 }
 

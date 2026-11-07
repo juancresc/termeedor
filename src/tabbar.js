@@ -11,6 +11,7 @@ import {
 import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, minimizedGroupsMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
+import { renderRow } from "./slide.js";
 
 export function initTabbar() {
   $("newGroupTabBtn").onclick = () => startRename("group", addGroup(), "tabbar");
@@ -20,13 +21,13 @@ export function initTabbar() {
 
 export function renderTabbar() {
   const tray = minimizedGroups().length ? [minimizedTray()] : [];
-  $("groupTabs").replaceChildren(...barGroups().map(groupTab), ...tray);
+  renderRow($("groupTabs"), [...barGroups().map(groupTab), ...tray]);
 
   const group = getGroup(state.ws.activeGroup);
   const tabs = barTabs();
-  $("tabs").replaceChildren(...(tabs.length
+  renderRow($("tabs"), tabs.length
     ? tabs.map((tab) => tabNode(tab, group))
-    : [el("span", "tabsEmpty", group ? "No tabs here — ＋ to add a terminal" : "All groups are minimized")]));
+    : [el("span", "tabsEmpty", group ? "No tabs here. Press ＋ to add a terminal." : "All groups are minimized.")]);
   $("newTabBtn").hidden = !group;
 }
 
@@ -44,6 +45,7 @@ function groupTab(group) {
   const tabs = tabsIn(group.id);
   const minimizedCount = tabs.filter((t) => t.minimized).length;
   const node = el("div", `groupTab${group.id === state.ws.activeGroup ? " active" : ""}`);
+  node.dataset.slideKey = group.id;
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
   if (group.id !== state.ws.activeGroup && groupHasRunning(group.id)) node.append(spinner());
@@ -66,6 +68,7 @@ function groupTab(group) {
 function tabNode(tab, group) {
   const isActive = tab.id === state.ws.activeTab;
   const node = el("div", `tab${isActive ? " active" : ""}${tab.collapsed ? " collapsed" : ""}`);
+  node.dataset.slideKey = tab.id;
   if (group.color) node.style.setProperty("--group-color", colorVar(group.color));
   if (tab.color) node.style.borderTopColor = colorVar(tab.color);
 

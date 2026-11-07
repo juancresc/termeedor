@@ -8,6 +8,7 @@ import {
   setTabCollapsed, setTabMinimized, setGroupMinimized,
 } from "./store.js";
 import { confirmRemoveGroup } from "./contextMenus.js";
+import { slideNextRender } from "./slide.js";
 
 function button(className, text, title, run) {
   const node = el("button", className, text);
@@ -19,8 +20,9 @@ function button(className, text, title, run) {
 /** `bar` is the list the item sits in, which decides whether it can move left or right. */
 function barButtons(noun, item, bar, { move, minimize, close, closeTitle }) {
   const index = bar.indexOf(item);
-  const left = button("x", "‹", `Move ${noun} left`, () => move(item, -1));
-  const right = button("x", "›", `Move ${noun} right`, () => move(item, 1));
+  const moveBy = (delta) => { slideNextRender(); move(item, delta); };
+  const left = button("x", "‹", `Move ${noun} left`, () => moveBy(-1));
+  const right = button("x", "›", `Move ${noun} right`, () => moveBy(1));
   left.disabled = index === 0;
   right.disabled = index === bar.length - 1;
 

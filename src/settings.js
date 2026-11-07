@@ -7,6 +7,7 @@ import { parseThemeFile } from "./themeImport.js";
 import { applyTheme } from "./themes.js";
 import { initThemeEditor, openThemeEditor } from "./themeEditor.js";
 import { focusEditor } from "./editor.js";
+import { askConfirm, showNotice } from "./dialogs.js";
 import { renderPluginSettings } from "./plugins/ui.js";
 
 const dialog = $("settings");
@@ -99,7 +100,7 @@ function themeCard({ id, name, preview }, removable) {
     const remove = el("button", "remove", "✕");
     remove.title = "Remove theme";
     remove.onclick = () => {
-      if (confirm(`Remove theme "${name}"?`)) removeCustomTheme(id);
+      askConfirm({ title: `Remove the theme "${name}"?`, acceptLabel: "Remove", danger: true }).then((yes) => { if (yes) removeCustomTheme(id); });
     };
     card.append(remove);
   }
@@ -110,10 +111,10 @@ async function importThemeFile(event) {
   const file = event.target.files[0];
   event.target.value = ""; // allow picking the same file again
   if (!file) return;
-  if (!/\.css$/i.test(file.name)) return alert("Please pick a .css file.");
+  if (!/\.css$/i.test(file.name)) return showNotice("That isn't a theme file", "Please pick a .css file.");
   try {
     addCustomTheme(parseThemeFile(file.name, await file.text()));
   } catch (err) {
-    alert(`Could not import theme: ${err.message}`);
+    showNotice("Could not import the theme", err.message);
   }
 }

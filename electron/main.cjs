@@ -7,10 +7,15 @@ const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { discoverPlugins, resolveInside } = require("./plugins.cjs");
+const { complete } = require("./completions.cjs");
+const pluginHosts = require("./pluginHosts.cjs");
+const { removeIntegrationFiles } = require("./shellIntegration.cjs");
+const { createShellSessions, resolveCwd } = require("./shellSessions.cjs");
 
 const ORIGIN = "termeedor://app";
 const APP_ROOT = path.join(__dirname, "..");
 const APP_FILES = /^\/(index\.html|(src|styles|themes)\/.+)$/;
+const VENDOR_FILES = /^\/vendor\/(xterm|addon-fit)\/((?:lib|css)\/[\w.-]+)$/;
 
 // A real origin (not file://) so ES modules, localStorage and the page's CSP behave as on the web.
 protocol.registerSchemesAsPrivileged([
@@ -54,6 +59,8 @@ function fileForPath(pathname) {
     const plugin = plugins.get(match[1]);
     return plugin && !plugin.error ? resolveInside(plugin.dir, match[2]) : null;
   }
+  const vendor = clean.match(VENDOR_FILES);
+  if (vendor) return path.join(APP_ROOT, "node_modules", "@xterm", vendor[1] === "xterm" ? "xterm" : "addon-fit", vendor[2]);
   return APP_FILES.test(clean) ? path.join(APP_ROOT, clean) : null;
 }
 
@@ -91,6 +98,9 @@ function createWindow() {
     },
   });
   win.once("ready-to-show", () => win.show());
+  // A reload starts the page's state over, so nothing it was running can stay behind.
+  win.webContents.on("did-start-loading", stopBackgroundWork);
+  shellWindow = win;
   win.loadURL(`${ORIGIN}/index.html`);
 }
 
@@ -109,11 +119,33 @@ app.on("web-contents-created", (_event, contents) => {
   });
 });
 
+// ---------- shells ----------
+let shellWindow = null;
+const shells = createShellSessions((tabId, event) => {
+  if (shellWindow && !shellWindow.isDestroyed()) shellWindow.webContents.send("shell:event", { tabId, event });
+});
+
+function stopBackgroundWork() {
+  shells.killAll();
+  pluginHosts.stopAll();
+}
+
+function completeInTab(tabId, input, cwd) {
+  const session = shells.info(tabId);
+  return complete(String(input), resolveCwd(session?.cwd ?? cwd), session?.path ?? process.env.PATH ?? "");
+}
+
+function callPluginHost(id, method, args) {
+  const file = plugins.get(id)?.hostFile;
+  if (!file) throw new Error(`Plugin "${id}" has no host file`);
+  return pluginHosts.call(id, file, method, args);
+}
+
 // ---------- requests from the page ----------
 function handle(channel, handler) {
-  ipcMain.handle(channel, (event) => {
+  ipcMain.handle(channel, (event, ...args) => {
     if (!isAppUrl(event.senderFrame?.url ?? "")) throw new Error("Not allowed");
-    return handler();
+    return handler(...args);
   });
 }
 
@@ -133,9 +165,23 @@ if (!app.requestSingleInstanceLock()) {
     protocol.handle("termeedor", serve);
     handle("plugins:list", listPlugins);
     handle("plugins:open-folder", () => shell.openPath(userPluginsDir()));
+    handle("plugins:host-call", callPluginHost);
+    handle("plugins:host-stop", pluginHosts.stop);
+    handle("shell:run", (tabId, command, options) => shells.run(tabId, String(command), options));
+    handle("shell:write", (tabId, data) => shells.write(tabId, String(data)));
+    handle("shell:resize", (tabId, cols, rows) => shells.resize(tabId, cols, rows));
+    handle("shell:kill", (tabId) => shells.kill(tabId));
+    handle("shell:complete", completeInTab);
     createWindow();
     app.on("activate", () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   });
 
-  app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
+  app.on("window-all-closed", () => {
+    stopBackgroundWork();
+    if (process.platform !== "darwin") app.quit();
+  });
+  app.on("before-quit", () => {
+    stopBackgroundWork();
+    removeIntegrationFiles();
+  });
 }

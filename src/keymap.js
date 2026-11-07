@@ -12,7 +12,6 @@ const DESKTOP_KEYS = [
   { action: "closeTab", code: "KeyW", key: "W", does: "close tab" },
   { action: "newGroup", code: "KeyG", key: "G", does: "new group" },
   { action: "toggleSidebar", code: "KeyB", key: "B", does: "sidebar" },
-  { action: "toggleAllGroups", code: "KeyF", key: "F", does: "fold/unfold all groups" },
   { action: "openSettings", code: "Comma", key: ",", does: "settings" },
   // Cmd+arrows stay with the editor (line start/end)
   { action: "previousTab", code: "BracketLeft", key: "[", shift: true, does: "previous tab" },

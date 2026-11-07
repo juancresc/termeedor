@@ -2,7 +2,9 @@
 //
 //   store.js        state + actions (the only place state changes)
 //   storage.js      localStorage + validation
-//   shell.js        mock command runner (swap for a real backend later)
+//   shell.js        decides what runs a command; holds the browser build's mock
+//   terminal/       realShell.js  the tab's real shell   textModel.js  output → plain text
+//                   fullscreen.js vim, top and friends   keys.js       key press → bytes
 //   editor.js       terminal text area
 //   tabbar.js       top tabs        sidebar.js   groups, past sessions
 //   rename.js       inline rename   contextMenus.js / menu.js   right-click menus
@@ -16,6 +18,7 @@
 //
 // The desktop app (electron/) loads this same page; window.termeedorHost is how it differs.
 
+import { initRealShell } from "./terminal/realShell.js";
 import { initPlugins } from "./plugins/index.js";
 import { initPluginUi } from "./plugins/ui.js";
 import { subscribe, saveNow } from "./store.js";
@@ -47,6 +50,7 @@ initSidebar();
 initSettings();
 initShortcuts();
 initPluginUi();
+initRealShell();
 
 subscribe(render);
 window.addEventListener("beforeunload", saveNow);

@@ -39,27 +39,33 @@ function createShellParser(token) {
   let awaitingRejected = false; // a command was sent and hasn't started yet
   let rejected = "";
 
+  function answerQueries(text, events) {
+    for (const [pattern, reply] of QUERIES) {
+      for (const _ of text.matchAll(pattern)) events.push({ type: "reply", data: reply });
+    }
+  }
+
   /** Handles text with no markers in it. */
   function plain(text, events) {
     if (!text) return;
-    if (!inAlt) {
-      for (const [pattern, reply] of QUERIES) {
-        if (text.match(pattern)?.forEach(() => events.push({ type: "reply", data: reply }))) continue;
-      }
-    }
     if (!inOutput) {
+      answerQueries(text, events);
       if (awaitingRejected) rejected += text;
       return;
     }
     let rest = text;
+    const emit = (data) => {
+      if (!data) return;
+      if (!inAlt) answerQueries(data, events); // in the alternate screen, xterm.js answers
+      events.push({ type: "output", data });
+    };
     for (let match = rest.match(ALT_SCREEN); match; match = rest.match(ALT_SCREEN)) {
-      const before = rest.slice(0, match.index);
-      if (before) events.push({ type: "output", data: before });
+      emit(rest.slice(0, match.index));
       inAlt = match[1] === "h";
       events.push({ type: "alt", on: inAlt });
       rest = rest.slice(match.index + match[0].length);
     }
-    if (rest) events.push({ type: "output", data: rest });
+    emit(rest);
   }
 
   function onMarker(kind, payload, events) {

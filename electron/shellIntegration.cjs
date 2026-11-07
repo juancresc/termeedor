@@ -19,6 +19,7 @@ _tm_precmd() {
 _tm_preexec() { printf '\\e]133;C;%s\\a' "$_tm_token"; }
 precmd_functions=(_tm_precmd $precmd_functions)
 preexec_functions+=(_tm_preexec)
+unsetopt PROMPT_SP PROMPT_CR # these draw before the finish marker, so they would land in the output
 `;
 
 // Each startup file runs the user's file of the same name, keeping ZDOTDIR pointed here

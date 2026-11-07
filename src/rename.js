@@ -4,7 +4,7 @@
 
 import { el } from "./util.js";
 import { LIMITS } from "./constants.js";
-import { state, commit, getGroup, renameItem } from "./store.js";
+import { state, commit, renameItem } from "./store.js";
 import { focusEditor } from "./editor.js";
 
 /** @type {{ kind: "tab"|"group"|"past", id: string, where: "tabbar"|"sidebar" } | null} */
@@ -15,8 +15,6 @@ export const isEditing = (kind, id, where) => editing?.kind === kind && editing.
 
 export function startRename(kind, item, where = "sidebar") {
   if (where === "sidebar") state.ws.sidebarOpen = true;
-  if (kind === "group" && where === "sidebar") item.collapsed = false;
-  if (kind === "tab" && where === "sidebar") getGroup(item.groupId).collapsed = false;
   if (kind === "tab" && where === "tabbar") state.ws.activeTab = item.id; // must be in the visible bar
   editing = { kind, id: item.id, where };
   commit();

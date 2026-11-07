@@ -2,12 +2,13 @@
 
 import { TAB_COLORS } from "./constants.js";
 import { openMenu } from "./menu.js";
+import { askConfirm, showNotice } from "./dialogs.js";
 import { startRename } from "./rename.js";
 import { menuItemsFor } from "./plugins/registry.js";
 import {
   state, activeTab, activateTab, getGroup, isRunning, stopRun,
   addTab, closeTab, duplicateTab, moveTab, moveTabToNewGroup, setTabColor, setTabCollapsed, setTabMinimized, restoreMinimized, tabsIn,
-  closeGroup, toggleGroupCollapsed, setGroupMinimized, minimizedGroups, setGroupColor, setGroupTabs,
+  closeGroup, setGroupMinimized, minimizedGroups, setGroupColor, setGroupTabs,
   reopenPast, deletePast,
 } from "./store.js";
 
@@ -43,7 +44,6 @@ export function groupMenu(group, event, where = "sidebar") {
   openMenu(event, [
     { label: "New tab in group", onSelect: () => addTab(group.id) },
     { label: "Rename", onSelect: () => startRename("group", group, where) },
-    { label: group.collapsed ? "Unfold in sidebar" : "Fold in sidebar", onSelect: () => toggleGroupCollapsed(group) },
     { label: group.minimized ? "Restore" : "Minimize", onSelect: () => setGroupMinimized(group, !group.minimized) },
     ...(tabsIn(group.id).some((t) => t.minimized) ? [{ label: "Restore minimized tabs", onSelect: () => restoreMinimized(group) }] : []),
     { swatches: { label: "Group color", colors: TAB_COLORS, current: group.color, allowNone: true, onPick: (c) => setGroupColor(group, c) } },
@@ -58,13 +58,12 @@ export function minimizedGroupsMenu(event) {
   openMenu(event, minimizedGroups().map((g) => ({ label: `Restore › ${g.name}`, onSelect: () => setGroupMinimized(g, false) })));
 }
 
-export function confirmRemoveGroup(group) {
-  if (state.ws.groups.length === 1) return alert("You need at least one group.");
+export async function confirmRemoveGroup(group) {
+  if (state.ws.groups.length === 1) return showNotice("This is your only group", "You need at least one group.");
   const count = tabsIn(group.id).length;
-  const message = count
-    ? `Remove group "${group.name}"? Its ${count} tab(s) will move to Sessions.`
-    : `Remove empty group "${group.name}"?`;
-  if (confirm(message)) closeGroup(group);
+  const message = count === 0 ? "It has no tabs."
+    : `Its ${count === 1 ? "tab" : `${count} tabs`} will move to Sessions, where you can reopen ${count === 1 ? "it" : "them"}.`;
+  if (await askConfirm({ title: `Close "${group.name}"?`, message, acceptLabel: "Close group", danger: true })) closeGroup(group);
 }
 
 export function pastMenu(entry, event) {

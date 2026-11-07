@@ -1,13 +1,20 @@
-// Mock shell. A browser page can't run real commands; this module is the piece
-// to replace with a real backend (e.g. a PTY over WebSocket) when this becomes an app.
+// Decides what runs a command. On the desktop: the app's own commands, then plugins, then the
+// tab's real shell (terminal/realShell.js). In a browser, which can't run real commands: a mock.
 //
-// runCommand(input, session, { emit, signal }) → Promise<{ output?: string, clear?: true }>
+// runCommand(input, session, { emit, setOutput, signal }) → Promise<{ output?: string, clear?: true, shown?: true }>
 //   session: the tab (name, color, cwd, history may be changed by commands)
 //   emit(text): stream a line of output while the command runs
+//   setOutput(text): replace everything the command has shown so far
 //   signal: AbortSignal, aborted on Ctrl+C or when the tab closes
+//   shown: the output is already on screen
 
 import { TAB_COLORS } from "./constants.js";
 import { getCommand, listCommands, reserve } from "./plugins/registry.js";
+import { hasRealShell, runInShell, shellCompletions } from "./terminal/realShell.js";
+
+// The app's commands that make sense next to a real shell. `history` is this tab's, since
+// each tab's commands are what the Up and Down keys browse.
+const APP_COMMANDS = ["help", "clear", "history", "rename", "color"];
 
 const MOCK_FS = {
   "~": ["projects/", "notes.md", ".zshrc"],
@@ -28,9 +35,23 @@ const HELP = [
   "Ctrl+C stops a running command.",
 ].join("\n");
 
+const DESKTOP_HELP = [
+  "This tab runs your own shell, with your startup files.",
+  "",
+  "Termeedor's own commands:",
+  "  clear             clear this tab",
+  "  history           commands run in this tab",
+  "  rename <name>     rename this tab",
+  "  color <1-8|none>  set this tab's color",
+  "",
+  "Tab completes a command or path. Up/Down browse history.",
+  "Ctrl+C stops a running command.",
+].join("\n");
+
 function helpText() {
+  const base = hasRealShell() ? DESKTOP_HELP : HELP;
   const fromPlugins = listCommands().map(({ name, description }) => `  ${name}${description ? `  ${description}` : ""}`);
-  return fromPlugins.length ? `${HELP}\n\nFrom plugins:\n${fromPlugins.join("\n")}` : HELP;
+  return fromPlugins.length ? `${base}\n\nFrom plugins:\n${fromPlugins.join("\n")}` : base;
 }
 
 /** Resolves after ms, rejects with AbortError if the signal fires first. */
@@ -115,6 +136,26 @@ function pathCompletions(line, path, session, dirsOnly) {
  * Each one is { value, label, kind }, where value is the whole new input and always starts with `input`.
  */
 export function getCompletions(input, session) {
+  return hasRealShell() ? realCompletions(input, session) : mockCompletions(input, session);
+}
+
+async function realCompletions(input, session) {
+  const typed = input.trimStart();
+  const leading = input.slice(0, input.length - typed.length);
+  const fromShell = await shellCompletions(session, input);
+  if (!typed) return fromShell;
+  const own = /\s/.test(typed) ? [] : [...APP_COMMANDS, ...listCommands().map((command) => command.name)]
+    .filter((name) => name.startsWith(typed))
+    .map((name) => ({ value: `${leading}${name} `, label: name, kind: "command" }));
+  const past = [...new Set(session.history)]
+    .reverse()
+    .filter((h) => h.startsWith(typed) && h !== typed)
+    .map((h) => ({ value: leading + h, label: h, kind: "history" }));
+  const seen = new Set();
+  return [...own, ...fromShell, ...past].filter((item) => !seen.has(item.value.trim()) && seen.add(item.value.trim()));
+}
+
+function mockCompletions(input, session) {
   const typed = input.trimStart();
   const leading = input.slice(0, input.length - typed.length);
 
@@ -134,15 +175,20 @@ export function getCompletions(input, session) {
   return [...commands, ...past];
 }
 
-reserve("commands", Object.keys(COMMANDS));
+const isAppCommand = (name) => Object.hasOwn(COMMANDS, name) && (!hasRealShell() || APP_COMMANDS.includes(name));
 
-export async function runCommand(input, session, { emit, signal }) {
+reserve("commands", hasRealShell() ? APP_COMMANDS : Object.keys(COMMANDS));
+
+export async function runCommand(input, session, { emit, setOutput, signal }) {
   const [name, ...rest] = input.trim().split(/\s+/);
   if (!name) return { output: "" };
   const context = { arg: rest.join(" "), args: rest, session, emit, signal };
-  if (Object.hasOwn(COMMANDS, name)) return COMMANDS[name](context);
+  if (isAppCommand(name)) return COMMANDS[name](context);
   const plugin = getCommand(name);
-  if (!plugin) return { output: `zsh: command not found: ${name}` };
-  const result = await plugin.handler(context);
-  return typeof result === "string" ? { output: result } : result ?? { output: "" };
+  if (plugin) {
+    const result = await plugin.handler(context);
+    return typeof result === "string" ? { output: result } : result ?? { output: "" };
+  }
+  if (hasRealShell()) return runInShell(session, input.trim(), { signal, setOutput });
+  return { output: `zsh: command not found: ${name}` };
 }

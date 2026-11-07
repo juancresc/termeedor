@@ -5,7 +5,5 @@ services:
     ports:
       - "8876:80"
     volumes:
-      - ./index.html:/usr/share/nginx/html/index.html:ro
-      - ./src:/usr/share/nginx/html/src:ro
-      - ./styles:/usr/share/nginx/html/styles:ro
-      - ./themes:/usr/share/nginx/html/themes:ro
+      - .:/app:ro
+      - ./docker:/etc/nginx/conf.d:ro

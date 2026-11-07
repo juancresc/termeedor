@@ -3,12 +3,13 @@
 // copied. Typing anywhere goes to the input, Enter runs it, Up/Down recall past commands.
 // Enter on an earlier prompt line runs that line again.
 
-import { PROMPT, colorVar } from "./constants.js";
+import { LIMITS, PROMPT, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
 import { state, activeTab, getTab, getGroup, commit, saveSoon, isRunning, startRun, finishRun, stopRun } from "./store.js";
 import { runCommand, getCompletions } from "./shell.js";
 import { emit as emitPluginEvent } from "./plugins/registry.js";
 import { isMenuOpen, selectedItem, showMenu, closeMenu, moveSelection, placeMenu } from "./completionMenu.js";
+import { forwardKey, forwardPaste } from "./terminal/realShell.js";
 
 const editor = $("editor");
 const gutter = $("gutter");
@@ -17,6 +18,8 @@ const CARET_KEYS = ["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDow
 const textMeasure = document.createElement("canvas").getContext("2d");
 let commandLines = []; // indexes of the lines that start a command
 let recall = null; // browsing past commands: { tabId, index, draft }
+let completionRequest = 0; // only the newest request may show its results
+const runningBlocks = new Map(); // tabId -> where the running command's output starts in tab.content
 
 export function initEditor() {
   $("lineProbe").textContent = "x\n".repeat(PROBE_LINES - 1) + "x";
@@ -80,6 +83,11 @@ function onInput() {
 }
 
 function onKeyDown(event) {
+  // While a real program runs, the keyboard belongs to it.
+  if (forwardKey(state.ws.activeTab, event)) {
+    event.preventDefault();
+    return;
+  }
   if (isMenuOpen() && handleMenuKey(event)) return;
 
   if (event.key === "Tab") {
@@ -103,6 +111,10 @@ function onKeyDown(event) {
 /** Every edit passes through here, so nothing but the input can ever change. */
 function onBeforeInput(event) {
   const type = event.inputType;
+  if (type === "insertFromPaste" && forwardPaste(state.ws.activeTab, event.data ?? "")) {
+    event.preventDefault();
+    return;
+  }
   const start = inputStart();
   const { selectionStart: from, selectionEnd: to } = editor;
 
@@ -235,7 +247,21 @@ function completeAtCursor() {
   if (start !== null && editor.selectionStart === editor.selectionEnd && editor.selectionStart < start) moveCursorToEnd();
   const context = completionContext();
   if (!context) return false;
-  const items = getCompletions(context.input, context.tab);
+  completeFrom(context);
+  return true;
+}
+
+/** Completions can come from the disk. Returns null if the input changed while waiting for them. */
+async function fetchCompletions(context) {
+  const request = ++completionRequest;
+  const items = await getCompletions(context.input, context.tab);
+  const now = completionContext();
+  return request === completionRequest && now?.input === context.input && now.tab === context.tab ? items : null;
+}
+
+async function completeFrom(context) {
+  const items = await fetchCompletions(context);
+  if (!items) return;
   if (items.length === 1) {
     applyCompletion(items[0].value);
   } else if (items.length > 1) {
@@ -243,7 +269,6 @@ function completeAtCursor() {
     if (shared !== context.input) applyCompletion(shared);
     openMenu(items);
   }
-  return true;
 }
 
 const sharedPrefix = (values) => values.reduce((prefix, value) => {
@@ -268,9 +293,11 @@ function openMenu(items) {
 }
 
 /** Narrows the open menu to what is typed now, and closes it when nothing is left to offer. */
-function refreshMenu() {
+async function refreshMenu() {
   const context = completionContext();
-  const items = context ? getCompletions(context.input, context.tab) : [];
+  if (!context) return closeMenu();
+  const items = await fetchCompletions(context);
+  if (!items) return;
   const finished = items.length === 1 && items[0].value.trim() === context.input.trim();
   if (!items.length || finished) closeMenu();
   else openMenu(items);
@@ -348,19 +375,26 @@ function runLineAtCursor() {
 async function execute(tab, command) {
   const signal = startRun(tab);
   emitPluginEvent("command:start", { tab, command });
+  runningBlocks.set(tab.id, tab.content.length);
   let result;
   try {
-    result = await runCommand(command, tab, { emit: (text) => appendToTab(tab, `\n${text}`), signal });
+    result = await runCommand(command, tab, {
+      emit: (text) => appendToTab(tab, `\n${text}`),
+      setOutput: (text) => setRunningOutput(tab, text),
+      signal,
+    });
   } catch (err) {
     result = { output: signal.aborted ? "^C" : `error: ${err.message}` };
   } finally {
     finishRun(tab);
+    runningBlocks.delete(tab.id);
   }
   emitPluginEvent("command:finish", { tab, command, output: result.output ?? "", aborted: signal.aborted });
   if (!getTab(tab.id)) return; // tab was closed meanwhile
 
   if (result.clear) setTabContent(tab, PROMPT);
-  else appendToTab(tab, `${result.output ? `\n${result.output}` : ""}\n${PROMPT}`);
+  else appendToTab(tab, `${result.output && !result.shown ? `\n${result.output}` : ""}\n${PROMPT}`);
+  trimOldContent(tab);
   if (editor.dataset.tab === tab.id) moveCursorToEnd();
   commit(); // refresh tab name/color/spinner and save
 }
@@ -379,20 +413,47 @@ function setTabContent(tab, content) {
 /** Append output without moving the user's cursor, unless it was already at the end. */
 function appendToTab(tab, text) {
   tab.content += text;
+  showContent(tab);
+}
+
+/** Replaces what the running command has shown so far: output can overwrite itself. */
+function setRunningOutput(tab, text) {
+  tab.content = tab.content.slice(0, runningBlocks.get(tab.id)) + (text ? `\n${text}` : "");
+  showContent(tab);
+}
+
+function showContent(tab) {
   if (editor.dataset.tab === tab.id) {
     const atEnd = editor.selectionStart === editor.value.length;
-    const { selectionStart, selectionEnd } = editor;
+    const { selectionStart, selectionEnd, scrollTop } = editor;
     editor.value = tab.content;
     if (atEnd) moveCursorToEnd();
-    else editor.setSelectionRange(selectionStart, selectionEnd);
+    else {
+      editor.setSelectionRange(selectionStart, selectionEnd);
+      editor.scrollTop = scrollTop;
+    }
     renderGutter();
   }
   saveSoon();
 }
 
+/** The oldest output goes first once a tab holds more than can be saved. */
+function trimOldContent(tab) {
+  if (tab.content.length <= LIMITS.content) return;
+  const cut = tab.content.indexOf("\n", tab.content.length - LIMITS.content);
+  tab.content = tab.content.slice(cut + 1);
+  showContent(tab);
+}
+
 /** A line of output from outside a command. Leaves a fresh prompt unless a command is still running. */
 export function printToTab(tab, text) {
-  appendToTab(tab, isRunning(tab.id) ? `\n${text}` : `\n${text}\n${PROMPT}`);
+  const block = runningBlocks.get(tab.id);
+  if (block === undefined) return appendToTab(tab, `\n${text}\n${PROMPT}`);
+  // Goes above the running command's output, which is redrawn from its start position.
+  const line = `\n${text}`;
+  tab.content = tab.content.slice(0, block) + line + tab.content.slice(block);
+  runningBlocks.set(tab.id, block + line.length);
+  showContent(tab);
 }
 
 function moveCursorToEnd() {

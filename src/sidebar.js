@@ -5,7 +5,7 @@ import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, spinner, timeAgo } from "./util.js";
 import {
   state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
-  activateTab, addTab, addGroup, moveTab, toggleGroupCollapsed, setGroupMinimized,
+  activateTab, addTab, addGroup, moveTab, selectGroup, setGroupMinimized,
   reopenPast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
 import { nameLabel, startRename, isEditing, isRenaming } from "./rename.js";
@@ -45,7 +45,7 @@ function renderGroups() {
 
 function groupNode(group) {
   const tabs = tabsIn(group.id);
-  const box = el("div", `group${group.collapsed ? " collapsed" : ""}${group.minimized ? " minimized" : ""}`);
+  const box = el("div", `group${group.minimized ? " minimized" : ""}`);
 
   const add = el("button", "icon-btn", "＋");
   add.title = "New tab in group";
@@ -54,22 +54,18 @@ function groupNode(group) {
   more.title = "More actions";
   more.onclick = (e) => groupMenu(group, e);
 
-  const minimize = groupMinimizeButton(group);
-  minimize.classList.add("gmin");
-
   const head = el("div", "ghead");
   head.append(
-    el("span", "caret", "▼"),
     colorDot(group.color, "dot"),
     nameLabel("group", group, "sidebar", "span", "gname"),
-    // when collapsed, still show that something in the group is running
-    ...(group.collapsed && groupHasRunning(group.id) ? [spinner()] : []),
+    // its tabs are hidden while minimized, so show here that something is running
+    ...(group.minimized && groupHasRunning(group.id) ? [spinner()] : []),
     el("span", "count", String(tabs.length)),
     add,
-    minimize,
+    groupMinimizeButton(group),
     more,
   );
-  head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : toggleGroupCollapsed(group));
+  head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : selectGroup(group));
   head.ondblclick = (e) => { e.stopPropagation(); startRename("group", group); };
   head.oncontextmenu = (e) => groupMenu(group, e);
 
@@ -84,7 +80,7 @@ function groupNode(group) {
 
   const list = el("div", "glist");
   list.append(...tabs.map(tabRow));
-  if (!tabs.length) list.append(el("div", "empty", "Empty — ＋ to add a terminal"));
+  if (!tabs.length) list.append(el("div", "empty", "No tabs here. Press ＋ to add a terminal."));
 
   box.append(head, list);
   return box;

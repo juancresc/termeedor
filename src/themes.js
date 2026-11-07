@@ -65,7 +65,7 @@ const REFERENCE = `/*
  *   Tabs       .tabStrip .tabs .tab .tab.active .tab.collapsed .tab .name .tabsEmpty
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .sbhead .hideBtn .rail .resizer .sec .empty
- *              .group .group.collapsed .group.minimized .ghead .ghead .gname .ghead .count .glist
+ *              .group .group.minimized .ghead .ghead .gname .ghead .count .glist
  *              .item .item.active .item.minimized .tdot .icon-btn
  *   History    .pastSearch .session .session .sname
  *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLines div
@@ -76,6 +76,7 @@ const REFERENCE = `/*
  *              .themes .themeCard .themeCard.on .themeLink
  *              .pluginRow .pluginInfo .pluginMeta .pluginError
  *   Editing    .inlineInput .spinner
+ *   Confirm    .askDialog .askDialog h3 .askDialog p .askActions .btn.primary .btn.danger
  *   CSS dialog #themeEditor .themeBar .themeKind .themeMsg .themeCss
  */`;
 

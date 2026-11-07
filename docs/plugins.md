@@ -41,6 +41,7 @@ The folder name is the plugin's id. It can use letters, numbers, dots, dashes an
   "version": "1.0.0",
   "description": "Shown in Settings.",
   "main": "plugin.js",
+  "host": "host.cjs",
   "apiVersion": 1
 }
 ```
@@ -107,16 +108,35 @@ Loads a stylesheet, with `path` relative to the entry file. Themes list the app'
 
 `get(key, fallback)` and `set(key, value)`. Values are JSON, kept separately per plugin.
 
+### `api.host.call(method, ...args)`
+
+Runs code outside the page, with full Node.js access. Name a file in `plugin.json`:
+
+```json
+{ "host": "host.cjs" }
+```
+
+```js
+// host.cjs: runs in its own process, so a crash here can't take the app down
+exports.branch = async (cwd) => { /* use child_process, fs, the network... */ };
+
+// plugin.js
+const branch = await api.host.call("branch", tab.cwd);
+```
+
+The process starts on the first call and stops when the plugin is turned off. Calls reject if the function throws, if it takes over 30 seconds or if the process dies. Arguments and results must be plain data. Tab folders are in the `~/x` form. See [`plugins/git-branch`](../plugins/git-branch) for a full example.
+
+If the app was opened from the Finder, the host process has the system's default `PATH`, without what your shell's startup files add.
+
 ### `api.plugin` and `api.apiVersion`
 
 The plugin's `{ id, name, version }`, and the API version it is running against.
 
 ## What plugins can and can't do
 
-Plugins run inside the app's page, as trusted code:
+Plugins are fully trusted code, like a zsh plugin. A plugin can read and change everything in the app, including the contents of every tab, and can run anything on your computer as you. That's true even without a host file, because the page can reach the tabs' shells. Only turn on plugins you trust.
 
-- They **can** read and change everything in the app, including the contents of every tab. Only turn on plugins you trust.
-- They **can't** use Node.js, read your files (only the app's and plugin folders), start processes or make network requests. The page's security policy and Electron's sandbox block these. They can open a web link in your default browser, and that link can carry data out.
+Code in `plugin.js` has no Node.js and can't make network requests directly, because of the page's security policy. Use a host file for those.
 
 Only `api` is supported. Importing the app's own modules (such as `/src/store.js`) works, but those can change in any release. A breaking change to `api` will raise `apiVersion`, and plugins asking for a different version show an error instead of loading.
 

@@ -19,7 +19,7 @@ export function renderPluginSettings() {
   $("openPluginsDir").hidden = !supported;
   $("reloadPlugins").hidden = !supported;
   $("pluginsHint").textContent = supported
-    ? `Add a plugin by putting its folder in ${pluginsDir() ?? "your plugins folder"}, then reload. Plugins can read and change everything in the app, so only turn on ones you trust.`
+    ? `Add a plugin by putting its folder in ${pluginsDir() ?? "your plugins folder"}, then reload. Plugins can read everything in the app and run commands on your computer, so only turn on ones you trust.`
     : "Plugins are available in the desktop app.";
 
   const plugins = pluginList();

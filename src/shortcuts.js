@@ -1,6 +1,6 @@
 // Runs app actions from the keyboard. The keys themselves live in keymap.js.
 
-import { state, activeTab, barTabs, activateTab, addTab, addGroup, closeTab, setSidebarOpen, reopenLastClosed, setAllGroupsCollapsed, allGroupsCollapsed } from "./store.js";
+import { state, activeTab, barTabs, activateTab, addTab, addGroup, closeTab, setSidebarOpen, reopenLastClosed } from "./store.js";
 import { startRename } from "./rename.js";
 import { openSettings } from "./settings.js";
 import { getShortcut, reserve } from "./plugins/registry.js";
@@ -27,7 +27,6 @@ const ACTIONS = {
   closeTab: () => activeTab() && closeTab(activeTab()),
   newGroup: () => startRename("group", addGroup(), "tabbar"),
   toggleSidebar: () => setSidebarOpen(!state.ws.sidebarOpen),
-  toggleAllGroups: () => setAllGroupsCollapsed(!allGroupsCollapsed()),
   openSettings: () => openSettings(),
   previousTab: () => switchTab(-1),
   nextTab: () => switchTab(1),

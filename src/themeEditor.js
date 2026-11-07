@@ -5,6 +5,7 @@ import { $ } from "./util.js";
 import { state, addCustomTheme, updateCustomTheme } from "./store.js";
 import { parseThemeFile } from "./themeImport.js";
 import { findTheme, isBuiltin, themeSource, newThemeName, newThemeSource } from "./themes.js";
+import { askConfirm } from "./dialogs.js";
 
 const dialog = $("themeEditor");
 const box = $("themeCss");
@@ -46,8 +47,8 @@ export async function openThemeEditor(id) {
   }
 }
 
-function requestClose() {
-  if (!isDirty() || confirm("Discard your changes to this theme?")) dialog.close();
+async function requestClose() {
+  if (!isDirty() || await askConfirm({ title: "Discard your changes to this theme?", acceptLabel: "Discard", danger: true, cancelLabel: "Keep editing" })) dialog.close();
 }
 
 function say(text, isError = false) {

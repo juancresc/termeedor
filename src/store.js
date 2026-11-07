@@ -20,7 +20,7 @@ function defaultTabColorFor(group) {
 }
 
 function createGroup(name, color = null) {
-  return { id: uid(), name, color, collapsed: false, minimized: false };
+  return { id: uid(), name, color, minimized: false };
 }
 
 function defaultWorkspace() {
@@ -78,7 +78,6 @@ export const barGroups = () => state.ws.groups.filter((g) => !g.minimized);
 /** The tabs in the second row: the selected group's, in order. */
 export const barTabs = () => visibleTabsIn(state.ws.activeGroup);
 export const minimizedGroups = () => state.ws.groups.filter((g) => g.minimized);
-export const allGroupsCollapsed = () => barGroups().length > 0 && barGroups().every((g) => g.collapsed);
 
 // ---------- what is selected ----------
 const lastTabIn = new Map(); // groupId -> tabId, so returning to a group returns to its tab
@@ -256,7 +255,6 @@ export function closeGroup(group) {
 }
 
 function showGroup(group) {
-  group.collapsed = false;
   group.minimized = false;
 }
 
@@ -268,12 +266,6 @@ function leaveGroup(group) {
   show(bar[index + 1] ?? bar[index - 1]);
 }
 
-/** Collapsing folds a group's tabs in the sidebar's list. */
-export function setGroupCollapsed(group, collapsed) {
-  group.collapsed = collapsed;
-  commit();
-}
-
 /** Minimizing takes the group out of the top row. Restoring brings it back and selects it. */
 export function setGroupMinimized(group, minimized) {
   if (minimized) {
@@ -283,13 +275,6 @@ export function setGroupMinimized(group, minimized) {
     showGroup(group);
     show(group);
   }
-  commit();
-}
-
-export const toggleGroupCollapsed = (group) => setGroupCollapsed(group, !group.collapsed);
-
-export function setAllGroupsCollapsed(collapsed) {
-  barGroups().forEach((g) => { g.collapsed = collapsed; });
   commit();
 }
 
