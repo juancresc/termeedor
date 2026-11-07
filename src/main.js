@@ -1,10 +1,14 @@
 // Entry point: wires the modules together and re-renders on every state change.
 //
-//   store.js        state + actions (the only place state changes)
-//   storage.js      localStorage + validation
-//   shell.js        decides what runs a command; holds the browser build's mock
-//   terminal/       realShell.js  the tab's real shell   textModel.js  output → plain text
-//                   fullscreen.js vim, top and friends   keys.js       key press → bytes
+//   store.js        state + actions (the only place state changes); loads saved data on import
+//   core/           workspace.js  state, actions    saved.js, saver.js  what gets saved, and when
+//   platform.js     desktop or browser, Mac or not, and the desktop host
+//   ports/          what the app needs from a data store and from a backend
+//   adapters/       files on the desktop, localStorage in the browser
+//                   the real shell on the desktop, a mock in the browser
+//   storage.js      localStorage helpers
+//   terminal/       runner.js     runs commands, shows results   textModel.js  output → plain text
+//                   fullscreen.js vim, top and friends           keys.js       key press → bytes
 //   editor.js       terminal text area
 //   tabbar.js       top tabs        sidebar.js   groups, past sessions
 //   rename.js       inline rename   contextMenus.js / menu.js   right-click menus
@@ -16,9 +20,10 @@
 //   plugins/        registry.js  what plugins added     host.js  plugin lifecycle
 //                   api.js       the plugin API         index.js wiring    ui.js  settings, status bar
 //
-// The desktop app (electron/) loads this same page; window.termeedorHost is how it differs.
+// The desktop app (electron/) loads this same page; platform.js is how it differs.
 
-import { initRealShell } from "./terminal/realShell.js";
+import { host, isDesktop } from "./platform.js";
+import { initRunner } from "./terminal/runner.js";
 import { initPlugins } from "./plugins/index.js";
 import { initPluginUi } from "./plugins/ui.js";
 import { subscribe, saveNow } from "./store.js";
@@ -38,8 +43,8 @@ function render() {
   renderSettings();
 }
 
-if (window.termeedorHost) {
-  document.documentElement.classList.add("desktop", `platform-${window.termeedorHost.platform}`);
+if (isDesktop) {
+  document.documentElement.classList.add("desktop", `platform-${host.platform}`);
 }
 
 initTooltips();
@@ -50,7 +55,7 @@ initSidebar();
 initSettings();
 initShortcuts();
 initPluginUi();
-initRealShell();
+initRunner();
 
 subscribe(render);
 window.addEventListener("beforeunload", saveNow);

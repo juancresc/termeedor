@@ -96,7 +96,7 @@ function renderPast() {
   const all = state.past;
   const query = pastQuery.trim().toLowerCase();
   const matches = query
-    ? all.filter((p) => `${p.name} ${p.groupName} ${renderTranscript(p.tab)}`.toLowerCase().includes(query))
+    ? all.filter((p) => `${p.name} ${renderTranscript(p.tab)}`.toLowerCase().includes(query))
     : all;
 
   $("pastSearch").style.display = all.length > 5 ? "" : "none";
@@ -114,7 +114,7 @@ function pastRow(entry) {
   const lines = renderTranscript(entry.tab).split("\n").length;
   info.append(
     nameLabel("past", entry, "sidebar", "b"),
-    el("small", null, `${entry.groupName} · ${lines} lines · ${timeAgo(entry.closedAt)}`),
+    el("small", null, `${lines} lines · ${timeAgo(entry.closedAt)}`),
   );
 
   const reopen = el("button", "icon-btn", "↺");
@@ -124,7 +124,7 @@ function pastRow(entry) {
   close.title = "Delete forever";
   close.onclick = (e) => { e.stopPropagation(); deletePast(entry); };
 
-  row.append(colorDot(entry.tab.color ?? entry.groupColor), info, reopen, close);
+  row.append(colorDot(entry.tab.color), info, reopen, close);
   row.onclick = () => reopenPast(entry);
   row.ondblclick = (e) => { e.stopPropagation(); startRename("past", entry); };
   row.oncontextmenu = (e) => pastMenu(entry, e);

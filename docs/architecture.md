@@ -11,19 +11,44 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `electron/shellParser.cjs`, `shellIntegration.cjs` | Shell hooks and OSC 133 markers: command start, finish, cwd |
 | `electron/completions.cjs` | Tab completion: PATH commands and paths |
 | `electron/plugins.cjs`, `pluginHosts.cjs` | Plugin discovery, and one process per plugin host file |
-| `src/store.js`, `storage.js` | State, actions, validated localStorage |
+| `electron/dataStore.cjs` | Saved data as files in `~/.termeedor` (`TERMEEDOR_DATA_DIR` overrides it) |
+| `src/core/` | No DOM or storage. `workspace` (state, actions), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when) |
+| `src/store.js` | The import path for state and actions. Loads saved data on import, and connects core to the adapter and to running commands |
+| `src/ports/persistence.js`, `src/adapters/` | The persistence interface. `fileStore` on the desktop (also migrates old localStorage), `localStorageStore` in the browser. `adapters/index.js` chooses |
+| `src/ports/backend.js`, `src/adapters/` | The backend interface: `run`, `write`, `resize`, `kill`, `complete`, and `output`, `alt`, `finish`, `exit` events. `electronBackend` is the IPC client, and `mockBackend` is the browser's fake shell, the only place fake commands exist. `adapters/index.js` chooses |
+| `src/platform.js` | Desktop or browser, Mac or not, and the desktop host. The only code that reads `termeedorHost` or `navigator.platform` |
+| `src/storage.js` | localStorage helpers, for the browser build, the migration and plugins' `api.storage` |
 | `src/editor.js` | Textarea: input rules, history, completion UI, runs, gutter |
-| `src/shell.js` | Sends every line to the shell, or to the browser mock |
-| `src/terminal/` | `transcript` (a tab's blocks and draft), `runState` (what is running), `realShell` (IPC client), `textModel` (output to plain text), `fullscreen` (xterm for vim, top), `keys` |
+| `src/terminal/` | `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the text area in characters), `textModel` (output to plain text), `fullscreen` (xterm for vim, top), `keys` |
 | `src/plugins/` | Host, scope, registry, public API |
 | `src/*.js` (the rest) | UI: tab bar, sidebar, menus, settings, themes |
 
 ## Command flow
 
-1. Enter: `editor` calls `shell.runCommand`, which goes to `realShell`, then IPC, then `shellSessions`, then the PTY.
-2. PTY output: `shellParser` emits `output`, `alt`, `finish` events to `realShell`.
+1. Enter: `editor` calls `runner.runCommand`, which calls the backend's `run`. On the desktop that is `electronBackend`, then IPC, then `shellSessions`, then the PTY.
+2. PTY output: `shellParser` emits `output`, `alt`, `finish` events, which `electronBackend` passes on to `runner`.
 3. `output` goes through `textModel` into the textarea, or to xterm while a full-screen program runs.
-4. While a command runs, keys and pastes go to the program.
+4. While a command runs, keys and pastes go to the program. The mock's commands read nothing, so in the browser the editor keeps them, and Ctrl+C reaches the mock through `write`.
+
+In the browser, `mockBackend` takes the place of everything after `run` and sends the same events.
+
+## Saved data
+
+```text
+~/.termeedor/        0700, files 0600: scrollback can contain secrets
+  settings.json      theme, font size
+  workspace.json     groups, tab order, layout (no scrollback)
+  tabs/<id>.json     a tab's blocks, draft, history, cwd
+  past/<id>.json     a closed tab
+  plugins/           not part of this
+```
+
+- **Loading:** `store.js` loads with a top-level await, so every module importing it waits. The UI modules still see a ready `state`.
+- **What gets written:** the editor and plugins change tabs in place, so `saver` compares each tab with what was last saved instead of relying on marks. A batch holds only the files that differ. Only one async batch runs at a time, and what arrives meanwhile joins the next.
+- **Order:** settings, past, tabs, workspace, then removals, stopping at the first failure. So a closed tab reaches `past/` before its file goes, and once `workspace.json` is written, everything before it was too.
+- **Final save:** async IPC may not finish during unload, so `beforeunload` calls `saveNow`, which sends what is left over a synchronous IPC. Saving a theme uses the same path, so a failed save can still be undone and reported. Batches are numbered, and the data store refuses an older one arriving after a newer one. A renderer crash loses at most the last debounce.
+- **Damage:** a file that can't be used moves to `<name>.corrupt-<time>`. A tab file no layout mentions comes back as a past session.
+- **Migration:** on the desktop, usable `STORAGE_KEYS` values move to files when there is no `workspace.json`. They are removed only after every file was written and read back. If it fails, the app runs from them, reports it, and tries again next start. Values that can't be read are left in place.
 
 ## Rules
 
@@ -38,20 +63,20 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 
 | Problem | Where |
 | --- | --- |
-| Shells are killed by diffing state after a commit | `realShell.js` `initRealShell` |
-| All scrollback is one localStorage value, saved on every commit | `store.js`, `storage.js` |
+| Shells are killed by diffing state after a commit | `terminal/runner.js` `initRunner` |
 | Every commit rebuilds the DOM | `tabbar.js`, `sidebar.js` |
-| `store` and `editor` have no tests; `store` touches localStorage on import | `test/` |
-| Browser vs desktop checks are scattered; `isMac` is defined twice | `shell.js`, `keymap.js`, `editor.js` |
+| Plugins' `api.storage` is still localStorage, and the browser build keeps all scrollback in one value | `plugins/api.js`, `adapters/localStorageStore.js` |
+| `core` still imports the transcript model from `terminal/` | `core/saved.js`, `core/workspace.js` |
+| A desktop shell that ends between commands sends no `exit` event, so the tab's next `run` is what notices | `electron/shellSessions.cjs` |
 | Plugins get live `tab` objects | `plugins/api.js` |
 | Colors are dropped; completion doesn't know flags or branches | `textModel.js`, `completions.cjs` |
 
 ## Target
 
 ```text
-src/core/       no DOM or storage: workspace, selection, actions, events
+src/core/       no DOM or storage: workspace, selection, actions, events, what gets saved
 src/ports/      backend, persistence
-src/adapters/   electron and mock backends; scrollback and settings stores
+src/adapters/   electron and mock backends; file and localStorage stores
 src/terminal/   one run state machine, transcript model, views
 src/ui/         reads state, dispatches actions
 src/plugins/    unchanged, but the API hands out ids and copies
@@ -66,8 +91,8 @@ Each step ships alone. New features can continue between steps.
 
 1. **Small fixes (done).** Every line goes to the shell, with no app or plugin commands. Erasing the scrollback (`ESC[3J`, sent by `clear`) clears the whole tab. Load trims keep the newest text. Failed saves show in the status bar.
 2. **Transcript model (done).** `tab.content` became `blocks` and `draft`, and saved tabs migrate on load. A migrated tab's history is one plain block, so its old commands can't be re-run. `runState` replaces the renderer's three run records; `shellSessions` keeps the PTY's own state. The textarea stays, rendered from blocks, so re-running a line uses its block and the `❯ ` matching is gone.
-3. **Store split.** Move to `core` with tests. Save layout and scrollback separately, with scrollback capped per tab.
-4. **Backend port.** One place chooses Electron or mock. `shell.js` becomes the mock adapter, the only place fake commands remain.
+3. **Store split (done).** State and actions moved to `core`, with tests, and `store.js` stays the import path. Data moved from localStorage to files in `~/.termeedor`: layout and scrollback are separate, one tab's output rewrites one file, and scrollback is capped per tab.
+4. **Backend port (done).** `adapters/index.js` chooses Electron or mock, and `platform.js` is the one answer to desktop or browser and Mac or not. `shell.js` became the mock adapter, the only place fake commands remain. `realShell.js` became `terminal/runner.js` and `size.js`, and its IPC moved to the Electron adapter. The mock now sends events through the same path as the real shell.
 5. **Editor-style view.** A separate input editor over command blocks. Keep color in the model and render it. Multi-line input.
 6. **Completion.** Hidden zsh helper behind `complete(input, cwd)`, with `completions.cjs` as the fallback. First prove it with a real `.zshrc`, and find out why `git log --ona` returned nothing in the prototype.
 7. **Cleanup.** Action registry for shortcuts, menus and plugins. Render only what changed. Plugin API v2.

@@ -51,6 +51,19 @@ Download a file from [Releases](https://github.com/juancresc/termeedor/releases/
 | Debian, Ubuntu | `termeedor-linux-arm64.deb` | `termeedor-linux-amd64.deb` |
 | Other Linux | `termeedor-linux-arm64.AppImage` | `termeedor-linux-x86_64.AppImage` |
 
+### From source
+
+You need the tools listed under [Development](#development). Clone this repo and build the installers for your system:
+
+```sh
+git clone https://github.com/juancresc/termeedor.git
+cd termeedor
+npm install
+npm run dist
+```
+
+Then open or install the matching file from `dist/`, using the names in the table above. To run the app without installing it, use `npm start` instead of `npm run dist`.
+
 ## Good to know
 
 **macOS: the app isn't notarized yet.** It has only an ad-hoc signature. The script and Homebrew installs skip the Gatekeeper warning; Homebrew does this by removing the quarantine flag. If you download the `.dmg` yourself and macOS blocks it, run:
@@ -66,10 +79,16 @@ Only do this if you trust the download.
 - It needs FUSE 2 (`libfuse2` or `fuse-libs`).
 - The ARM64 AppImage also looks for `libz.so`, which usually comes from your distro's zlib development package. Use the `.deb` if you can.
 
+## Your data
+
+Settings, open tabs, closed tabs and plugins live in `~/.termeedor`. Saved tabs include their scrollback, which can contain anything a command printed, so the folder is only readable by your user. Set `TERMEEDOR_DATA_DIR` to keep settings and tabs somewhere else.
+
 ## Uninstall
 
+The commands below leave `~/.termeedor` in place, except `--zap`. To delete it yourself, run `rm -rf ~/.termeedor`.
+
 ```sh
-# Homebrew (--zap also deletes your settings and plugins)
+# Homebrew (--zap also deletes your settings, saved tabs and plugins)
 brew uninstall --cask --zap termeedor
 
 # Debian, Ubuntu

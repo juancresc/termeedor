@@ -1,12 +1,12 @@
 // Connects the plugin host to the app: which plugins exist (asked of the Electron main
 // process), which are turned on (settings), and the workspace events plugins can listen to.
 
+import { host as desktop } from "../platform.js";
 import { state, subscribe, updateSettings } from "../store.js";
 import { createApi } from "./api.js";
 import { createPluginHost } from "./host.js";
 import { emit } from "./registry.js";
 
-const desktop = window.termeedorHost; // undefined in the browser build
 const changeListeners = new Set();
 let plugins = [];
 let userDir = null;

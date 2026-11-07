@@ -56,28 +56,35 @@ const REFERENCE = `/*
  *   Details    --light-close --light-min --light-max --menu-shadow --tooltip-shadow
  *              --backdrop --badge-bg --badge-text
  *   Also       color-scheme: dark or light (scrollbars and form controls)
+ *   Set by the app, to read but not override: --font-size --group-color --sbw
  *   --panel, --term and --accent also color this theme's card in Settings.
  *
  * Selectors
- *   Page       body .app
+ *   Page       body .app .app.nosidebar .app.nolines .app.resizing .desktop .platform-darwin
  *   Title bar  .titlebar .lights .tb-btn
- *   Groups     .groupTabs .groupTab .groupTab.active .groupTray .chipName .chipCount
- *   Tabs       .tabStrip .tabs .tab .tab.active .tab.collapsed .tab .name .tabsEmpty .tabGroupLabel .groupAdd
+ *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTray .chipName .chipCount
+ *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab.groupColored .tab .name
+ *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
+ *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .tabGroupLabel .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn
- *   Sidebar    .sidebar .rail .resizer .sec .secBtns .empty
- *              .group .group.minimized .ghead .ghead .gname .glist
- *              .item .item.active .item.minimized .tdot .icon-btn
+ *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .empty
+ *              .group .group.minimized .group.dragover .ghead .ghead .dot .ghead .gname .glist
+ *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
  *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLines div
- *   Status bar .status #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
- *   Menus      .menu .menu button .menu hr .menu .lbl .menu .sw .menu .danger
+ *   Full screen .fullTerm (vim, top and friends)
+ *   Completion .completions .completions div
+ *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
+ *   Menus      .menu .menu button .menu hr .menu .lbl .menu .swatches .menu .sw .menu .sw.none .menu .danger
  *   Tooltips   .tooltip .tooltip kbd
  *   Settings   dialog dialog::backdrop .setHead .setBody .setRow .hint .btn
- *              .themes .themeCard .themeCard.on .themeLink
- *              .pluginRow .pluginInfo .pluginMeta .pluginError
+ *              .colorPick .colorPick .sw .colorPick .sw.none .colorPick .sw.groupOpt
+ *              .themes .themeActions .themePick .themeCard .themeCard.on .themeCard .pv .themeCard .label
+ *              .themeCard .remove .themeLink
+ *              .pluginRow .pluginInfo .pluginMeta .pluginError .pluginsHint
  *   Editing    .inlineInput .spinner
  *   Confirm    .askDialog .askDialog h3 .askDialog p .askActions .btn.primary .btn.danger
- *   CSS dialog #themeEditor .themeBar .themeKind .themeMsg .themeCss
+ *   CSS dialog #themeEditor .themeBar .themeKind .themeMsg .themeMsg.error .themeCss
  */`;
 
 /** The name a new theme gets from its text: a new @name if one was typed, else "<original> copy". */

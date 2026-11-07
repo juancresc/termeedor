@@ -71,10 +71,10 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .tab.collapsed { gap: 2px; padding: 0 4px 0 10px; }
 .tab.collapsed .initial { font-weight: 600; min-width: 12px; text-align: center; }
 
-/* top bars: move left, move right, new tab, minimize, a gap, close, more */
-.itemBtns { display: flex; align-items: center; gap: 1px; flex: none; margin-left: 2px; }
-.x { width: 18px; height: 18px; padding: 0; border-radius: 4px; font-size: 14px; line-height: 18px; text-align: center; color: var(--dim); font-weight: 400; opacity: 0; }
-.x.closeBtn { margin-left: 8px; }
+/* quick buttons, top bars and sidebar alike: same box, same gap, whatever the glyph's width */
+.itemBtns { display: flex; align-items: center; gap: 2px; flex: none; margin-left: 2px; }
+.itemBtns > button { width: 18px; height: 18px; padding: 0; font-size: 14px; line-height: 18px; text-align: center; }
+.x { border-radius: 4px; color: var(--dim); font-weight: 400; opacity: 0; }
 .tab:is(:hover, .active) .x, .groupTab:is(:hover, .active) .x { opacity: .7; }
 .tab .x:hover:enabled, .groupTab .x:hover:enabled { background: var(--line); color: var(--text); opacity: 1; }
 .tab:is(:hover, .active) .x:disabled, .groupTab:is(:hover, .active) .x:disabled { opacity: .2; }
@@ -126,8 +126,9 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .item.minimized { opacity: .5; font-style: italic; }
 
 /* sidebar rows: the buttons only take up room on hover, so names keep the full width */
+.ghead { min-height: 28px; } /* tall enough for the buttons, so rows don't shift on hover */
+.item { min-height: 26px; }
 .item:not(:hover, :focus-within) .itemBtns, .ghead:not(:hover, :focus-within) .itemBtns { display: none; }
-.itemBtns .icon-btn.closeBtn { margin-left: 4px; }
 .icon-btn { opacity: 0; font-size: 13px; padding: 1px 4px; border-radius: 4px; color: var(--dim); }
 .item:hover .icon-btn, .ghead:hover .icon-btn, .session:hover .icon-btn { opacity: .8; }
 .icon-btn:hover { opacity: 1; background: var(--line); color: var(--text); }

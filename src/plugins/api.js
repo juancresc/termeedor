@@ -3,6 +3,7 @@
 // Everything added through it is tracked by the plugin's scope and undone when it is turned off.
 
 import { LIMITS } from "../constants.js";
+import { host as desktop } from "../platform.js";
 import { load, save } from "../storage.js";
 import {
   state, activeTab, addTab, activateTab, closeTab, renameItem, setTabColor,
@@ -22,7 +23,7 @@ function addStylesheet(plugin, path) {
 }
 
 export function createApi(plugin, scope) {
-  if (plugin.hostFile) scope.track(() => window.termeedorHost.stopPluginHost(plugin.id));
+  if (plugin.hostFile) scope.track(() => desktop.stopPluginHost(plugin.id));
   const { id } = plugin;
   return Object.freeze({
     apiVersion: 2,
@@ -64,7 +65,7 @@ export function createApi(plugin, scope) {
       /** Calls a function exported by the plugin's OS-side file ("host" in plugin.json). */
       call(method, ...args) {
         if (!plugin.hostFile) return Promise.reject(new Error('This plugin has no "host" file in plugin.json'));
-        return window.termeedorHost.callPluginHost(id, method, args);
+        return desktop.callPluginHost(id, method, args);
       },
     },
     storage: {

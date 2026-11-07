@@ -3,8 +3,7 @@
 // Browser: browsers reserve Cmd+T / Cmd+W, and Option types characters on a Mac, so only
 // Alt+arrows are bound. Desktop (Electron): the full set, on Cmd (Ctrl on Windows/Linux).
 
-const isMac = navigator.platform.startsWith("Mac");
-const isDesktop = navigator.userAgent.includes("Electron");
+import { isDesktop, isMac } from "./platform.js";
 
 const DESKTOP_KEYS = [
   { action: "newTab", code: "KeyT", key: "T", does: "new tab" },

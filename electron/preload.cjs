@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld("termeedorHost", {
   openPluginsFolder: () => ipcRenderer.invoke("plugins:open-folder"),
   callPluginHost: (id, method, args) => ipcRenderer.invoke("plugins:host-call", id, method, args),
   stopPluginHost: (id) => ipcRenderer.invoke("plugins:host-stop", id),
+  data: {
+    load: () => ipcRenderer.invoke("data:load"),
+    write: (changes) => ipcRenderer.invoke("data:write", changes),
+    writeSync: (changes) => ipcRenderer.sendSync("data:write-sync", changes),
+  },
   shell: {
     run: (tabId, command, options) => ipcRenderer.invoke("shell:run", tabId, command, options),
     write: (tabId, data) => ipcRenderer.invoke("shell:write", tabId, data),

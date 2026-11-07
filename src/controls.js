@@ -1,6 +1,6 @@
-// Quick buttons on tabs and groups. Both get the same four actions, in the same order, everywhere:
-//   new tab, minimize, close, more actions
-// The top bars put move left and move right before them.
+// Quick buttons on tabs and groups, in the same order everywhere:
+//   new tab (groups only), minimize, close
+// The top bars put move left and move right before them. The sidebar adds more actions after them.
 
 import { el } from "./util.js";
 import {
@@ -17,33 +17,30 @@ function button(className, text, title, run) {
   return node;
 }
 
-function actions(className, noun, { add, addTitle, minimized, toggleMinimized, close, closeTitle, more }) {
+function actions(className, noun, { add, addTitle, minimized, toggleMinimized, close, closeTitle }) {
   return [
-    button(className, "＋", addTitle, add),
+    ...(add ? [button(className, "＋", addTitle, add)] : []),
     button(className, minimized ? "▢" : "–", `${minimized ? "Restore" : "Minimize"} ${noun}`, toggleMinimized),
     button(`${className} closeBtn`, "×", closeTitle, close),
-    button(className, "⋯", "More actions", more),
   ];
 }
 
-const tabActions = (tab, className, where) => actions(className, "tab", {
-  add: () => addTab(tab.groupId, tab),
-  addTitle: "New tab next to this one",
+const moreButton = (openMenu) => button("icon-btn", "⋯", "More actions", openMenu);
+
+const tabActions = (tab, className) => actions(className, "tab", {
   minimized: tab.minimized,
   toggleMinimized: () => (tab.minimized ? activateTab(tab.id) : setTabMinimized(tab, true)),
   close: () => closeTab(tab),
   closeTitle: "Close tab (moves to Sessions)",
-  more: (e) => tabMenu(tab, e, where),
 });
 
-const groupActions = (group, className, where) => actions(className, "group", {
+const groupActions = (group, className) => actions(className, "group", {
   add: () => addTab(group.id),
   addTitle: "New tab in group",
   minimized: group.minimized,
   toggleMinimized: () => setGroupMinimized(group, !group.minimized),
   close: () => confirmRemoveGroup(group),
   closeTitle: "Close group (its tabs move to Sessions)",
-  more: (e) => groupMenu(group, e, where),
 });
 
 function buttonBox(...buttons) {
@@ -65,16 +62,16 @@ function moveButtons(noun, item, bar, move) {
 
 export const tabBarButtons = (tab) => buttonBox(
   ...moveButtons("tab", tab, visibleTabsIn(tab.groupId), moveTabBy),
-  ...tabActions(tab, "x", "tabbar"),
+  ...tabActions(tab, "x"),
 );
 
 export const groupBarButtons = (group) => buttonBox(
   ...moveButtons("group", group, barGroups(), moveGroupBy),
-  ...groupActions(group, "x", "tabbar"),
+  ...groupActions(group, "x"),
 );
 
-export const tabRowButtons = (tab) => buttonBox(...tabActions(tab, "icon-btn", "sidebar"));
-export const groupRowButtons = (group) => buttonBox(...groupActions(group, "icon-btn", "sidebar"));
+export const tabRowButtons = (tab) => buttonBox(...tabActions(tab, "icon-btn"), moreButton((e) => tabMenu(tab, e, "sidebar")));
+export const groupRowButtons = (group) => buttonBox(...groupActions(group, "icon-btn"), moreButton((e) => groupMenu(group, e, "sidebar")));
 
 /** On a tab collapsed to a small chip (see the tab's right-click menu). */
 export const expandTabButton = (tab) => button("x", "›", "Expand tab", () => setTabCollapsed(tab, false));

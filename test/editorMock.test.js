@@ -1,11 +1,13 @@
-// The browser build: no shell host, so commands go to the mock in shell.js.
+// The browser build: no shell host, so commands go to the mock backend.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { noop, textarea } from "./support/editorDom.js";
+import { nodeFor, noop, textarea } from "./support/editorDom.js";
 
 const { initEditor, renderEditor } = await import("../src/editor.js");
+const { forwardKey, forwardPaste, initRunner } = await import("../src/terminal/runner.js");
 const store = await import("../src/store.js");
+initRunner();
 initEditor();
 store.subscribe(renderEditor);
 renderEditor();
@@ -52,4 +54,39 @@ test("the mock's clear leaves only a prompt", async () => {
   await pause(0);
   assert.deepEqual(tab().blocks, []);
   assert.equal(textarea.value, "❯ ");
+});
+
+test("keys and pastes stay with the editor while a mock command runs", async () => {
+  enter("sleep 60");
+  const key = { key: "a", code: "KeyA", ctrlKey: false, metaKey: false, altKey: false, shiftKey: false };
+  assert.equal(forwardKey(tab().id, key), false);
+  assert.equal(forwardPaste(tab().id, "text"), false);
+  store.stopRun(tab().id);
+  await pause(0);
+});
+
+test("a mock command can change the tab, and the status bar's cwd follows", async () => {
+  enter("cd projects");
+  await pause(0);
+  assert.equal(tab().cwd, "~/projects");
+  assert.equal(nodeFor("stCwd").textContent, "~/projects");
+  enter("rename renamed");
+  await pause(0);
+  assert.equal(tab().name, "renamed");
+  assert.equal(tab().blocks.at(-1).output, "renamed tab to 'renamed'");
+  enter("cd");
+  await pause(0);
+});
+
+test("closing a tab mid-run ends a mock command, and nothing lands in the closed tab", async () => {
+  const closing = store.addTab();
+  renderEditor();
+  enter("sleep 60");
+  assert.equal(store.isRunning(closing.id), true);
+  store.closeTab(closing);
+  await pause(0);
+  assert.equal(store.isRunning(closing.id), false);
+  const block = store.state.past[0].tab.blocks.at(-1);
+  assert.equal(block.command, "sleep 60");
+  assert.equal(block.output, "");
 });

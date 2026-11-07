@@ -68,7 +68,7 @@ export async function confirmRemoveGroup(group) {
 /** Says where reopening a closed tab will put it. */
 export function reopenLabel() {
   const group = getGroup(state.ws.activeGroup);
-  return group ? `Reopen in › ${group.name}` : "Reopen";
+  return group ? `Reopen in › ${group.name}` : "Reopen in a new group";
 }
 
 export function pastMenu(entry, event) {

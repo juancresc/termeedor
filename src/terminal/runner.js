@@ -1,35 +1,19 @@
-// Runs commands in the tab's real shell (electron/shellSessions.cjs) and shows the results.
-// Only used on the desktop; the browser build keeps the mock in shell.js.
+// Runs a tab's commands on the backend (ports/backend.js) and shows the results. Its events
+// become text through textModel, or go to xterm while a full-screen program runs.
+// It doesn't know which backend it has: that is chosen in adapters/index.js.
 
 import { $ } from "../util.js";
-import { state, subscribe } from "../store.js";
+import { chooseBackend } from "../adapters/index.js";
+import { getTab, state, subscribe } from "../store.js";
 import { closeFullscreen, openFullscreen, refitFullscreen, showFullscreenFor, writeFullscreen } from "./fullscreen.js";
 import { keyToBytes } from "./keys.js";
 import { runs } from "./runState.js";
+import { textAreaSize } from "./size.js";
 import { createTextModel } from "./textModel.js";
 
-const host = globalThis.termeedorHost?.shell ?? null;
+const backend = chooseBackend(undefined, { getTab });
 const FLUSH_MS = 50;
 const started = new Set(); // tabs that have a shell
-
-export const hasRealShell = () => !!host;
-
-/** The tab's size in characters, so programs format their output to fit. */
-function textAreaSize() {
-  const editor = $("editor");
-  const probe = $("lineProbe");
-  const box = probe.getBoundingClientRect();
-  const measure = document.createElement("canvas").getContext("2d");
-  measure.font = getComputedStyle(editor).font;
-  const charWidth = measure.measureText("x").width || 8;
-  const lineHeight = box.height / 100 || 20;
-  const style = getComputedStyle(editor);
-  const usableWidth = editor.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  return {
-    cols: Math.max(20, Math.floor(usableWidth / charWidth)),
-    rows: Math.max(5, Math.floor(editor.clientHeight / lineHeight)),
-  };
-}
 
 function flush(run) {
   clearTimeout(run.timer);
@@ -38,6 +22,10 @@ function flush(run) {
 }
 
 function onEvent({ tabId, event }) {
+  if (event.type === "exit") {
+    started.delete(tabId);
+    return;
+  }
   const run = runs.shell(tabId);
   if (!run) return;
   if (event.type === "output") {
@@ -53,7 +41,6 @@ function onEvent({ tabId, event }) {
     flush(run);
     setFullscreen(tabId, run, false);
     runs.detachShell(tabId);
-    if (event.shellExited) started.delete(tabId);
     run.tab.cwd = event.cwd;
     run.resolve({ output: run.model.text(), shown: true, exit: event.exit });
   }
@@ -64,54 +51,58 @@ function setFullscreen(tabId, run, on) {
   run.fullscreen = on;
   if (on) {
     openFullscreen(tabId, {
-      onData: (data) => host.write(tabId, data),
-      onResize: (cols, rows) => host.resize(tabId, cols, rows),
+      onData: (data) => backend.write(tabId, data),
+      onResize: (cols, rows) => backend.resize(tabId, cols, rows),
     });
     showFullscreenFor(state.ws.activeTab);
   } else {
     closeFullscreen(tabId);
     const { cols, rows } = textAreaSize();
-    host.resize(tabId, cols, rows);
+    backend.resize(tabId, cols, rows);
     if (state.ws.activeTab === tabId) $("editor").focus();
   }
 }
 
 /**
- * Resolves when the command finishes. setOutput(text, clearEarlier) replaces what the command
- * has shown so far; clearEarlier means the tab's earlier content should go too.
+ * Resolves when the command finishes, with { output, shown?, exit? }; shown means the output is
+ * already on screen. setOutput(text, clearEarlier) replaces what the command has shown so far;
+ * clearEarlier means the tab's earlier content should go too. signal is aborted on Ctrl+C or
+ * when the tab closes.
  */
-export function runInShell(tab, command, { signal, setOutput }) {
+export async function runCommand(input, tab, { setOutput, signal }) {
+  const command = input.trim();
+  if (!command) return { output: "" };
   return new Promise((resolve) => {
     runs.attachShell(tab.id, { tab, model: createTextModel(), setOutput, resolve, timer: null, fullscreen: false });
     started.add(tab.id);
-    signal.addEventListener("abort", () => host.write(tab.id, "\x03"), { once: true });
-    host.run(tab.id, command, { cwd: tab.cwd, ...textAreaSize() }).catch((err) => {
+    signal.addEventListener("abort", () => backend.write(tab.id, "\x03"), { once: true });
+    backend.run(tab.id, command, { cwd: tab.cwd, ...textAreaSize() }).catch((err) => {
       runs.detachShell(tab.id);
-      resolve({ output: err.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ""), exit: 1 });
+      resolve({ output: err.message, exit: 1 });
     });
   });
 }
 
+/** Suggestions for the text typed so far. See ports/backend.js for what each one holds. */
+export const getCompletions = (input, tab) => backend.complete(tab.id, input, { cwd: tab.cwd, history: tab.history });
+
 /** Forwards a key press to the tab's running program. Returns true if it was used. */
 export function forwardKey(tabId, event) {
-  if (!runs.shell(tabId)) return false;
+  if (!backend.takesInput || !runs.shell(tabId)) return false;
   const bytes = keyToBytes(event);
   if (bytes === null) return false;
-  host.write(tabId, bytes);
+  backend.write(tabId, bytes);
   return true;
 }
 
 export function forwardPaste(tabId, text) {
-  if (!runs.shell(tabId)) return false;
-  host.write(tabId, text);
+  if (!backend.takesInput || !runs.shell(tabId)) return false;
+  backend.write(tabId, text);
   return true;
 }
 
-export const shellCompletions = (tab, input) => host.complete(tab.id, input, tab.cwd);
-
-export function initRealShell() {
-  if (!host) return;
-  host.onEvent(onEvent);
+export function initRunner() {
+  backend.onEvent(onEvent);
 
   // A closed tab's shell ends with it. Closed tabs reopen with a new id and a new shell.
   subscribe(() => {
@@ -126,7 +117,7 @@ export function initRealShell() {
         clearTimeout(run.timer);
         run.resolve({ output: "", shown: true, exit: 130 });
       }
-      host.kill(tabId);
+      backend.kill(tabId);
     }
     showFullscreenFor(state.ws.activeTab);
   });
@@ -137,7 +128,7 @@ export function initRealShell() {
     resizeTimer = setTimeout(() => {
       refitFullscreen();
       const { cols, rows } = textAreaSize();
-      for (const tabId of started) if (!runs.shell(tabId)?.fullscreen) host.resize(tabId, cols, rows);
+      for (const tabId of started) if (!runs.shell(tabId)?.fullscreen) backend.resize(tabId, cols, rows);
     }, 100);
   });
 }

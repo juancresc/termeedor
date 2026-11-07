@@ -11,7 +11,7 @@ export function el(tag, className, text) {
   return node;
 }
 
-export const uid = () => Math.random().toString(36).slice(2, 10);
+export { uid } from "./core/uid.js";
 
 /** Small square/circle showing a color token; no color → neutral theme color. */
 export function colorDot(token, className = "tdot") {

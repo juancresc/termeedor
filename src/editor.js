@@ -7,10 +7,10 @@
 import { PROMPT, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
 import { state, activeTab, getTab, getGroup, commit, saveSoon, hasSaveFailed, isRunning, startRun, finishRun, stopRun } from "./store.js";
-import { runCommand, getCompletions } from "./shell.js";
+import { isMac } from "./platform.js";
 import { emit as emitPluginEvent } from "./plugins/registry.js";
 import { isMenuOpen, selectedItem, showMenu, closeMenu, moveSelection, placeMenu } from "./completionMenu.js";
-import { forwardKey, forwardPaste } from "./terminal/realShell.js";
+import { forwardKey, forwardPaste, getCompletions, runCommand } from "./terminal/runner.js";
 import { runs } from "./terminal/runState.js";
 import {
   addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, commandForEnter, finishBlock,
@@ -105,7 +105,10 @@ function onKeyDown(event) {
     event.preventDefault();
     if (event.shiftKey || !completeAtCursor()) insertIntoInput("    ");
   } else if (event.code === "KeyC" && event.ctrlKey && !event.metaKey) {
-    if (stopRun(state.ws.activeTab)) event.preventDefault();
+    if (stopRun(state.ws.activeTab) || dropDraft()) event.preventDefault();
+  } else if (isOnlyCtrl(event) && CTRL_KEYS[event.code]) {
+    event.preventDefault();
+    CTRL_KEYS[event.code](event);
   } else if (event.key === "Enter") {
     event.preventDefault();
     runLineAtCursor();
@@ -219,14 +222,21 @@ function stopCursorAtInput(event) {
 }
 
 function recallOnArrow(event) {
+  if (event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return;
+  const start = inputStart();
+  if (start === null || editor.selectionStart < start) return;
+  event.preventDefault();
+  recallCommand(event.key === "ArrowUp" ? -1 : 1);
+}
+
+function recallCommand(delta) {
   const tab = activeTab();
   const start = inputStart();
-  if (start === null || editor.selectionStart < start || event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return;
-  event.preventDefault();
+  if (start === null || editor.selectionStart < start) return;
 
   const { history } = tab;
   if (recall?.tabId !== tab.id) recall = { tabId: tab.id, index: history.length, draft: editor.value.slice(start) };
-  const index = recall.index + (event.key === "ArrowUp" ? -1 : 1);
+  const index = recall.index + delta;
   if (index < 0 || index > history.length) return;
   recall.index = index;
 
@@ -239,9 +249,45 @@ function recallOnArrow(event) {
 }
 
 // Cmd+A on Mac, Ctrl+A elsewhere. On a Mac, Ctrl+A keeps its usual "go to line start".
-const isMac = /Mac/.test(navigator.platform);
 const isSelectAll = (event) =>
   event.code === "KeyA" && !event.altKey && !event.shiftKey && (isMac ? event.metaKey : event.ctrlKey);
+
+const isOnlyCtrl = (event) => event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+
+function deleteToInput(type) {
+  const start = inputStart();
+  if (start !== null && editor.selectionStart >= start) deleteBackToInput(type, start, editor.selectionStart);
+}
+
+/** Ctrl+C with nothing running: the typed line is abandoned, as in a shell. A selection is left for copying. */
+function dropDraft() {
+  const tab = activeTab();
+  if (!tab || inputStart() === null || !tab.draft || editor.selectionStart !== editor.selectionEnd) return false;
+  addTextBlock(tab, `${PROMPT}${tab.draft}^C`);
+  tab.draft = "";
+  recall = null;
+  showContent(tab);
+  moveCursorToEnd();
+  return true;
+}
+
+/** Like the `clear` command. What is being typed stays. */
+function clearScreen() {
+  const tab = activeTab();
+  if (!tab || inputStart() === null) return;
+  clearTranscript(tab);
+  showContent(tab);
+  moveCursorToEnd();
+}
+
+// Readline's keys. Ctrl+W is Mac only: elsewhere it closes the tab (keymap.js).
+const CTRL_KEYS = {
+  KeyU: () => deleteToInput("deleteHardLineBackward"),
+  KeyL: clearScreen,
+  KeyP: () => recallCommand(-1),
+  KeyN: () => recallCommand(1),
+  ...(isMac ? { KeyW: () => deleteToInput("deleteWordBackward") } : {}),
+};
 
 /** Selects the cursor's line; on a prompt line, only the input after the prompt. */
 function selectLineAtCursor() {
@@ -396,11 +442,7 @@ async function execute(tab, command) {
   let result;
   try {
     result = await runCommand(command, tab, {
-      emit: (text) => {
-        appendOutput(block, text);
-        showContent(tab);
-      },
-      setOutput: (text, erased) => setRunningOutput(tab, block, text, erased),
+      setOutput:(text, erased) => setRunningOutput(tab, block, text, erased),
       signal,
     });
   } catch (err) {
@@ -413,7 +455,6 @@ async function execute(tab, command) {
 
   if (result.output && !result.shown) appendOutput(block, result.output);
   finishBlock(tab, block, result.exit);
-  if (result.clear) clearTranscript(tab);
   trimTranscript(tab);
   showContent(tab);
   if (editor.dataset.tab === tab.id) moveCursorToEnd();

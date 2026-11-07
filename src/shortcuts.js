@@ -1,6 +1,7 @@
 // Runs app actions from the keyboard. The keys themselves live in keymap.js.
 
 import { state, activeTab, barTabs, activateTab, addTab, addGroup, closeActive, setSidebarOpen, reopenLastClosed } from "./store.js";
+import { isMac } from "./platform.js";
 import { startRename } from "./rename.js";
 import { openSettings } from "./settings.js";
 import { getShortcut, reserve } from "./plugins/registry.js";
@@ -8,6 +9,8 @@ import { builtinShortcutKeys, findShortcut, pluginShortcutKey, shortcutList, wit
 
 // Copy, paste, undo and friends are in the editor, not the keymap, but plugins can't have them either.
 reserve("shortcuts", [...builtinShortcutKeys(), "KeyA", "KeyC", "KeyV", "KeyX", "KeyZ", "Shift+KeyZ", "KeyQ"]);
+// Where the shortcut modifier is Ctrl, the editor's readline keys use it too.
+if (!isMac) reserve("shortcuts", ["KeyU", "KeyL", "KeyP", "KeyN"]);
 
 function switchTab(offset) {
   const tabs = barTabs();

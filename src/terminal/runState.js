@@ -33,7 +33,7 @@ export function createRunState() {
     /** The transcript block receiving the run's output. */
     block: (tabId) => runs.get(tabId)?.block ?? null,
 
-    /** What realShell.js needs while a real shell is producing this run's output. */
+    /** What runner.js needs while the backend is producing this run's output. */
     shell: (tabId) => runs.get(tabId)?.shell ?? null,
     attachShell(tabId, shell) {
       const run = runs.get(tabId);

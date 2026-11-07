@@ -1,4 +1,4 @@
-// Runs the real editor, store and realShell against a stub DOM and a fake shell host, so these
+// Runs the real editor, store and runner against a stub DOM and a fake shell host, so these
 // check what Enter actually sends to the shell. See support/editorDom.js for what the stub leaves out.
 
 import assert from "node:assert/strict";
@@ -21,14 +21,14 @@ globalThis.termeedorHost = {
 };
 
 const { initEditor, renderEditor, printToTab } = await import("../src/editor.js");
-const { initRealShell, forwardKey } = await import("../src/terminal/realShell.js");
+const { initRunner, forwardKey } = await import("../src/terminal/runner.js");
 const store = await import("../src/store.js");
-initRealShell();
+initRunner();
 initEditor();
 store.subscribe(renderEditor);
 renderEditor();
 
-const FLUSH_WAIT = 80; // longer than realShell's output flush
+const FLUSH_WAIT = 80; // longer than the runner's output flush
 const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 const key = (name) => ({ key: name, code: "", preventDefault: noop });
 const tab = () => store.activeTab();
@@ -65,6 +65,11 @@ async function run(command, output) {
   pressEnter();
   await finish(output);
 }
+
+test("with a host, the keymap is the desktop's", async () => {
+  const { withShortcut } = await import("../src/keymap.js");
+  assert.match(withShortcut("New tab", "newTab"), /^New tab \((⌘|Ctrl\+)T\)$/);
+});
 
 test("typing fills the draft, and running moves it into a block", async () => {
   type("echo hi");
@@ -257,6 +262,75 @@ test("selecting a line skips the prompt only on a real command or the input", as
   textarea.listeners.keydown(selectAll);
   assert.equal(textarea.selectionStart, real + 2);
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+});
+
+test("Ctrl+W deletes the input's last word and stops at the prompt", { skip: !/Mac/.test(navigator.platform) }, () => {
+  const ctrlW = { key: "w", code: "KeyW", ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, preventDefault: noop };
+  eraseDraft();
+  type("git commit  ");
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "git ");
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "");
+  const empty = textarea.value;
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(textarea.value, empty);
+});
+
+const ctrl = (code) => textarea.listeners.keydown({ key: code.at(-1).toLowerCase(), code, ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, preventDefault: noop });
+const caretToEnd = () => textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+test("Ctrl+U deletes back to the prompt and keeps what is after the cursor", () => {
+  store.addTab();
+  type("git status");
+  const before = textarea.value;
+  textarea.setSelectionRange(before.length - 6, before.length - 6);
+  ctrl("KeyU");
+  assert.equal(tab().draft, "status");
+});
+
+test("Ctrl+C with nothing running drops the typed line, unless text is selected to copy", () => {
+  store.addTab();
+  ctrl("KeyC"); // nothing typed: nothing happens
+  const blocks = tab().blocks.length;
+  assert.equal(tab().blocks.length, blocks);
+
+  type("oops");
+  textarea.setSelectionRange(0, 3);
+  ctrl("KeyC");
+  assert.equal(tab().draft, "oops");
+
+  caretToEnd();
+  ctrl("KeyC");
+  assert.equal(tab().draft, "");
+  assert.equal(tab().blocks.at(-1).output, "\u276F oops^C");
+  assert.ok(textarea.value.endsWith("^C\n\u276F "));
+  assert.equal(textarea.selectionStart, textarea.value.length);
+});
+
+test("Ctrl+L clears the screen and keeps what is being typed", async () => {
+  store.addTab();
+  await run("echo hi", "hi\r\n");
+  type("next");
+  ctrl("KeyL");
+  assert.deepEqual(tab().blocks, []);
+  assert.equal(tab().draft, "next");
+  assert.ok(textarea.value.endsWith("next"));
+  assert.equal(tab().history.length, 1);
+});
+
+test("Ctrl+P and Ctrl+N walk through past commands and back to the draft", async () => {
+  store.addTab();
+  await run("echo one", "one\r\n");
+  type("draft");
+  caretToEnd();
+  ctrl("KeyP");
+  assert.equal(tab().draft, "echo one");
+  ctrl("KeyN");
+  assert.equal(tab().draft, "draft");
+  eraseDraft();
 });
 
 test("plugin events keep their payloads", async () => {

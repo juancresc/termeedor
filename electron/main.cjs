@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { createDataStore, defaultDataDir } = require("./dataStore.cjs");
 const { discoverPlugins, resolveInside } = require("./plugins.cjs");
 const { complete } = require("./completions.cjs");
 const pluginHosts = require("./pluginHosts.cjs");
@@ -149,6 +150,21 @@ function handle(channel, handler) {
   });
 }
 
+/**
+ * For what must finish before the page goes on, which may be to unload. The page is blocked
+ * until returnValue is set, so every path sets it.
+ */
+function handleSync(channel, handler) {
+  ipcMain.on(channel, (event, ...args) => {
+    try {
+      if (!isAppUrl(event.senderFrame?.url ?? "")) throw new Error("Not allowed");
+      event.returnValue = handler(...args);
+    } catch (err) {
+      event.returnValue = { ok: false, error: err.message };
+    }
+  });
+}
+
 // ---------- lifecycle ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -163,6 +179,10 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     fs.mkdirSync(userPluginsDir(), { recursive: true });
     protocol.handle("termeedor", serve);
+    const data = createDataStore(defaultDataDir());
+    handle("data:load", () => data.load());
+    handle("data:write", (changes) => data.write(changes));
+    handleSync("data:write-sync", (changes) => data.write(changes));
     handle("plugins:list", listPlugins);
     handle("plugins:open-folder", () => shell.openPath(userPluginsDir()));
     handle("plugins:host-call", callPluginHost);
