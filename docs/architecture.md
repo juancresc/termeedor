@@ -73,7 +73,7 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 | Problem | Where |
 | --- | --- |
 | Shells are killed by diffing state after a commit | `terminal/runner.js` `initRunner` |
-| Every commit rebuilds the DOM | `tabbar.js`, `sidebar.js` |
+| Every commit rebuilds the DOM, so a command doesn't commit: its spinners and status update in place | `tabbar.js`, `sidebar.js`, `runMarks.js` |
 | Plugins' `api.storage` is still localStorage, and the browser build keeps all scrollback in one value | `plugins/api.js`, `adapters/localStorageStore.js` |
 | `core` still imports the transcript model from `terminal/` | `core/saved.js`, `core/workspace.js` |
 | A desktop shell that ends between commands sends no `exit` event, so the tab's next `run` is what notices | `electron/shellSessions.cjs` |

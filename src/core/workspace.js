@@ -230,6 +230,9 @@ export function selectGroup(group) {
 
 export const moveGroupBy = (group, delta) => moveInBar(state.ws.groups, barGroups(), group, delta);
 
+/** Empty groups always close without asking. */
+export const shouldConfirmCloseGroup = (group) => state.settings.confirmCloseGroup && tabsIn(group.id).length > 0;
+
 /** Closing a group moves all its tabs to Past sessions. */
 export function closeGroup(group) {
   leaveGroup(group);
@@ -330,6 +333,11 @@ export function reopenLastClosed() {
 
 export function deletePast(entry) {
   state.past = state.past.filter((p) => p !== entry);
+  commit("past");
+}
+
+export function clearPast() {
+  state.past = [];
   commit("past");
 }
 

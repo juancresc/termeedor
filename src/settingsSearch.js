@@ -1,4 +1,4 @@
-// The search box in the settings dialog: hides what doesn't match, without touching what is rendered.
+// The topic list and search box in the settings dialog: hide what isn't asked for, without touching what is rendered.
 
 const ITEMS = ".setRow, .themeCard, .themeActions, .setGroup > .hint";
 
@@ -21,8 +21,69 @@ export function filterSettings(root, query) {
   return shown;
 }
 
-/** Applies what's in the search box. Needed again whenever settings content is rendered. */
+/** Where the search words appear in a text, as [start, end] pairs. */
+export function matchRanges(text, query) {
+  const terms = query.split(/\s+/).filter(Boolean).map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (!terms.length) return [];
+  return [...text.matchAll(new RegExp(terms.join("|"), "gi"))].map((m) => [m.index, m.index + m[0].length]);
+}
+
+/** Tints the matches, styled by ::highlight(settingsMatch), without changing the page's elements. */
+function highlightMatches(root, query) {
+  const ranges = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    for (const [start, end] of matchRanges(walker.currentNode.data, query)) {
+      const range = new Range();
+      range.setStart(walker.currentNode, start);
+      range.setEnd(walker.currentNode, end);
+      ranges.push(range);
+    }
+  }
+  CSS.highlights.set("settingsMatch", new Highlight(...ranges));
+}
+
+/** Shows only the chosen topic. A search looks through all of them, so it shows them all. */
+export function showTopic(root, topic, searching) {
+  for (const group of root.querySelectorAll(".setGroup")) {
+    group.classList.toggle("topicHidden", !searching && group.querySelector("h4").textContent !== topic);
+  }
+}
+
+let topic = null;
+
+/** Lists the sections of the dialog as topics, and starts on the first. */
+export function initSettingsTopics() {
+  const body = document.getElementById("settingsBody");
+  const buttons = [...body.querySelectorAll(".setGroup")].map((group) => {
+    const title = group.querySelector("h4").textContent;
+    const button = document.createElement("button");
+    button.textContent = title;
+    button.onclick = () => {
+      topic = title;
+      document.getElementById("settingsSearch").value = "";
+      applySettingsSearch();
+      body.scrollTop = 0;
+    };
+    return button;
+  });
+  topic = buttons[0].textContent;
+  document.getElementById("settingsTopics").replaceChildren(...buttons);
+}
+
+/** Applies the topic and what's in the search box. Needed again whenever settings content is rendered. */
 export function applySettingsSearch() {
-  const shown = filterSettings(document.getElementById("settingsBody"), document.getElementById("settingsSearch").value);
+  const body = document.getElementById("settingsBody");
+  const query = document.getElementById("settingsSearch").value;
+  const searching = query.trim() !== "";
+  const shown = filterSettings(body, query);
+  showTopic(body, topic, searching);
+  highlightMatches(body, query);
   document.getElementById("settingsNoMatch").hidden = shown > 0;
+
+  const groups = [...body.querySelectorAll(".setGroup")];
+  for (const [index, button] of [...document.getElementById("settingsTopics").children].entries()) {
+    button.classList.toggle("on", !searching && button.textContent === topic);
+    button.classList.toggle("searchHidden", groups[index].classList.contains("searchHidden")); // topics with no match
+  }
 }

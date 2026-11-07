@@ -7,7 +7,7 @@
 <p align="center">A desktop terminal for macOS and Linux with tab groups, closed-tab history, themes and plugins.</p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Termeedor with a group of tabs, a sidebar of groups and closed sessions, and a terminal session with line numbers">
+  <img src="docs/screenshot.png" alt="Termeedor with a group of tabs, a sidebar of groups and closed sessions, and a terminal session">
 </p>
 
 > **Early prototype.** Expect rough edges.

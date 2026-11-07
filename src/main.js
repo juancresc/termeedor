@@ -27,12 +27,12 @@ import { host, isDesktop } from "./platform.js";
 import { initRunner } from "./terminal/runner.js";
 import { initPlugins } from "./plugins/index.js";
 import { initPluginUi } from "./plugins/ui.js";
-import { subscribe, saveNow } from "./store.js";
+import { onRunChange, subscribe, saveNow } from "./store.js";
 import { initTooltips } from "./tooltip.js";
 import { initMenu } from "./menu.js";
 import { initEditor, renderEditor } from "./editor.js";
-import { initTabbar, renderTabbar } from "./tabbar.js";
-import { initSidebar, renderSidebar } from "./sidebar.js";
+import { initTabbar, refreshTabbarRuns, renderTabbar } from "./tabbar.js";
+import { initSidebar, refreshSidebarRuns, renderSidebar } from "./sidebar.js";
 import { initSettings, applySettings, renderSettings } from "./settings.js";
 import { initShortcuts } from "./shortcuts.js";
 
@@ -59,6 +59,10 @@ initPluginUi();
 initRunner();
 
 subscribe(render);
+onRunChange(() => {
+  refreshTabbarRuns();
+  refreshSidebarRuns();
+});
 window.addEventListener("beforeunload", saveNow);
 render();
 initPlugins();

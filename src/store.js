@@ -2,7 +2,7 @@
 // about: where data is kept and what is running. Loading finishes before any importer runs,
 // because reading files is async and the UI modules expect `state` to be ready.
 
-import { addGroup, commit, connect, defaultWorkspace, hydrate, notify, state } from "./core/workspace.js";
+import { addGroup, connect, defaultWorkspace, hydrate, notify, state } from "./core/workspace.js";
 import { readSnapshot } from "./core/saved.js";
 import { createSaver } from "./core/saver.js";
 import { chooseAdapter } from "./adapters/index.js";
@@ -35,6 +35,8 @@ saver.seed(snapshot, loaded.recovered);
 export const hasSaveFailed = () => saver.hasFailed();
 /** Debounced workspace save, used while typing (no re-render). */
 export const saveSoon = () => saver.saveSoon();
+/** Saves what a finished command changed, without the re-render that commit() brings. */
+export const saveWorkspace = () => saver.save(["workspace"]);
 /** Everything is written when this returns, so it is safe while the page unloads. */
 export const saveNow = () => saver.saveNow(); // no arguments: this is also an event listener
 
@@ -42,13 +44,19 @@ export const saveNow = () => saver.saveNow(); // no arguments: this is also an e
 export const isRunning = (tabId) => runs.isRunning(tabId);
 export const groupHasRunning = (groupId) => state.ws.tabs.some((t) => t.groupId === groupId && runs.isRunning(t.id));
 
+const runListeners = new Set();
+/** Called when a command starts or ends. Commands don't commit: only what shows them needs to change. */
+export const onRunChange = (fn) => runListeners.add(fn);
+
 export function startRun(tab, block) {
   const signal = runs.start(tab.id, block);
-  commit();
+  saveWorkspace();
+  runListeners.forEach((fn) => fn());
   return signal;
 }
 export function finishRun(tab) {
   runs.finish(tab.id);
+  runListeners.forEach((fn) => fn());
 }
 export const stopRun = (tabId) => runs.stop(tabId);
 

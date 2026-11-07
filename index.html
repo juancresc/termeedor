@@ -38,7 +38,7 @@
   <aside class="sidebar">
     <div class="sec">Groups <span class="secBtns"><button id="hideSidebar" title="Hide sidebar" data-shortcut="toggleSidebar">«</button><button id="newGroupBtn" title="New group" data-shortcut="newGroup">＋</button></span></div>
     <div id="groups"></div>
-    <div class="sec">Sessions</div>
+    <div class="sec">Sessions <button class="secClear" id="clearPast" title="Clear all sessions" aria-label="Clear all sessions"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.8 7v4M9.2 7v4"/></svg></button></div>
     <input class="pastSearch" id="pastSearch" placeholder="Search closed tabs…" maxlength="60">
     <div id="pastSessions"></div>
   </aside>
@@ -65,7 +65,8 @@
 </div>
 
 <dialog id="settings">
-  <div class="setHead"><b>Settings</b><input type="text" class="setSearch" id="settingsSearch" placeholder="Search settings" aria-label="Search settings" spellcheck="false" autocomplete="off" autofocus><button class="icon-btn shown" id="closeSettings" title="Close (Esc)">✕</button></div>
+  <div class="setHead"><b>Settings</b><button class="icon-btn shown" id="closeSettings" title="Close (Esc)">✕</button></div>
+  <div class="setMain">
   <div class="setBody" id="settingsBody">
     <div class="hint" id="settingsNoMatch" hidden>No settings match your search.</div>
 
@@ -82,7 +83,7 @@
     <section class="setGroup">
       <h4>Display</h4>
       <div class="setRow"><label for="fontSize">Font size</label> <span><button type="button" class="btn stepBtn" id="fontSizeDown" title="Reduce font size" aria-label="Reduce font size">−</button> <input type="range" id="fontSize" min="10" max="20" step="1"> <button type="button" class="btn stepBtn" id="fontSizeUp" title="Increase font size" aria-label="Increase font size">+</button> <output id="fontSizeOut"></output></span></div>
-      <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
+      <label class="setRow">Show line numbers on multiline input <input type="checkbox" id="lineNumbers"></label>
       <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>
     </section>
 
@@ -91,6 +92,7 @@
       <label class="setRow" data-keywords="directory folder cwd working">Open new tabs in the current path <input type="checkbox" id="newTabInCurrentPath"></label>
       <div class="setRow">Default color for new tabs <span class="colorPick" id="defaultTabColor"></span></div>
       <label class="setRow" data-keywords="groups">Show all tabs <input type="checkbox" id="showAllGroups"></label>
+      <label class="setRow" data-keywords="confirm close"><span class="setText">Ask before closing groups <span class="hint">Only when the group has tabs.</span></span> <input type="checkbox" id="confirmCloseGroup"></label>
     </section>
 
     <section class="setGroup">
@@ -110,6 +112,11 @@
         Tab complete · ↑/↓ browse history
       </div>
     </section>
+  </div>
+  <nav class="setNav" aria-label="Settings topics">
+    <input type="text" class="setSearch" id="settingsSearch" placeholder="Search settings" aria-label="Search settings" spellcheck="false" autocomplete="off" autofocus>
+    <div class="setTopics" id="settingsTopics"></div>
+  </nav>
   </div>
 </dialog>
 

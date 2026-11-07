@@ -13,3 +13,24 @@ test("the prompt sits right after the output and scrolls with it", () => {
   assert.match(css, /^\.termScroll \{[^}]*overflow: hidden auto/m);
   assert.doesNotMatch(css.match(/^\.output \{[^}]*\}/m)[0], /flex|overflow:/);
 });
+
+const rule = (css, selector) => css.match(new RegExp(`^${selector.replace(/[.()]/g, "\\$&")} \\{[^}]*\\}`, "m"))?.[0] ?? "";
+
+test("pressing Enter leaves the typed line where it was and looking the same", () => {
+  const css = read("styles/base.css");
+  const color = (selector) => rule(css, selector).match(/(?:^|[ {;])color: ([^;]+);/)?.[1];
+  assert.equal(color(".promptMark"), color(".commandPrompt"));
+
+  // the line numbers take no room, so the prompt stays put when a second line brings them in
+  assert.match(rule(css, ".inputLines"), /position: absolute/);
+  // a single line has no line number beside it, as a command line in the output has none
+  assert.match(rule(css, ".inputRow:not(.multiline) .inputLines"), /display: none/);
+  // a command's separator takes no room, or the text would shift by its width
+  assert.doesNotMatch(rule(css, ".block.isCommand"), /border/);
+});
+
+test("the space under the prompt stays while a command runs", () => {
+  const css = read("styles/base.css");
+  assert.match(rule(css, ".inputRow"), /padding: 0 16px 0 1\.25em;/);
+  assert.match(rule(css, ".termScroll"), /padding-bottom: 10px/);
+});

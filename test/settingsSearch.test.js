@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterSettings } from "../src/settingsSearch.js";
+import { filterSettings, matchRanges, showTopic } from "../src/settingsSearch.js";
 
 // Just enough DOM: a group has a heading and items, and the hidden class is what the page styles.
 const node = (textContent, keywords) => {
   const classes = new Set();
   return {
     textContent,
+    classes,
     dataset: keywords ? { keywords } : {},
     classList: { toggle: (name, on) => { if (on) classes.add(name); else classes.delete(name); } },
     get hidden() { return classes.has("searchHidden"); },
@@ -51,6 +52,22 @@ test("every word has to match, in any order", () => {
   assert.deepEqual(shown(root), [["Open new tabs in the current path"]]);
   assert.equal(filterSettings(root, "path font"), 0);
   assert.deepEqual(shown(root), []);
+});
+
+test("only the chosen topic shows, until a search looks through them all", () => {
+  const root = settings();
+  const hiddenByTopic = () => root.groups.map((g) => g.classes.has("topicHidden"));
+  showTopic(root, "Tabs", false);
+  assert.deepEqual(hiddenByTopic(), [true, false]);
+  showTopic(root, "Tabs", true);
+  assert.deepEqual(hiddenByTopic(), [false, false]);
+});
+
+test("matches are found for every word, ignoring case and taking symbols literally", () => {
+  assert.deepEqual(matchRanges("Open new tabs", "TABS open"), [[0, 4], [9, 13]]);
+  assert.deepEqual(matchRanges("Add .css file", ".css"), [[4, 8]]);
+  assert.deepEqual(matchRanges("Font size", "x.z"), []);
+  assert.deepEqual(matchRanges("Font size", "  "), []);
 });
 
 test("an item is found by its keywords", () => {

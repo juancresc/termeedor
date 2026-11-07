@@ -21,6 +21,7 @@ class FakeNode {
     };
   }
   append(...nodes) { this.children.push(...nodes); }
+  replaceChildren(...nodes) { this.children = nodes; }
   addEventListener() {}
   setAttribute() {}
   remove() {}
@@ -32,14 +33,13 @@ class FakeNode {
   querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
   querySelectorAll(selector) {
     const name = selector.match(/\.([\w-]+)/)[1];
-    return this.all().filter((node) => node.has(name) && !(selector.includes(":not") && node.has("groupTray")));
+    return this.all().filter((node) => node.has(name));
   }
 }
 
 class FakeRow extends FakeNode {
   scroll = 0;
   clientWidth = ROW_WIDTH;
-  replaceChildren(...nodes) { this.children = nodes; }
   getBoundingClientRect() { reflow(); return { left: 0, width: ROW_WIDTH }; }
   contentWidth() { return this.children.reduce((sum, child) => sum + child.ownWidth + (parseFloat(child.style.marginRight) || 0), 0); }
   clamp() { this.scroll = Math.max(0, Math.min(this.scroll, this.contentWidth() - ROW_WIDTH)); }
@@ -60,8 +60,8 @@ globalThis.document = {
   querySelector: () => null,
 };
 
-const { state, addGroup, addTab, activateTab, tabsIn } = await import("../src/store.js");
-const { renderTabbar } = await import("../src/tabbar.js");
+const { state, addGroup, addTab, activateTab, setGroupMinimized, tabsIn } = await import("../src/store.js");
+const { refreshTabbarRuns, renderTabbar } = await import("../src/tabbar.js");
 const { runs } = await import("../src/terminal/runState.js");
 
 const row = (id) => document.getElementById(id);
@@ -99,6 +99,16 @@ test("show all: the rows stay lined up when the row they were scrolled in shrink
   assert.equal(row("groupTabs").scrollLeft, row("tabs").scrollLeft);
 });
 
+test("a minimized group leaves the group row, with nothing standing in for it", () => {
+  const [kept, minimized] = [addGroup(), addGroup()];
+  renderTabbar();
+  assert.equal(row("groupTabs").children.length, 2);
+  setGroupMinimized(minimized, true);
+  renderTabbar();
+  assert.equal(row("groupTabs").children.length, 1);
+  assert.equal(state.ws.groups.includes(kept), true);
+});
+
 test("a group running a command takes the same room selected or not", () => {
   const [running, other] = [addGroup(), addGroup()];
   const heading = () => row("groupTabs").children[0];
@@ -115,6 +125,29 @@ test("a group running a command takes the same room selected or not", () => {
   } finally {
     runs.finish(tab.id);
   }
+});
+
+test("a spinner comes and goes without rebuilding the bars", () => {
+  const [group] = [addGroup(), addGroup()];
+  const tab = tabsIn(group.id)[0];
+  activateTab(tab.id);
+  renderTabbar();
+  const heading = row("groupTabs").children.find((node) => node.dataset.slideKey === group.id);
+  const tabNodes = () => row("tabs").querySelectorAll(".tab");
+  const tabNode = tabNodes().find((node) => node.dataset.slideKey === tab.id);
+  assert.equal(heading.querySelector(".spinner"), null);
+  assert.equal(tabNode.querySelector(".spinner"), null);
+
+  runs.start(tab.id);
+  refreshTabbarRuns();
+  assert.ok(heading.querySelector(".spinner"));
+  assert.ok(tabNode.querySelector(".spinner"));
+
+  runs.finish(tab.id);
+  refreshTabbarRuns();
+  assert.equal(heading.querySelector(".spinner"), null);
+  assert.equal(tabNode.querySelector(".spinner"), null);
+  assert.ok(tabNodes().includes(tabNode));
 });
 
 test("an unnamed group's tab is just its buttons; a named one keeps its name and count", () => {

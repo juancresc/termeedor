@@ -9,7 +9,7 @@ import { initThemeEditor, openThemeEditor } from "./themeEditor.js";
 import { focusEditor } from "./editor.js";
 import { askConfirm, showNotice } from "./dialogs.js";
 import { renderPluginSettings } from "./plugins/ui.js";
-import { applySettingsSearch } from "./settingsSearch.js";
+import { applySettingsSearch, initSettingsTopics } from "./settingsSearch.js";
 
 const dialog = $("settings");
 
@@ -26,7 +26,9 @@ export function initSettings() {
   $("showAllGroups").onchange = (e) => updateSettings({ showAllGroups: e.target.checked });
   $("showSidebar").onchange = (e) => setSidebarOpen(e.target.checked);
   $("newTabInCurrentPath").onchange = (e) => updateSettings({ newTabInCurrentPath: e.target.checked });
+  $("confirmCloseGroup").onchange = (e) => updateSettings({ confirmCloseGroup: e.target.checked });
   $("settingsSearch").oninput = applySettingsSearch;
+  initSettingsTopics();
 
   $("importTheme").onclick = () => $("themeFile").click();
   $("themeFile").onchange = importThemeFile;
@@ -56,6 +58,7 @@ export function renderSettings() {
   $("showAllGroups").checked = state.settings.showAllGroups;
   $("showSidebar").checked = state.ws.sidebarOpen;
   $("newTabInCurrentPath").checked = state.settings.newTabInCurrentPath;
+  $("confirmCloseGroup").checked = state.settings.confirmCloseGroup;
   renderDefaultTabColor();
   renderThemeGrid();
   renderPluginSettings();

@@ -8,8 +8,8 @@ import { menuItemsFor } from "./plugins/registry.js";
 import {
   state, activateTab, getGroup, groupLabel, isRunning, stopRun,
   addTab, closeTab, duplicateTab, moveTab, moveTabToNewGroup, setTabColor, setTabCollapsed, setTabMinimized, restoreMinimized, tabsIn,
-  closeGroup, setGroupMinimized, minimizedGroups, setGroupColor, setGroupTabs,
-  reopenPast, deletePast,
+  closeGroup, shouldConfirmCloseGroup, setGroupMinimized, setGroupColor, setGroupTabs,
+  reopenPast, deletePast, clearPast,
 } from "./store.js";
 
 /** Items added by plugins, as their own section. */
@@ -54,15 +54,12 @@ export function groupMenu(group, event, where = "sidebar") {
   ]);
 }
 
-export function minimizedGroupsMenu(event) {
-  openMenu(event, minimizedGroups().map((g) => ({ label: `Restore › ${groupLabel(g)}`, onSelect: () => setGroupMinimized(g, false) })));
+export async function confirmRemoveGroup(group) {
+  if (!shouldConfirmCloseGroup(group) || await askConfirm({ title: `Close "${groupLabel(group)}"?`, acceptLabel: "Close group", danger: true })) closeGroup(group);
 }
 
-export async function confirmRemoveGroup(group) {
-  const count = tabsIn(group.id).length;
-  if (count === 0) return closeGroup(group);
-  const message = `Its ${count === 1 ? "tab" : `${count} tabs`} will move to Sessions, where you can reopen ${count === 1 ? "it" : "them"}.`;
-  if (await askConfirm({ title: `Close "${groupLabel(group)}"?`, message, acceptLabel: "Close group", danger: true })) closeGroup(group);
+export async function confirmClearPast() {
+  if (await askConfirm({ title: "Clear all sessions?", acceptLabel: "Clear all", danger: true })) clearPast();
 }
 
 /** Says where reopening a closed tab will put it. */

@@ -2,27 +2,35 @@
 // plus show/hide and drag-to-resize.
 
 import { SIDEBAR } from "./constants.js";
-import { $, el, colorDot, spinner, timeAgo } from "./util.js";
+import { $, el, colorDot, timeAgo } from "./util.js";
 import {
   state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
   activateTab, addGroup, moveTab, selectGroup, setGroupMinimized,
   reopenPast, deletePast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
 import { renderTranscript } from "./terminal/transcript.js";
-import { nameLabel, startRename, isEditing, isRenaming } from "./rename.js";
-import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
+import { nameLabel, startRename, isEditing } from "./rename.js";
+import { tabMenu, groupMenu, pastMenu, reopenLabel, confirmClearPast } from "./contextMenus.js";
 import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";
+import { createRunMarks } from "./runMarks.js";
+
+const runMarks = createRunMarks();
 
 let pastQuery = "";
+let pastTimes = []; // { node, lines, closedAt } for each row on screen
 
 export function initSidebar() {
   $("newGroupBtn").onclick = () => addGroup();
   $("hideSidebar").onclick = () => setSidebarOpen(false);
   $("rail").onclick = () => setSidebarOpen(true);
   $("pastSearch").oninput = (e) => { pastQuery = e.target.value; renderPast(); };
+  $("clearPast").onclick = confirmClearPast;
   initResize();
-  setInterval(() => { if (!isRenaming()) renderPast(); }, 60_000); // keeps "5m ago" fresh
+  setInterval(refreshPastTimes, 1000); // so "5m ago" changes on time, and not when something else redraws the list
 }
+
+/** A command started or ended. */
+export const refreshSidebarRuns = () => runMarks.refresh();
 
 export function renderSidebar() {
   renderLayout();
@@ -39,6 +47,7 @@ function renderLayout() {
 
 // ---------- groups ----------
 function renderGroups() {
+  runMarks.clear();
   $("groups").replaceChildren(...state.ws.groups.map(groupNode));
 }
 
@@ -52,7 +61,7 @@ function groupNode(group) {
     colorDot(group.color, "dot"),
     nameLabel("group", group, "sidebar", "span", "gname"),
     // its tabs are hidden while collapsed, so show here that something is running
-    ...(group.collapsed && groupHasRunning(group.id) ? [spinner()] : []),
+    runMarks.slot(() => group.collapsed && groupHasRunning(group.id)),
     groupRowButtons(group),
   );
   head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : selectGroup(group));
@@ -80,7 +89,8 @@ function tabRow(tab) {
   row.title = tab.minimized ? "Minimized — click to restore" : "";
 
   row.append(
-    isRunning(tab.id) ? spinner() : colorDot(tab.color),
+    runMarks.slot(() => isRunning(tab.id)),
+    colorDot(tab.color),
     nameLabel("tab", tab, "sidebar", "span", "iname"),
     tabRowButtons(tab),
   );
@@ -94,6 +104,7 @@ function tabRow(tab) {
 
 // ---------- past sessions ----------
 function renderPast() {
+  pastTimes = [];
   const all = state.past;
   const query = pastQuery.trim().toLowerCase();
   const matches = query
@@ -101,10 +112,21 @@ function renderPast() {
     : all;
 
   $("pastSearch").style.display = all.length > 5 ? "" : "none";
+  $("clearPast").style.display = all.length ? "" : "none";
   const root = $("pastSessions");
   if (!all.length) return root.replaceChildren(el("div", "empty", "Closed tabs show up here."));
   if (!matches.length) return root.replaceChildren(el("div", "empty", "No matches."));
   root.replaceChildren(...matches.map(pastRow));
+}
+
+const pastDetail = (lines, closedAt) => `${lines} lines · ${timeAgo(closedAt)}`;
+
+/** Only touches the text that changed, so it is cheap and can't disturb a rename or a hover. */
+function refreshPastTimes() {
+  for (const { node, lines, closedAt } of pastTimes) {
+    const text = pastDetail(lines, closedAt);
+    if (node.textContent !== text) node.textContent = text;
+  }
 }
 
 function pastRow(entry) {
@@ -113,10 +135,9 @@ function pastRow(entry) {
 
   const info = el("div", "sname");
   const lines = renderTranscript(entry.tab).split("\n").length;
-  info.append(
-    nameLabel("past", entry, "sidebar", "b"),
-    el("small", null, `${lines} lines · ${timeAgo(entry.closedAt)}`),
-  );
+  const time = el("small", null, pastDetail(lines, entry.closedAt));
+  pastTimes.push({ node: time, lines, closedAt: entry.closedAt });
+  info.append(nameLabel("past", entry, "sidebar", "b"), time);
 
   const reopen = el("button", "icon-btn", "↺");
   reopen.title = reopenLabel();

@@ -1,18 +1,21 @@
 // The two top bars. First row: groups, like tabs of tabs. Second row: the selected group's tabs.
-// Minimized groups go to a tray at the end of the first row; a group's tab counts its minimized tabs.
+// Minimized groups leave the bars and stay in the sidebar; a group's tab counts its minimized tabs.
 // Drag a tab onto a group to send it there.
 // In "show all" mode each group's tab sits right above where its tabs start.
 
-import { $, el, spinner } from "./util.js";
+import { $, el } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
   state, getGroup, getTab, groupLabel, tabsIn, visibleTabsIn, barGroups, barTabs, isRunning, groupHasRunning, minimizedGroups,
   activateTab, addGroup, addTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
-import { tabMenu, groupMenu, minimizedGroupsMenu } from "./contextMenus.js";
+import { tabMenu, groupMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
 import { renderRows, slideNextRender } from "./slide.js";
+import { createRunMarks } from "./runMarks.js";
+
+const runMarks = createRunMarks();
 
 export function initTabbar() {
   $("newGroupTabBtn").onclick = () => addGroup();
@@ -29,15 +32,21 @@ export function initTabbar() {
   window.addEventListener("resize", () => alignColumns());
 }
 
+/** A command started or ended. A spinner changes a tab's width, so the columns are lined up again. */
+export function refreshTabbarRuns() {
+  runMarks.refresh();
+  alignColumns();
+}
+
 export function renderTabbar() {
-  const tray = minimizedGroups().length ? [minimizedTray()] : [];
+  runMarks.clear();
   const showAll = state.settings.showAllGroups;
   const group = getGroup(state.ws.activeGroup);
   $("groupTabs").classList.toggle("showAll", showAll);
   $("tabs").classList.toggle("showAll", showAll);
   const scroll = $("groupTabs").scrollLeft; // read now: the new rows are narrower until they're aligned
   renderRows([
-    { row: $("groupTabs"), nodes: [...barGroups().map(groupTab), ...tray] },
+    { row: $("groupTabs"), nodes: barGroups().map(groupTab) },
     { row: $("tabs"), nodes: tabRowNodes(group, showAll), enteringKey: newlyOpenedTab() },
   ], () => alignColumns(scroll));
   $("newTabBtn").hidden = !group || showAll; // in "show all" mode each group has its own
@@ -83,10 +92,9 @@ function groupSection(group) {
 function alignColumns(scroll = $("groupTabs").scrollLeft) {
   const [groups, tabs] = [$("groupTabs"), $("tabs")];
   tabs.style.marginLeft = tabs.style.maxWidth = "";
-  tabs.querySelector(".trayRoom")?.remove();
   if (!state.settings.showAllGroups) return;
 
-  const heads = [...groups.querySelectorAll(".groupTab:not(.groupTray)")];
+  const heads = [...groups.querySelectorAll(".groupTab")];
   const boxes = [...tabs.querySelectorAll(".tabGroupBox")];
   if (!boxes.length) return;
   boxes.forEach((box, i) => {
@@ -97,25 +105,9 @@ function alignColumns(scroll = $("groupTabs").scrollLeft) {
     box.style.marginRight = `${Math.max(0, headWidth - boxWidth)}px`;
   });
 
-  const tray = groups.querySelector(".groupTray");
-  if (tray) { // keeps both rows the same length to scroll
-    const room = el("span", "trayRoom");
-    room.style.width = `${tray.getBoundingClientRect().width}px`;
-    tabs.append(room);
-  }
   tabs.style.marginLeft = `${groups.getBoundingClientRect().left - tabs.getBoundingClientRect().left}px`;
   tabs.style.maxWidth = `${groups.clientWidth}px`;
   groups.scrollLeft = tabs.scrollLeft = scroll; // measuring above clamped both to the unaligned width
-}
-
-function minimizedTray() {
-  const hidden = minimizedGroups();
-  const tray = el("div", "groupTab groupTray");
-  tray.title = `${hidden.length} minimized group${hidden.length === 1 ? "" : "s"} — click to restore`;
-  if (hidden.some((g) => groupHasRunning(g.id))) tray.append(spinner());
-  tray.append(el("span", "chipName", "▢"), el("span", "chipCount", String(hidden.length)));
-  tray.onclick = minimizedGroupsMenu;
-  return tray;
 }
 
 function groupTab(group) {
@@ -125,7 +117,7 @@ function groupTab(group) {
   node.dataset.slideKey = group.id;
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
-  if (groupHasRunning(group.id)) node.append(spinner()); // hidden while selected, keeping its room
+  node.append(runMarks.slot(() => groupHasRunning(group.id))); // hidden while selected, keeping its room
   node.append(nameLabel("group", group, "tabbar", "span", "chipName")); // unnamed: empty, and styled away
   if (group.name) node.append(el("span", "chipCount", String(tabs.length)));
   if (minimizedCount) {
@@ -156,10 +148,9 @@ function tabNode(tab, group) {
   if (tab.collapsed) {
     // small chip: first letter (or spinner) + expand button
     node.title = tab.name;
-    node.append(isRunning(tab.id) ? spinner() : el("span", "initial", tab.name.slice(0, 1).toUpperCase()), expandTabButton(tab));
+    node.append(runMarks.slot(() => isRunning(tab.id)), el("span", "initial", tab.name.slice(0, 1).toUpperCase()), expandTabButton(tab));
   } else {
-    if (isRunning(tab.id)) node.append(spinner());
-    node.append(nameLabel("tab", tab, "tabbar", "span", "name"), tabBarButtons(tab));
+    node.append(runMarks.slot(() => isRunning(tab.id)), nameLabel("tab", tab, "tabbar", "span", "name"), tabBarButtons(tab));
   }
 
   node.onclick = () => activateTab(tab.id);

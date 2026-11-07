@@ -65,30 +65,30 @@ const REFERENCE = `/*
  * Selectors
  *   Page       body .app .app.nosidebar .app.nolines .app.resizing .desktop .platform-darwin
  *   Title bar  .titlebar .lights .tb-btn
- *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .groupTray .chipName .chipCount
+ *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .chipName .chipCount
  *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab.groupColored .tab .name
  *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
- *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd .trayRoom
+ *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn
- *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .empty
+ *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .secClear .empty
  *              .group .group.collapsed .group.minimized .group.dragover .ghead .ghead.unnamed .gchevron .ghead .dot .ghead .gname .glist
  *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
  *   Output     .main .colorbar .termScroll .output .output.running .output ::selection .block .block.isCommand
  *              .commandLine .commandPrompt .commandText .blockOutput .outputChunk .outputTail .rerun
  *              .ansiBold .ansiDim .ansiItalic .ansiUnderline
- *   Input      .inputRow .inputRow.running .inputLines .promptMark .editor .editor::selection
+ *   Input      .inputRow .inputRow.running .inputRow.multiline .inputLines .promptMark .editor .editor::selection
  *   Full screen .fullTerm (vim, top and friends)
  *   Completion .completions .completions div
  *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
  *   Menus      .menu .menu button .menu hr .menu .lbl .menu .swatches .menu .sw .menu .sw.none .menu .danger
  *   Tooltips   .tooltip .tooltip kbd
- *   Settings   dialog dialog::backdrop .setHead .setSearch .searchHidden .setBody .setRow .stepBtn .hint .btn
+ *   Settings   dialog dialog::backdrop .setHead .setSearch ::highlight(settingsMatch) .searchHidden .topicHidden .setMain .setBody .setNav .setTopics .setTopics button .setRow .setText .stepBtn .hint .btn
  *              .colorPick .colorPick .sw .colorPick .sw.none .colorPick .sw.groupOpt
  *              .themes .themeActions .themePick .themeCard .themeCard.on .themeCard .pv .themeCard .label
  *              .themeCard .remove .themeLink
  *              .pluginRow .pluginInfo .pluginMeta .pluginError .pluginsHint
- *   Editing    .inlineInput .spinner
+ *   Editing    .inlineInput .spinner .runMark
  *   Confirm    .askDialog .askDialog h3 .askDialog p .askActions .btn.primary .btn.danger
  *   CSS dialog #themeEditor .themeBar .themeKind .themeMsg .themeMsg.error .themeCss
  */`;

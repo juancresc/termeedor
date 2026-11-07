@@ -4,7 +4,7 @@
 
 import { colorVar } from "./constants.js";
 import { $ } from "./util.js";
-import { activeTab, getTab, getGroup, commit, saveSoon, hasSaveFailed, isRunning, startRun, finishRun } from "./store.js";
+import { activeTab, getTab, getGroup, onRunChange, saveSoon, saveWorkspace, hasSaveFailed, isRunning, startRun, finishRun } from "./store.js";
 import { emit as emitPluginEvent } from "./plugins/registry.js";
 import { runCommand } from "./terminal/runner.js";
 import { runs } from "./terminal/runState.js";
@@ -25,6 +25,7 @@ export function initEditor() {
     selectOutput: selectAllOutput,
   });
   window.addEventListener("resize", keepPinned);
+  onRunChange(renderRunStatus);
 }
 
 export const focusEditor = focusInput;
@@ -34,9 +35,15 @@ export function renderEditor() {
   $("colorbar").style.background = colorVar(tab?.color) ?? "transparent";
   showBoth(tab);
   $("stTab").textContent = tab ? [getGroup(tab.groupId).name, tab.name].filter(Boolean).join(" › ") : "No open tabs";
+  renderRunStatus();
+  if (!tab) $("stPos").textContent = "";
+}
+
+/** The parts of the status bar that a command changes. */
+function renderRunStatus() {
+  const tab = activeTab() ?? null;
   $("stCwd").textContent = tab?.cwd ?? "";
   $("stRunning").textContent = statusNotice(tab);
-  if (!tab) $("stPos").textContent = "";
 }
 
 function statusNotice(tab) {
@@ -103,7 +110,7 @@ async function execute(tab, command) {
   finishBlock(tab, block, result.exit);
   trimTranscript(tab);
   showContent(tab);
-  commit(); // refresh tab name/color/spinner and save
+  saveWorkspace();
 }
 
 /** Replaces what the running command has shown so far: output can overwrite itself. */

@@ -5,8 +5,8 @@ import fs from "node:fs";
 import { beforeEach, test } from "node:test";
 import { LIMITS } from "../src/constants.js";
 import {
-  addGroup, addTab, closeGroup, closeTab, commit, connect, defaultWorkspace, deletePast, hydrate, reopenLastClosed,
-  renameItem, state, subscribe,
+  addGroup, addTab, clearPast, closeGroup, closeTab, commit, connect, defaultWorkspace, deletePast, hydrate, reopenLastClosed,
+  renameItem, shouldConfirmCloseGroup, state, subscribe,
 } from "../src/core/workspace.js";
 import { readSnapshot, tabFile } from "../src/core/saved.js";
 import { sanitizeSettings } from "../src/core/sanitize.js";
@@ -155,6 +155,32 @@ test("a new tab starts at home when the setting is off", () => {
 test("the first tab starts at home even with the setting on", () => {
   state.settings.newTabInCurrentPath = true;
   assert.equal(addTab().cwd, "~");
+});
+
+test("the ask-before-closing-groups setting survives a reload and defaults to on", () => {
+  assert.equal(sanitizeSettings({ confirmCloseGroup: false }).confirmCloseGroup, false);
+  assert.equal(sanitizeSettings({ confirmCloseGroup: true }).confirmCloseGroup, true);
+  assert.equal(sanitizeSettings(null).confirmCloseGroup, true);
+});
+
+test("closing a group asks only when the setting is on and the group has tabs", () => {
+  const group = addGroup(); // comes with a tab
+  assert.equal(shouldConfirmCloseGroup(group), true);
+  state.settings.confirmCloseGroup = false;
+  assert.equal(shouldConfirmCloseGroup(group), false);
+  state.settings.confirmCloseGroup = true;
+  state.ws.tabs = [];
+  assert.equal(shouldConfirmCloseGroup(group), false);
+});
+
+test("clearing sessions removes every closed tab and saves", () => {
+  closeGroup(addGroup());
+  closeGroup(addGroup());
+  assert.equal(state.past.length, 2);
+  saves.length = 0;
+  clearPast();
+  assert.deepEqual(state.past, []);
+  assert.ok(saves.flat().includes("past"));
 });
 
 test("the new-tab path setting survives a reload and defaults to off", () => {

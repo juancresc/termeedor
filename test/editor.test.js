@@ -121,6 +121,17 @@ test("Shift+Enter adds a line, Enter runs all of it as one command", async () =>
   await finish();
 });
 
+test("line numbers only show once the input has more than one line", async () => {
+  const hasNumbers = () => nodeFor("inputRow").classList.contains("multiline");
+  type("echo hi");
+  assert.equal(hasNumbers(), false);
+  press("Enter", { shiftKey: true });
+  assert.equal(hasNumbers(), true);
+  pressEnter();
+  assert.equal(hasNumbers(), false);
+  await finish();
+});
+
 test("the input stops growing, and scrolls instead", () => {
   store.addTab();
   type("\n".repeat(40));
@@ -843,4 +854,25 @@ test("closing a tab mid-run archives it and ends the run", async () => {
   await pause(SETTLE_MS);
   assert.equal(store.isRunning(closing.id), false);
   assert.equal(store.state.past[0].tab.blocks.at(-1).command, "sleep 9");
+});
+
+test("running a command doesn't redraw the app, and the status bar still follows it", async () => {
+  let redraws = 0;
+  let counting = true;
+  store.subscribe(() => { if (counting) redraws++; });
+  try {
+    type("cd /elsewhere");
+    pressEnter();
+    assert.match(nodeFor("stRunning").textContent, /running/);
+
+    sendEvent({ tabId: tab().id, event: { type: "finish", exit: 0, cwd: "/elsewhere" } });
+    await pause(FLUSH_WAIT);
+    assert.equal(store.isRunning(tab().id), false);
+    assert.equal(nodeFor("stRunning").textContent, "");
+    assert.equal(nodeFor("stCwd").textContent, "/elsewhere");
+    assert.equal(nodeFor("promptMark").textContent, "elsewhere ❯ ");
+    assert.equal(redraws, 0);
+  } finally {
+    counting = false;
+  }
 });

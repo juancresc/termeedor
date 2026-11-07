@@ -10,7 +10,6 @@ import { focusEditor } from "./editor.js";
 /** @type {{ kind: "tab"|"group"|"past", id: string, where: "tabbar"|"sidebar" } | null} */
 let editing = null;
 
-export const isRenaming = () => editing !== null;
 export const isEditing = (kind, id, where) => editing?.kind === kind && editing.id === id && editing.where === where;
 
 export function startRename(kind, item, where = "sidebar") {

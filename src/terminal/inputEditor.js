@@ -77,6 +77,7 @@ export function renderInput(tab) {
 function renderShape() {
   const lines = editor.value.split("\n").length;
   const rows = Math.min(lines, MAX_ROWS);
+  row.classList.toggle("multiline", lines > 1);
   if (editor.rows !== rows) {
     editor.rows = rows;
     actions.resized();
