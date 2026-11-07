@@ -139,10 +139,7 @@ function tabNode(tab, group) {
   const isActive = tab.id === state.ws.activeTab;
   const node = el("div", `tab${isActive ? " active" : ""}${tab.collapsed ? " collapsed" : ""}`);
   node.dataset.slideKey = tab.id;
-  if (group.color) {
-    node.classList.add("groupColored");
-    node.style.setProperty("--group-color", colorVar(group.color));
-  }
+  if (group.color) node.style.setProperty("--group-color", colorVar(group.color));
   if (tab.color) node.style.borderTopColor = colorVar(tab.color);
 
   if (tab.collapsed) {

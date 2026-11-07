@@ -56,7 +56,7 @@ const REFERENCE = `/*
  *   Output colors (black, red, green, yellow, blue, magenta, cyan, white, then the bright ones)
  *              --ansi-0 --ansi-1 --ansi-2 --ansi-3 --ansi-4 --ansi-5 --ansi-6 --ansi-7
  *              --ansi-8 --ansi-9 --ansi-10 --ansi-11 --ansi-12 --ansi-13 --ansi-14 --ansi-15
- *   Details    --light-close --light-min --light-max --menu-shadow --tooltip-shadow
+ *   Details    --command-divider --light-close --light-min --light-max --menu-shadow --tooltip-shadow
  *              --backdrop --badge-bg --badge-text
  *   Also       color-scheme: dark or light (scrollbars and form controls)
  *   Set by the app, to read but not override: --font-size --group-color --sbw
@@ -66,7 +66,7 @@ const REFERENCE = `/*
  *   Page       body .app .app.nosidebar .app.nolines .app.resizing .desktop .platform-darwin
  *   Title bar  .titlebar .lights .tb-btn
  *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .chipName .chipCount
- *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab.groupColored .tab .name
+ *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab .name
  *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
  *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn

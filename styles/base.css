@@ -47,8 +47,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .tabGroupBox { position: relative; display: flex; align-items: flex-end; gap: 2px; flex: none; padding: 1px 4px 0; border: 1px solid color-mix(in srgb, var(--group-color, var(--dim)) 45%, transparent); border-bottom: 0; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--group-color, var(--line)) 22%, transparent); }
 .tabGroupBox.active { border-color: var(--group-color, var(--dim)); }
 .tabGroupBox.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
-.tabs.showAll .tab.groupColored:not(.active) { background: color-mix(in srgb, var(--group-color) 20%, transparent); }
-.tabs.showAll .tab.groupColored:not(.active):hover { background: color-mix(in srgb, var(--group-color) 32%, transparent); }
 .tabStrip .groupAdd { flex: none; align-self: flex-end; height: 26px; margin-bottom: 1px; padding: 0 8px; color: var(--group-color, var(--dim)); }
 
 .groupTab, .tab { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; border-radius: 7px 7px 0 0; border-top: 2px solid transparent; white-space: nowrap; cursor: pointer; user-select: none; }
@@ -163,7 +161,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .output ::selection { background: var(--sel); }
 .block { position: relative; }
 /* a shadow, not a border: it takes no room, so a command stays where it was typed */
-.block.isCommand { box-shadow: 0 -.5px 0 color-mix(in srgb, var(--line) 70%, transparent); }
+.block.isCommand { box-shadow: 0 -.5px 0 var(--command-divider); }
 .block.isCommand:first-child { box-shadow: none; }
 .commandLine { padding-right: 24px; }
 .commandPrompt { color: var(--dim); }

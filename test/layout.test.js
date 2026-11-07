@@ -25,6 +25,9 @@ test("pressing Enter leaves the typed line where it was and looking the same", (
   assert.match(rule(css, ".inputLines"), /position: absolute/);
   // a single line has no line number beside it, as a command line in the output has none
   assert.match(rule(css, ".inputRow:not(.multiline) .inputLines"), /display: none/);
+  // the line between commands comes from the theme, and the default theme has none
+  assert.match(rule(css, ".block.isCommand"), /var\(--command-divider\)/);
+  assert.match(read("themes/default.css"), /--command-divider: transparent;/);
   // a command's separator takes no room, or the text would shift by its width
   assert.doesNotMatch(rule(css, ".block.isCommand"), /border/);
 });

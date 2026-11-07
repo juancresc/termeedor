@@ -16,6 +16,7 @@
   --term: #0b0d12;
   --sel: #2a3a5c;
   --gutter: #3d4454;
+  --command-divider: transparent; /* the thin line between commands: give it a color to show it */
   --danger: #ff6b6b;
   --mono: "SF Mono", Menlo, Monaco, "JetBrains Mono", Consolas, monospace;
   --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
