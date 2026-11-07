@@ -68,7 +68,7 @@ const REFERENCE = `/*
  *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd .trayRoom
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .empty
- *              .group .group.minimized .group.dragover .ghead .ghead .dot .ghead .gname .glist
+ *              .group .group.collapsed .group.minimized .group.dragover .ghead .gchevron .ghead .dot .ghead .gname .glist
  *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
  *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLines div

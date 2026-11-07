@@ -30,7 +30,7 @@ function nextGroupName() {
 }
 
 function createGroup(name, color = null) {
-  return { id: uid(), name, color, minimized: false };
+  return { id: uid(), name, color, collapsed: false, minimized: false };
 }
 
 export function defaultWorkspace() {
@@ -261,6 +261,12 @@ function leaveGroup(group) {
   const bar = barGroups();
   const index = bar.indexOf(group);
   show(bar[index + 1] ?? bar[index - 1]);
+}
+
+/** Collapse only hides the group's tabs in the sidebar. The group stays in the top row and stays selected. */
+export function setGroupCollapsed(group, collapsed) {
+  group.collapsed = collapsed;
+  commit();
 }
 
 /** Minimizing takes the group out of the top row. Restoring brings it back and selects it. */

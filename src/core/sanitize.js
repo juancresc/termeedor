@@ -36,6 +36,7 @@ export function sanitizeWorkspace(raw) {
     id: safeId(g.id),
     name: text(g.name, LIMITS.name, "Group"),
     color: tabColor(g.color),
+    collapsed: !!g.collapsed,
     minimized: !!g.minimized,
   }));
 

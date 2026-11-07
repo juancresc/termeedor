@@ -32,18 +32,33 @@ function onEvent({ tabId, event }) {
     if (run.fullscreen) {
       writeFullscreen(tabId, event.data);
     } else {
-      run.model.write(event.data);
-      run.timer ??= setTimeout(() => flush(run), FLUSH_MS);
+      run.model.write(event.data, () => {
+        if (!run.ended) run.timer ??= setTimeout(() => flush(run), FLUSH_MS);
+      });
     }
   } else if (event.type === "alt") {
     setFullscreen(tabId, run, event.on);
   } else if (event.type === "finish") {
-    flush(run);
     setFullscreen(tabId, run, false);
     runs.detachShell(tabId);
     run.tab.cwd = event.cwd;
-    run.resolve({ output: run.model.text(), shown: true, exit: event.exit });
+    finishRun(run, event.exit);
   }
+}
+
+/** The terminal may still be parsing the command's last output. */
+async function finishRun(run, exit) {
+  await run.model.settled();
+  flush(run);
+  const output = run.model.text();
+  endRun(run);
+  run.resolve({ output, shown: true, exit });
+}
+
+function endRun(run) {
+  run.ended = true;
+  clearTimeout(run.timer);
+  run.model.dispose();
 }
 
 function setFullscreen(tabId, run, on) {
@@ -73,11 +88,14 @@ export async function runCommand(input, tab, { setOutput, signal }) {
   const command = input.trim();
   if (!command) return { output: "" };
   return new Promise((resolve) => {
-    runs.attachShell(tab.id, { tab, model: createTextModel(), setOutput, resolve, timer: null, fullscreen: false });
+    const size = textAreaSize();
+    runs.attachShell(tab.id, { tab, model: createTextModel(size), setOutput, resolve, timer: null, fullscreen: false });
     started.add(tab.id);
     signal.addEventListener("abort", () => backend.write(tab.id, "\x03"), { once: true });
-    backend.run(tab.id, command, { cwd: tab.cwd, ...textAreaSize() }).catch((err) => {
+    backend.run(tab.id, command, { cwd: tab.cwd, ...size }).catch((err) => {
+      const run = runs.shell(tab.id);
       runs.detachShell(tab.id);
+      if (run) endRun(run);
       resolve({ output: err.message, exit: 1 });
     });
   });
@@ -114,7 +132,7 @@ export function initRunner() {
       if (run) {
         closeFullscreen(tabId);
         runs.detachShell(tabId);
-        clearTimeout(run.timer);
+        endRun(run);
         run.resolve({ output: "", shown: true, exit: 130 });
       }
       backend.kill(tabId);
@@ -128,7 +146,12 @@ export function initRunner() {
     resizeTimer = setTimeout(() => {
       refitFullscreen();
       const { cols, rows } = textAreaSize();
-      for (const tabId of started) if (!runs.shell(tabId)?.fullscreen) backend.resize(tabId, cols, rows);
+      for (const tabId of started) {
+        const run = runs.shell(tabId);
+        if (run?.fullscreen) continue;
+        run?.model.resize(cols, rows);
+        backend.resize(tabId, cols, rows);
+      }
     }, 100);
   });
 }

@@ -75,6 +75,11 @@ export function layoutTranscript(transcript, { prompt = true } = {}) {
     if (block.output || block.command === null) add(block.output, "output", index);
   });
   if (prompt) add(PROMPT + transcript.draft, "draft", null);
+  else {
+    // A command with no output yet: the cursor waits on the next line, as in a terminal.
+    const last = transcript.blocks.at(-1);
+    if (last && last.command !== null && !last.output) add("", "output", transcript.blocks.length - 1);
+  }
 
   const draftStart = prompt ? segments.at(-1).start + PROMPT.length : null;
   return { text: parts.join("\n"), segments, commandLines, draftStart };

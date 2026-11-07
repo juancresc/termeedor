@@ -111,10 +111,13 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .ghead:hover { background: var(--panel2); }
 .group.minimized .ghead { opacity: .6; }
 .group.minimized .gname { font-style: italic; }
+.gchevron { flex: none; width: 14px; height: 18px; padding: 0; margin-right: -2px; font-size: 14px; line-height: 18px; text-align: center; color: var(--dim); transform: rotate(90deg); }
+.gchevron:hover { color: var(--text); }
+.group.collapsed .gchevron { transform: none; }
 .ghead .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .ghead .gname { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .glist { padding-left: 14px; }
-.group.minimized .glist { display: none; }
+.group.collapsed .glist { display: none; }
 
 /* tab rows */
 .item { display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 6px; cursor: pointer; color: var(--dim); user-select: none; }

@@ -1,12 +1,13 @@
 // Electron main process: the window, the termeedor:// scheme that serves the app and
 // plugin files, and the few things the page may ask of the OS (see preload.cjs).
 
-const { app, BrowserWindow, ipcMain, net, protocol, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, net, protocol, shell } = require("electron");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { createDataStore, defaultDataDir } = require("./dataStore.cjs");
+const { menuTemplate } = require("./menu.cjs");
 const { discoverPlugins, resolveInside } = require("./plugins.cjs");
 const { complete } = require("./completions.cjs");
 const pluginHosts = require("./pluginHosts.cjs");
@@ -16,6 +17,7 @@ const { createShellSessions, resolveCwd } = require("./shellSessions.cjs");
 const ORIGIN = "termeedor://app";
 const APP_ROOT = path.join(__dirname, "..");
 const APP_FILES = /^\/(index\.html|(src|styles|themes)\/.+)$/;
+const TEXT_TERMINAL = "/node_modules/@xterm/headless/lib-headless/xterm-headless.mjs"; // src/terminal/textModel.js
 const VENDOR_FILES = /^\/vendor\/(xterm|addon-fit)\/((?:lib|css)\/[\w.-]+)$/;
 
 // A real origin (not file://) so ES modules, localStorage and the page's CSP behave as on the web.
@@ -60,6 +62,7 @@ function fileForPath(pathname) {
     const plugin = plugins.get(match[1]);
     return plugin && !plugin.error ? resolveInside(plugin.dir, match[2]) : null;
   }
+  if (clean === TEXT_TERMINAL) return path.join(APP_ROOT, clean);
   const vendor = clean.match(VENDOR_FILES);
   if (vendor) return path.join(APP_ROOT, "node_modules", "@xterm", vendor[1] === "xterm" ? "xterm" : "addon-fit", vendor[2]);
   return APP_FILES.test(clean) ? path.join(APP_ROOT, clean) : null;
@@ -177,6 +180,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate(process.platform === "darwin")));
     fs.mkdirSync(userPluginsDir(), { recursive: true });
     protocol.handle("termeedor", serve);
     const data = createDataStore(defaultDataDir());

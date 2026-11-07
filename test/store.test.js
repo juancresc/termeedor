@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
 
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 
 const { STORAGE_KEYS } = await import("../src/constants.js");
-const { state, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, reopenPast, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
+const { state, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
 
 beforeEach(() => {
   state.ws.groups = [];
@@ -119,4 +120,38 @@ test("a new group skips names already taken", () => {
   setGroupMinimized(two, true); // still counts while minimized
   const names = state.ws.groups.map((g) => g.name.toLowerCase());
   assert.equal(new Set(names).size, names.length);
+});
+
+test("a new group starts expanded", () => {
+  assert.equal(addGroup().collapsed, false);
+});
+
+test("collapsing a group leaves it selected, in the top row, and its tab active", () => {
+  const group = addGroup();
+  const tab = activeTab();
+  setGroupCollapsed(group, true);
+  assert.equal(group.collapsed, true);
+  assert.equal(group.minimized, false);
+  assert.equal(state.ws.activeGroup, group.id);
+  assert.equal(activeTab(), tab);
+  setGroupCollapsed(group, false);
+  assert.equal(group.collapsed, false);
+});
+
+test("minimizing and restoring a group leaves its collapsed state alone", () => {
+  const group = addGroup();
+  setGroupMinimized(group, true);
+  assert.equal(group.collapsed, false);
+  setGroupMinimized(group, false);
+  setGroupCollapsed(group, true);
+  setGroupMinimized(group, true);
+  assert.equal(group.collapsed, true);
+  setGroupMinimized(group, false);
+  assert.equal(group.collapsed, true);
+});
+
+test("the sidebar hides a group's tabs when collapsed, not when minimized", () => {
+  const css = readFileSync(new URL("../styles/base.css", import.meta.url), "utf8");
+  assert.match(css, /\.group\.collapsed \.glist \{ display: none; \}/);
+  assert.doesNotMatch(css, /\.group\.minimized \.glist/);
 });

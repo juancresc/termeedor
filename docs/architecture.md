@@ -7,6 +7,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | Where | What |
 | --- | --- |
 | `electron/main.cjs` | Window, `termeedor://` protocol, IPC |
+| `electron/menu.cjs` | App menu, with no reload items |
 | `electron/shellSessions.cjs` | One PTY per tab (node-pty) |
 | `electron/shellParser.cjs`, `shellIntegration.cjs` | Shell hooks and OSC 133 markers: command start, finish, cwd |
 | `electron/completions.cjs` | Tab completion: PATH commands and paths |
@@ -19,7 +20,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `src/platform.js` | Desktop or browser, Mac or not, and the desktop host. The only code that reads `termeedorHost` or `navigator.platform` |
 | `src/storage.js` | localStorage helpers, for the browser build, the migration and plugins' `api.storage` |
 | `src/editor.js` | Textarea: input rules, history, completion UI, runs, gutter |
-| `src/terminal/` | `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the text area in characters), `textModel` (output to plain text), `fullscreen` (xterm for vim, top), `keys` |
+| `src/terminal/` | `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the text area in characters), `textModel` (a terminal with no display, `@xterm/headless`, read back as plain text), `fullscreen` (xterm for vim, top), `keys` |
 | `src/plugins/` | Host, scope, registry, public API |
 | `src/*.js` (the rest) | UI: tab bar, sidebar, menus, settings, themes |
 

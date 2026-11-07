@@ -11,7 +11,7 @@ import {
 import { renderTranscript } from "./terminal/transcript.js";
 import { nameLabel, startRename, isEditing, isRenaming } from "./rename.js";
 import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
-import { tabRowButtons, groupRowButtons } from "./controls.js";
+import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";
 
 let pastQuery = "";
 
@@ -44,14 +44,15 @@ function renderGroups() {
 
 function groupNode(group) {
   const tabs = tabsIn(group.id);
-  const box = el("div", `group${group.minimized ? " minimized" : ""}`);
+  const box = el("div", `group${group.collapsed ? " collapsed" : ""}${group.minimized ? " minimized" : ""}`);
 
   const head = el("div", "ghead");
   head.append(
+    groupCollapseButton(group),
     colorDot(group.color, "dot"),
     nameLabel("group", group, "sidebar", "span", "gname"),
-    // its tabs are hidden while minimized, so show here that something is running
-    ...(group.minimized && groupHasRunning(group.id) ? [spinner()] : []),
+    // its tabs are hidden while collapsed, so show here that something is running
+    ...(group.collapsed && groupHasRunning(group.id) ? [spinner()] : []),
     groupRowButtons(group),
   );
   head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : selectGroup(group));

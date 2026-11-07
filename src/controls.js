@@ -5,7 +5,7 @@
 import { el } from "./util.js";
 import {
   activateTab, addTab, closeTab, moveTabBy, moveGroupBy, visibleTabsIn, barGroups,
-  setTabCollapsed, setTabMinimized, setGroupMinimized,
+  setTabCollapsed, setTabMinimized, setGroupCollapsed, setGroupMinimized,
 } from "./store.js";
 import { confirmRemoveGroup, tabMenu, groupMenu } from "./contextMenus.js";
 import { slideNextRender } from "./slide.js";
@@ -72,6 +72,13 @@ export const groupBarButtons = (group) => buttonBox(
 
 export const tabRowButtons = (tab) => buttonBox(...tabActions(tab, "icon-btn"), moreButton((e) => tabMenu(tab, e, "sidebar")));
 export const groupRowButtons = (group) => buttonBox(...groupActions(group, "icon-btn"), moreButton((e) => groupMenu(group, e, "sidebar")));
+
+/** Always visible at the start of a sidebar group. A quick second click must not start a rename. */
+export function groupCollapseButton(group) {
+  const node = button("gchevron", "›", `${group.collapsed ? "Expand" : "Collapse"} group`, () => setGroupCollapsed(group, !group.collapsed));
+  node.ondblclick = (e) => e.stopPropagation();
+  return node;
+}
 
 /** On a tab collapsed to a small chip (see the tab's right-click menu). */
 export const expandTabButton = (tab) => button("x", "›", "Expand tab", () => setTabCollapsed(tab, false));

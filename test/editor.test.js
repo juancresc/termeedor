@@ -30,6 +30,7 @@ renderEditor();
 
 const FLUSH_WAIT = 80; // longer than the runner's output flush
 const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+const SETTLE_MS = 10; // long enough for the terminal behind the text to parse what it was given
 const key = (name) => ({ key: name, code: "", preventDefault: noop });
 const tab = () => store.activeTab();
 
@@ -57,7 +58,7 @@ async function finish(output = "") {
   const tabId = tab().id;
   if (output) sendEvent({ tabId, event: { type: "output", data: output } });
   sendEvent({ tabId, event: { type: "finish", exit: 0, cwd: "~" } });
-  await pause(0);
+  await pause(SETTLE_MS);
 }
 
 async function run(command, output) {
@@ -78,7 +79,7 @@ test("typing fills the draft, and running moves it into a block", async () => {
   assert.equal(hostRuns.at(-1), "echo hi");
   assert.equal(tab().draft, "");
   assert.equal(store.isRunning(tab().id), true);
-  assert.ok(textarea.value.endsWith("❯ echo hi")); // no prompt while it runs
+  assert.ok(textarea.value.endsWith("❯ echo hi\n")); // no prompt while it runs
 
   await finish("hi\r\n");
   assert.equal(store.isRunning(tab().id), false);
@@ -105,7 +106,7 @@ test("Enter on spoofed output with nothing typed runs nothing from it", async ()
   pressEnter();
   assert.equal(tab().blocks.at(-1).command, "");
   assert.equal(hostRuns.length, before);
-  await pause(0);
+  await pause(SETTLE_MS);
 });
 
 test("Enter on a printed line that looks like a command runs the draft", async () => {
@@ -333,6 +334,29 @@ test("Ctrl+P and Ctrl+N walk through past commands and back to the draft", async
   eraseDraft();
 });
 
+test("Enter moves the cursor to a new line right away, even with a trailing space", async () => {
+  store.addTab();
+  type("code . ");
+  caretToEnd();
+  pressEnter();
+  assert.ok(textarea.value.endsWith("\u276F code .\n"), JSON.stringify(textarea.value.slice(-12)));
+  assert.equal(textarea.selectionStart, textarea.value.length);
+  await finish("");
+  assert.ok(textarea.value.endsWith("\u276F code .\n\u276F "), JSON.stringify(textarea.value.slice(-14)));
+  assert.equal(textarea.selectionStart, textarea.value.length);
+});
+
+test("Enter with the cursor inside the line still runs the whole line", async () => {
+  store.addTab();
+  type("code .");
+  const end = textarea.value.length;
+  textarea.setSelectionRange(end - 1, end - 1);
+  pressEnter();
+  assert.equal(tab().blocks.at(-1).command, "code .");
+  assert.equal(textarea.selectionStart, textarea.value.length);
+  await finish("");
+});
+
 test("plugin events keep their payloads", async () => {
   const registry = await import("../src/plugins/registry.js");
   const seen = [];
@@ -381,7 +405,7 @@ test("closing a tab mid-run archives it and ends the run", async () => {
   pressEnter();
   assert.equal(store.isRunning(closing.id), true);
   store.closeTab(closing);
-  await pause(0);
+  await pause(SETTLE_MS);
   assert.equal(store.isRunning(closing.id), false);
   assert.equal(store.state.past[0].tab.blocks.at(-1).command, "sleep 9");
 });

@@ -101,3 +101,11 @@ test("a new tab opens at the end of the list, or right after the tab it was aske
   assert.equal(order.indexOf(beside.id), order.indexOf(first.id) + 1);
   assert.equal(order.indexOf(last.id), order.length - 1);
 });
+
+test("a group's collapsed state loads as a boolean, separate from minimized", () => {
+  const groups = [{ id: "a", collapsed: true }, { id: "b", minimized: true }, { id: "c" }];
+  const [collapsed, minimized, plain] = sanitizeWorkspace({ groups, tabs: [] }).groups;
+  assert.deepEqual([collapsed.collapsed, collapsed.minimized], [true, false]);
+  assert.deepEqual([minimized.collapsed, minimized.minimized], [false, true]);
+  assert.deepEqual([plain.collapsed, plain.minimized], [false, false]);
+});

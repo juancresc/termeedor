@@ -132,6 +132,7 @@ test("mock: help's lines reach the text model unchanged", async () => {
   await backend.run("t1", "help");
   const model = createTextModel();
   model.write(outputOf(events));
+  await model.settled();
   assert.ok(model.text().startsWith("Commands:\n  help, clear,"));
   assert.ok(model.text().includes("\n\nTab completes"));
 });
@@ -141,6 +142,7 @@ test("mock: clear erases the scrollback the way the real clear does", async () =
   await backend.run("t1", "clear");
   const model = createTextModel();
   model.write(outputOf(events));
+  await model.settled();
   assert.equal(model.takeErasedScrollback(), true);
   assert.equal(model.text(), "");
 });
