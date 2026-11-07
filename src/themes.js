@@ -65,7 +65,7 @@ const REFERENCE = `/*
  *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTray .chipName .chipCount
  *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab.groupColored .tab .name
  *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
- *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .tabGroupLabel .groupAdd
+ *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd .trayRoom
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .empty
  *              .group .group.minimized .group.dragover .ghead .ghead .dot .ghead .gname .glist

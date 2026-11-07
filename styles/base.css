@@ -42,13 +42,12 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .tabStrip .tb-btn:hover { background: var(--line); }
 .tabs { display: flex; gap: 2px; flex: 0 1 auto; min-width: 0; /* only as wide as its tabs, so ＋ sits right after them */ overflow-x: auto; height: 100%; align-items: flex-end; scrollbar-width: none; }
 .tabsEmpty { align-self: center; color: var(--dim); font-size: 12px; }
-/* "show all" mode: a box around each group's name, tabs and ＋, in its color if it has one */
-.tabs.showAll { gap: 6px; }
-.tabGroupBox { display: flex; align-items: flex-end; gap: 2px; flex: none; padding: 1px 4px 0; border: 1px solid color-mix(in srgb, var(--group-color, var(--dim)) 45%, transparent); border-bottom: 0; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--group-color, var(--line)) 22%, transparent); }
+/* "show all" mode: a box around each group's tabs and ＋, in its color if it has one */
+.tabs.showAll { gap: 6px; } /* both rows: the gaps must match for columns to line up (tabbar.js) */
+.trayRoom { flex: none; }
+.tabGroupBox { position: relative; display: flex; align-items: flex-end; gap: 2px; flex: none; padding: 1px 4px 0; border: 1px solid color-mix(in srgb, var(--group-color, var(--dim)) 45%, transparent); border-bottom: 0; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--group-color, var(--line)) 22%, transparent); }
 .tabGroupBox.active { border-color: var(--group-color, var(--dim)); }
 .tabGroupBox.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
-.tabGroupLabel { flex: none; align-self: center; max-width: 160px; height: 22px; padding: 0 8px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--group-color, var(--line)) 45%, transparent); color: var(--text); font-size: 11px; font-weight: 700; line-height: 22px; cursor: pointer; user-select: none; }
-.tabGroupLabel:hover { background: color-mix(in srgb, var(--group-color, var(--line)) 60%, transparent); }
 .tabs.showAll .tab.groupColored:not(.active) { background: color-mix(in srgb, var(--group-color) 20%, transparent); }
 .tabs.showAll .tab.groupColored:not(.active):hover { background: color-mix(in srgb, var(--group-color) 32%, transparent); }
 .tabStrip .groupAdd { flex: none; align-self: flex-end; height: 26px; margin-bottom: 1px; padding: 0 8px; color: var(--group-color, var(--dim)); }

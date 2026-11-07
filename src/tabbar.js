@@ -1,6 +1,7 @@
 // The two top bars. First row: groups, like tabs of tabs. Second row: the selected group's tabs.
 // Minimized groups go to a tray at the end of the first row; a group's tab counts its minimized tabs.
 // Drag a tab onto a group to send it there.
+// In "show all" mode each group's tab sits right above where its tabs start.
 
 import { $, el, spinner } from "./util.js";
 import { colorVar } from "./constants.js";
@@ -11,27 +12,48 @@ import {
 import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, minimizedGroupsMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
-import { renderRow } from "./slide.js";
+import { renderRows, slideNextRender } from "./slide.js";
 
 export function initTabbar() {
   $("newGroupTabBtn").onclick = () => startRename("group", addGroup(), "tabbar");
   $("newTabBtn").onclick = () => addTab();
-  $("allGroupsBtn").onclick = () => updateSettings({ showAllGroups: !state.settings.showAllGroups });
+  $("allGroupsBtn").onclick = () => {
+    slideNextRender();
+    updateSettings({ showAllGroups: !state.settings.showAllGroups });
+  };
+
+  // the two rows scroll as one, so columns stay lined up
+  const [groups, tabs] = [$("groupTabs"), $("tabs")];
+  groups.addEventListener("scroll", () => { if (state.settings.showAllGroups) tabs.scrollLeft = groups.scrollLeft; });
+  tabs.addEventListener("scroll", () => { if (state.settings.showAllGroups) groups.scrollLeft = tabs.scrollLeft; });
+  window.addEventListener("resize", alignColumns);
 }
 
 export function renderTabbar() {
   const tray = minimizedGroups().length ? [minimizedTray()] : [];
-  renderRow($("groupTabs"), [...barGroups().map(groupTab), ...tray]);
-
   const showAll = state.settings.showAllGroups;
   const group = getGroup(state.ws.activeGroup);
+  $("groupTabs").classList.toggle("showAll", showAll);
   $("tabs").classList.toggle("showAll", showAll);
-  renderRow($("tabs"), tabRowNodes(group, showAll));
+  renderRows([
+    { row: $("groupTabs"), nodes: [...barGroups().map(groupTab), ...tray] },
+    { row: $("tabs"), nodes: tabRowNodes(group, showAll), enteringKey: newlyOpenedTab() },
+  ], alignColumns);
   $("newTabBtn").hidden = !group || showAll; // in "show all" mode each group has its own
 
   const toggle = $("allGroupsBtn");
   toggle.setAttribute("aria-pressed", String(showAll));
   toggle.title = showAll ? "Show this group's tabs" : "Show all tabs";
+}
+
+let knownTabs = null;
+
+/** The tab this render is the first to show, if just one is. The first render opens nothing. */
+function newlyOpenedTab() {
+  const ids = state.ws.tabs.map((tab) => tab.id);
+  const fresh = knownTabs ? ids.filter((id) => !knownTabs.has(id)) : [];
+  knownTabs = new Set(ids);
+  return fresh.length === 1 ? fresh[0] : null;
 }
 
 function tabRowNodes(group, showAll) {
@@ -40,13 +62,9 @@ function tabRowNodes(group, showAll) {
   return barGroups().map(groupSection);
 }
 
-/** "Show all" mode: a box around a group's name, its tabs and its own new tab button. */
+/** "Show all" mode: a box around a group's tabs and its own new tab button. */
 function groupSection(group) {
   const isActive = group.id === state.ws.activeGroup;
-  const label = el("span", "tabGroupLabel", group.name);
-  label.dataset.slideKey = `label-${group.id}`;
-  label.onclick = () => selectGroup(group);
-
   const add = el("button", "tb-btn groupAdd", "＋");
   add.dataset.slideKey = `add-${group.id}`;
   add.title = `New tab in ${group.name}`;
@@ -54,9 +72,39 @@ function groupSection(group) {
 
   const box = el("div", `tabGroupBox${isActive ? " active" : ""}`);
   if (group.color) box.style.setProperty("--group-color", colorVar(group.color));
-  box.append(label, ...visibleTabsIn(group.id).map((tab) => tabNode(tab, group)), add);
+  box.dataset.slideKey = `box-${group.id}`;
+  box.append(...visibleTabsIn(group.id).map((tab) => tabNode(tab, group)), add);
   acceptTabDrops(box, group);
   return box;
+}
+
+/** "Show all" mode: each group's tab starts where its box does. Whichever is narrower leaves the room. */
+function alignColumns() {
+  const [groups, tabs] = [$("groupTabs"), $("tabs")];
+  tabs.style.marginLeft = tabs.style.maxWidth = "";
+  tabs.querySelector(".trayRoom")?.remove();
+  if (!state.settings.showAllGroups) return;
+
+  const heads = [...groups.querySelectorAll(".groupTab:not(.groupTray)")];
+  const boxes = [...tabs.querySelectorAll(".tabGroupBox")];
+  if (!boxes.length) return;
+  boxes.forEach((box, i) => {
+    const head = heads[i];
+    head.style.marginRight = box.style.marginRight = "";
+    const [headWidth, boxWidth] = [head, box].map((node) => node.getBoundingClientRect().width);
+    head.style.marginRight = `${Math.max(0, boxWidth - headWidth)}px`;
+    box.style.marginRight = `${Math.max(0, headWidth - boxWidth)}px`;
+  });
+
+  const tray = groups.querySelector(".groupTray");
+  if (tray) { // keeps both rows the same length to scroll
+    const room = el("span", "trayRoom");
+    room.style.width = `${tray.getBoundingClientRect().width}px`;
+    tabs.append(room);
+  }
+  tabs.style.marginLeft = `${groups.getBoundingClientRect().left - tabs.getBoundingClientRect().left}px`;
+  tabs.style.maxWidth = `${groups.clientWidth}px`;
+  tabs.scrollLeft = groups.scrollLeft;
 }
 
 function minimizedTray() {
