@@ -9,8 +9,8 @@ const { pathToFileURL } = require("node:url");
 const { createDataStore, defaultDataDir } = require("./dataStore.cjs");
 const { menuTemplate } = require("./menu.cjs");
 const { discoverPlugins, resolveInside } = require("./plugins.cjs");
-const { complete } = require("./completions.cjs");
 const pluginHosts = require("./pluginHosts.cjs");
+const { createShellCompleter } = require("./shellCompleter.cjs");
 const { removeIntegrationFiles } = require("./shellIntegration.cjs");
 const { createShellSessions, resolveCwd } = require("./shellSessions.cjs");
 
@@ -129,14 +129,17 @@ const shells = createShellSessions((tabId, event) => {
   if (shellWindow && !shellWindow.isDestroyed()) shellWindow.webContents.send("shell:event", { tabId, event });
 });
 
+const completer = createShellCompleter();
+
 function stopBackgroundWork() {
   shells.killAll();
+  completer.stop();
   pluginHosts.stopAll();
 }
 
 function completeInTab(tabId, input, cwd) {
   const session = shells.info(tabId);
-  return complete(String(input), resolveCwd(session?.cwd ?? cwd), session?.path ?? process.env.PATH ?? "");
+  return completer.complete(tabId, String(input), resolveCwd(session?.cwd ?? cwd), session?.path);
 }
 
 function callPluginHost(id, method, args) {
@@ -194,7 +197,10 @@ if (!app.requestSingleInstanceLock()) {
     handle("shell:run", (tabId, command, options) => shells.run(tabId, String(command), options));
     handle("shell:write", (tabId, data) => shells.write(tabId, String(data)));
     handle("shell:resize", (tabId, cols, rows) => shells.resize(tabId, cols, rows));
-    handle("shell:kill", (tabId) => shells.kill(tabId));
+    handle("shell:kill", (tabId) => {
+      shells.kill(tabId);
+      completer.closeTab(tabId);
+    });
     handle("shell:complete", completeInTab);
     createWindow();
     app.on("activate", () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });

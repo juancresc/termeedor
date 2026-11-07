@@ -33,7 +33,7 @@ export function renderEditor() {
   const tab = activeTab() ?? null;
   $("colorbar").style.background = colorVar(tab?.color) ?? "transparent";
   showBoth(tab);
-  $("stTab").textContent = tab ? `${getGroup(tab.groupId).name} › ${tab.name}` : "No open tabs";
+  $("stTab").textContent = tab ? [getGroup(tab.groupId).name, tab.name].filter(Boolean).join(" › ") : "No open tabs";
   $("stCwd").textContent = tab?.cwd ?? "";
   $("stRunning").textContent = statusNotice(tab);
   if (!tab) $("stPos").textContent = "";

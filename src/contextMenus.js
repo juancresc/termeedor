@@ -6,7 +6,7 @@ import { askConfirm } from "./dialogs.js";
 import { startRename } from "./rename.js";
 import { menuItemsFor } from "./plugins/registry.js";
 import {
-  state, activateTab, getGroup, isRunning, stopRun,
+  state, activateTab, getGroup, groupLabel, isRunning, stopRun,
   addTab, closeTab, duplicateTab, moveTab, moveTabToNewGroup, setTabColor, setTabCollapsed, setTabMinimized, restoreMinimized, tabsIn,
   closeGroup, setGroupMinimized, minimizedGroups, setGroupColor, setGroupTabs,
   reopenPast, deletePast,
@@ -31,8 +31,8 @@ export function tabMenu(tab, event, where) {
     ...(isRunning(tab.id) ? [{ label: "Stop running command", onSelect: () => stopRun(tab.id) }] : []),
     { swatches: { label: "Tab color", colors: TAB_COLORS, current: tab.color, allowNone: true, onPick: (c) => setTabColor(tab, c) } },
     "-",
-    ...otherGroups.map((g) => ({ label: `Send to › ${g.name}`, onSelect: () => moveTab(tab, g.id) })),
-    { label: "Send to › New group", onSelect: () => startRename("group", moveTabToNewGroup(tab), where) },
+    ...otherGroups.map((g) => ({ label: `Send to › ${groupLabel(g)}`, onSelect: () => moveTab(tab, g.id) })),
+    { label: "Send to › New group", onSelect: () => moveTabToNewGroup(tab) },
     ...pluginSection("tab", tab),
     "-",
     { label: "Close tab", danger: true, onSelect: () => closeTab(tab) },
@@ -55,20 +55,20 @@ export function groupMenu(group, event, where = "sidebar") {
 }
 
 export function minimizedGroupsMenu(event) {
-  openMenu(event, minimizedGroups().map((g) => ({ label: `Restore › ${g.name}`, onSelect: () => setGroupMinimized(g, false) })));
+  openMenu(event, minimizedGroups().map((g) => ({ label: `Restore › ${groupLabel(g)}`, onSelect: () => setGroupMinimized(g, false) })));
 }
 
 export async function confirmRemoveGroup(group) {
   const count = tabsIn(group.id).length;
   if (count === 0) return closeGroup(group);
   const message = `Its ${count === 1 ? "tab" : `${count} tabs`} will move to Sessions, where you can reopen ${count === 1 ? "it" : "them"}.`;
-  if (await askConfirm({ title: `Close "${group.name}"?`, message, acceptLabel: "Close group", danger: true })) closeGroup(group);
+  if (await askConfirm({ title: `Close "${groupLabel(group)}"?`, message, acceptLabel: "Close group", danger: true })) closeGroup(group);
 }
 
 /** Says where reopening a closed tab will put it. */
 export function reopenLabel() {
   const group = getGroup(state.ws.activeGroup);
-  return group ? `Reopen in › ${group.name}` : "Reopen in a new group";
+  return group ? `Reopen in › ${groupLabel(group)}` : "Reopen in a new group";
 }
 
 export function pastMenu(entry, event) {

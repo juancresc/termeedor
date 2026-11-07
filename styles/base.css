@@ -60,6 +60,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .groupTray { padding-right: 12px; opacity: .8; }
 .groupTab.dragover, .tab.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
 .groupTab .chipName { overflow: hidden; text-overflow: ellipsis; }
+.groupTab .chipName:empty { display: none; }
+.groupTab.unnamed { padding-left: 6px; }
 .groupTab .inlineInput { width: 110px; font-weight: 600; }
 .chipCount { padding: 0 5px; border-radius: 8px; background: color-mix(in srgb, currentColor 18%, transparent); font-size: 10px; color: inherit; line-height: 15px; }
 button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transparent); }
@@ -75,9 +77,9 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .itemBtns { display: flex; align-items: center; gap: 2px; flex: none; margin-left: 2px; }
 .itemBtns > button { width: 18px; height: 18px; padding: 0; font-size: 14px; line-height: 18px; text-align: center; }
 .x { border-radius: 4px; color: var(--dim); font-weight: 400; opacity: 0; }
-.tab:is(:hover, .active) .x, .groupTab:is(:hover, .active) .x { opacity: .7; }
+.tab:is(:hover, .active) .x, .groupTab:is(:hover, .active, .unnamed) .x { opacity: .7; } /* an unnamed group is only its buttons */
 .tab .x:hover:enabled, .groupTab .x:hover:enabled { background: var(--line); color: var(--text); opacity: 1; }
-.tab:is(:hover, .active) .x:disabled, .groupTab:is(:hover, .active) .x:disabled { opacity: .2; }
+.tab:is(:hover, .active) .x:disabled, .groupTab:is(:hover, .active, .unnamed) .x:disabled { opacity: .2; }
 .x:disabled { pointer-events: none; } /* a click goes to the tab under it */
 
 /* ---------- Sidebar ---------- */
@@ -131,9 +133,9 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 /* sidebar rows: the buttons only take up room on hover, so names keep the full width */
 .ghead { min-height: 28px; } /* tall enough for the buttons, so rows don't shift on hover */
 .item { min-height: 26px; }
-.item:not(:hover, :focus-within) .itemBtns, .ghead:not(:hover, :focus-within) .itemBtns { display: none; }
+.item:not(:hover, :focus-within) .itemBtns, .ghead:not(:hover, :focus-within, .unnamed) .itemBtns { display: none; }
 .icon-btn { opacity: 0; font-size: 13px; padding: 1px 4px; border-radius: 4px; color: var(--dim); }
-.item:hover .icon-btn, .ghead:hover .icon-btn, .session:hover .icon-btn { opacity: .8; }
+.item:hover .icon-btn, .ghead:is(:hover, .unnamed) .icon-btn, .session:hover .icon-btn { opacity: .8; }
 .icon-btn:hover { opacity: 1; background: var(--line); color: var(--text); }
 .icon-btn.shown { opacity: .8; font-size: 14px; padding: 2px 6px; }
 
@@ -215,7 +217,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .completions div:hover { background: color-mix(in srgb, var(--sel) 50%, transparent); }
 .completions div.on { background: var(--sel); }
 .completions span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: pre; }
-.completions span:last-child { flex: none; color: var(--dim); font: 11px/1.6 var(--ui); }
+.completions span:last-child { flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font: 11px/1.6 var(--ui); }
 
 /* ---------- Tooltip ---------- */
 .tooltip {

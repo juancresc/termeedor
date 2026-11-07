@@ -10,7 +10,8 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `electron/menu.cjs` | App menu, with no reload items |
 | `electron/shellSessions.cjs` | One PTY per tab (node-pty) |
 | `electron/shellParser.cjs`, `shellIntegration.cjs` | Shell hooks and OSC 133 markers: command start, finish, cwd |
-| `electron/completions.cjs` | Tab completion: PATH commands and paths |
+| `electron/shellCompleter.cjs`, `zshCompletion.zsh` | Tab completion from a hidden zsh |
+| `electron/completions.cjs` | Tab completion's fallback: PATH commands and paths |
 | `electron/plugins.cjs`, `pluginHosts.cjs` | Plugin discovery, and one process per plugin host file |
 | `electron/dataStore.cjs` | Saved data as files in `~/.termeedor` (`TERMEEDOR_DATA_DIR` overrides it) |
 | `src/core/` | No DOM or storage. `workspace` (state, actions), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when) |
@@ -77,7 +78,8 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 | `core` still imports the transcript model from `terminal/` | `core/saved.js`, `core/workspace.js` |
 | A desktop shell that ends between commands sends no `exit` event, so the tab's next `run` is what notices | `electron/shellSessions.cjs` |
 | Plugins get live `tab` objects | `plugins/api.js` |
-| Completion doesn't know flags or branches | `completions.cjs` |
+| On bash, completion doesn't know flags or branches | `completions.cjs` |
+| Completion functions run the programs they complete for (`git`, `npm`), as they do in zsh | `shellCompleter.cjs` |
 | What the shell draws at a continuation prompt isn't shown, so an unterminated quote looks like a silent running command | `electron/shellParser.cjs` |
 | Erased cells with a background color are trimmed with the line's end, so a background that fills a line stops at its last character | `terminal/textModel.js` |
 | A running program's cursor always shows at the end of its output, whatever column it is really in | `styles/base.css` |
@@ -106,7 +108,7 @@ Each step ships alone. New features can continue between steps.
 3. **Store split (done).** State and actions moved to `core`, with tests, and `store.js` stays the import path. Data moved from localStorage to files in `~/.termeedor`: layout and scrollback are separate, one tab's output rewrites one file, and scrollback is capped per tab.
 4. **Backend port (done).** `adapters/index.js` chooses Electron or mock, and `platform.js` is the one answer to desktop or browser and Mac or not. `shell.js` became the mock adapter, the only place fake commands remain. `realShell.js` became `terminal/runner.js` and `size.js`, and its IPC moved to the Electron adapter. The mock now sends events through the same path as the real shell.
 5. **Editor-style view (done).** Blocks are read-only DOM with native selection, and only what changed is redrawn. The input is a separate plain textarea right after the output, scrolling with it, so the rules guarding the caret and the prompt are gone. Multi-line commands go to the shell as a bracketed paste. Each real command has a re-run button, and clicking text never runs anything. Color is read from the terminal's cells and saved with each block. Line numbers apply to the input only.
-6. **Completion.** Hidden zsh helper behind `complete(input, cwd)`, with `completions.cjs` as the fallback. First prove it with a real `.zshrc`, and find out why `git log --ona` returned nothing in the prototype.
+6. **Completion (done).** `shellCompleter` asks one hidden zsh, shared by all tabs and started on the first Tab, with the user's rc files. It gets requests over a socket and no keys, so it can't run the line, and it captures `compadd`. It answers within 1s, or `completions.cjs` does; the same on a crash, no results or another shell. zsh's own completion evaluates `$(x)/`, so lines with `(`, a backtick or a hidden operator never reach it.
 7. **Cleanup.** Action registry for shortcuts, menus and plugins. Render only what changed. Plugin API v2.
 
 Add a framework only if step 7 still hurts, and then only `lit-html`.

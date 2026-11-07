@@ -116,3 +116,19 @@ test("a group running a command takes the same room selected or not", () => {
     runs.finish(tab.id);
   }
 });
+
+test("an unnamed group's tab is just its buttons; a named one keeps its name and count", () => {
+  const [group] = [addGroup(), addGroup()];
+  renderTabbar();
+  const heading = () => row("groupTabs").children[0];
+  assert.ok(heading().has("unnamed"));
+  assert.equal(heading().querySelector(".chipName").textContent, "");
+  assert.equal(heading().querySelector(".chipCount"), null);
+  assert.ok(heading().querySelector(".itemBtns"));
+
+  group.name = "Work";
+  renderTabbar();
+  assert.ok(!heading().has("unnamed"));
+  assert.equal(heading().querySelector(".chipName").textContent, "Work");
+  assert.ok(heading().querySelector(".chipCount"));
+});

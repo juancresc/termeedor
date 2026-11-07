@@ -65,13 +65,13 @@ const REFERENCE = `/*
  * Selectors
  *   Page       body .app .app.nosidebar .app.nolines .app.resizing .desktop .platform-darwin
  *   Title bar  .titlebar .lights .tb-btn
- *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTray .chipName .chipCount
+ *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .groupTray .chipName .chipCount
  *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab.groupColored .tab .name
  *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
  *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd .trayRoom
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .empty
- *              .group .group.collapsed .group.minimized .group.dragover .ghead .gchevron .ghead .dot .ghead .gname .glist
+ *              .group .group.collapsed .group.minimized .group.dragover .ghead .ghead.unnamed .gchevron .ghead .dot .ghead .gname .glist
  *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
  *   Output     .main .colorbar .termScroll .output .output.running .output ::selection .block .block.isCommand

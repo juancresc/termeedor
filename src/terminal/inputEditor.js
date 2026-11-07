@@ -315,7 +315,7 @@ async function completeFrom(context) {
     applyCompletion(items[0].value);
   } else if (items.length > 1) {
     const shared = sharedPrefix(items.map((item) => item.value));
-    if (shared !== context.input) applyCompletion(shared);
+    if (shared.length > context.input.length) applyCompletion(shared); // a looser match can't take back what is typed
     openMenu(items);
   }
 }

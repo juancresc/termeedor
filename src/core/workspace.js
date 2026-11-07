@@ -21,15 +21,10 @@ function defaultTabColorFor(group) {
   return TAB_COLORS.includes(setting) ? setting : null;
 }
 
-/** "Group N" with the next number, skipping any name already taken (minimized groups count). */
-function nextGroupName() {
-  const taken = new Set(state.ws.groups.map((g) => g.name.toLowerCase()));
-  let number = state.ws.groups.length + 1;
-  while (taken.has(`group ${number}`)) number++;
-  return `Group ${number}`;
-}
+/** New groups have no name until renamed. This is what to call one in menus and dialogs. */
+export const groupLabel = (group) => group.name || "Unnamed group";
 
-function createGroup(name, color = null) {
+function createGroup(name = "", color = null) {
   return { id: uid(), name, color, collapsed: false, minimized: false };
 }
 
@@ -139,7 +134,7 @@ export function activateTab(id) {
 export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id, after = null) {
   let group = getGroup(groupId);
   if (!group) {
-    group = createGroup(nextGroupName());
+    group = createGroup();
     state.ws.groups.push(group);
   }
   showGroup(group);
@@ -189,7 +184,7 @@ export function moveTab(tab, groupId) {
 
 /** Send one tab to a brand-new group. Returns the group. */
 export function moveTabToNewGroup(tab) {
-  const group = createGroup(nextGroupName());
+  const group = createGroup();
   state.ws.groups.push(group);
   moveTab(tab, group.id);
   return group;
@@ -222,7 +217,7 @@ export function setTabColor(tab, color) {
 // ---------- group actions ----------
 /** Creates a group with one terminal and selects it. */
 export function addGroup() {
-  const group = createGroup(nextGroupName());
+  const group = createGroup();
   state.ws.groups.push(group);
   addTab(group.id);
   return group;
@@ -319,7 +314,7 @@ function archiveTab(tab) {
 export function reopenPast(entry) {
   let group = getGroup(state.ws.activeGroup);
   if (!group) {
-    group = createGroup(nextGroupName());
+    group = createGroup();
     state.ws.groups.push(group);
   }
   const tab = { id: uid(), groupId: group.id, name: entry.name, collapsed: false, minimized: false, ...entry.tab, history: [...entry.tab.history] };

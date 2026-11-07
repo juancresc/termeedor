@@ -2,7 +2,6 @@
 
 import { state, activeTab, barTabs, activateTab, addTab, addGroup, closeActive, setSidebarOpen, reopenLastClosed } from "./store.js";
 import { isMac } from "./platform.js";
-import { startRename } from "./rename.js";
 import { openSettings } from "./settings.js";
 import { getShortcut, reserve } from "./plugins/registry.js";
 import { builtinShortcutKeys, findShortcut, pluginShortcutKey, shortcutList, withShortcut } from "./keymap.js";
@@ -28,7 +27,7 @@ const ACTIONS = {
   newTab: () => addTab(),
   reopenTab: () => reopenLastClosed(),
   closeTab: () => closeActive(),
-  newGroup: () => startRename("group", addGroup(), "tabbar"),
+  newGroup: () => addGroup(),
   toggleSidebar: () => setSidebarOpen(!state.ws.sidebarOpen),
   openSettings: () => openSettings(),
   previousTab: () => switchTab(-1),

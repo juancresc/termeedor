@@ -6,7 +6,7 @@
 import { $, el, spinner } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
-  state, getGroup, getTab, tabsIn, visibleTabsIn, barGroups, barTabs, isRunning, groupHasRunning, minimizedGroups,
+  state, getGroup, getTab, groupLabel, tabsIn, visibleTabsIn, barGroups, barTabs, isRunning, groupHasRunning, minimizedGroups,
   activateTab, addGroup, addTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
@@ -15,7 +15,7 @@ import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
 import { renderRows, slideNextRender } from "./slide.js";
 
 export function initTabbar() {
-  $("newGroupTabBtn").onclick = () => startRename("group", addGroup(), "tabbar");
+  $("newGroupTabBtn").onclick = () => addGroup();
   $("newTabBtn").onclick = () => addTab();
   $("allGroupsBtn").onclick = () => {
     slideNextRender();
@@ -68,7 +68,7 @@ function groupSection(group) {
   const isActive = group.id === state.ws.activeGroup;
   const add = el("button", "tb-btn groupAdd", "＋");
   add.dataset.slideKey = `add-${group.id}`;
-  add.title = `New tab in ${group.name}`;
+  add.title = `New tab in ${groupLabel(group)}`;
   add.onclick = () => addTab(group.id);
 
   const box = el("div", `tabGroupBox${isActive ? " active" : ""}`);
@@ -121,12 +121,13 @@ function minimizedTray() {
 function groupTab(group) {
   const tabs = tabsIn(group.id);
   const minimizedCount = tabs.filter((t) => t.minimized).length;
-  const node = el("div", `groupTab${group.id === state.ws.activeGroup ? " active" : ""}`);
+  const node = el("div", `groupTab${group.id === state.ws.activeGroup ? " active" : ""}${group.name ? "" : " unnamed"}`);
   node.dataset.slideKey = group.id;
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
   if (groupHasRunning(group.id)) node.append(spinner()); // hidden while selected, keeping its room
-  node.append(nameLabel("group", group, "tabbar", "span", "chipName"), el("span", "chipCount", String(tabs.length)));
+  node.append(nameLabel("group", group, "tabbar", "span", "chipName")); // unnamed: empty, and styled away
+  if (group.name) node.append(el("span", "chipCount", String(tabs.length)));
   if (minimizedCount) {
     const badge = el("button", "chipCount", `+${minimizedCount}`);
     badge.title = "Restore minimized tabs";

@@ -85,6 +85,39 @@ function chooseShell(preferred = process.env.SHELL) {
   return [preferred, "/bin/zsh", "/usr/bin/zsh", "/bin/bash", "/usr/bin/bash"].find(usable) ?? null;
 }
 
+/** The hidden completion shell's startup files, in their own folder: it gets none of the command hooks. */
+function ensureCompletionFiles() {
+  const dir = path.join(ensureIntegrationFiles(), "completion");
+  if (fs.existsSync(dir)) return dir;
+  fs.mkdirSync(dir, { mode: 0o700 });
+  const write = (name, content) => fs.writeFileSync(path.join(dir, name), content, { mode: 0o600 });
+  write(".zshenv", zshStartupFile(".zshenv"));
+  write(".zprofile", zshStartupFile(".zprofile"));
+  write(".zshrc", zshStartupFile(".zshrc"));
+  write(".zlogin", zshStartupFile(".zlogin", '. "$TERMEEDOR_ZDOTDIR/hooks.zsh"\n'));
+  write("hooks.zsh", fs.readFileSync(path.join(__dirname, "zshCompletion.zsh"), "utf8"));
+  return dir;
+}
+
+/** The same shell as a tab's, with the same startup files, reporting to a socket instead of a terminal. */
+function completionLaunch(shell, baseEnv, socketPath) {
+  const dir = ensureCompletionFiles();
+  const { file, args, env } = shellLaunch(shell, baseEnv);
+  delete env.TERMEEDOR_TOKEN;
+  Object.assign(env, {
+    TERMEEDOR_ZDOTDIR: dir,
+    ZDOTDIR: dir,
+    TERMEEDOR_COMPLETE_SOCKET: socketPath,
+    TERMEEDOR_COMPLETER: "1", // so that a startup file can skip what makes no sense here
+    GIT_OPTIONAL_LOCKS: "0",
+    DISABLE_AUTO_UPDATE: "true", // Oh My Zsh would ask, and no one could answer
+  });
+  return { file, args, env };
+}
+
+/** Short and private: a socket's path has a low length limit. */
+const completionSocketPath = () => path.join(ensureIntegrationFiles(), `c${crypto.randomBytes(4).toString("hex")}`);
+
 /** Everything needed to start a shell: { file, args, env, token }. */
 function shellLaunch(shell, baseEnv = process.env) {
   const dir = ensureIntegrationFiles();
@@ -112,4 +145,4 @@ function shellLaunch(shell, baseEnv = process.env) {
   return { file: shell, args: ["--rcfile", path.join(dir, "bashrc"), "-i"], env, token };
 }
 
-module.exports = { chooseShell, removeIntegrationFiles, shellLaunch };
+module.exports = { chooseShell, completionLaunch, completionSocketPath, removeIntegrationFiles, shellLaunch };

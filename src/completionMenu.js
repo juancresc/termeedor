@@ -31,7 +31,7 @@ export function showMenu(nextItems, onPick) {
   node.replaceChildren(...items.map((item) => {
     const row = el("div");
     row.setAttribute("role", "option");
-    row.append(el("span", null, item.label.replace(/\n/g, " ⏎ ")), el("span", null, item.kind));
+    row.append(el("span", null, item.label.replace(/\n/g, " ⏎ ")), el("span", null, item.description ?? item.kind));
     row.addEventListener("click", () => onPick(item));
     return row;
   })); // past commands can span lines, and a row can't

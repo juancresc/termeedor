@@ -16,7 +16,7 @@ import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.
 let pastQuery = "";
 
 export function initSidebar() {
-  $("newGroupBtn").onclick = () => startRename("group", addGroup());
+  $("newGroupBtn").onclick = () => addGroup();
   $("hideSidebar").onclick = () => setSidebarOpen(false);
   $("rail").onclick = () => setSidebarOpen(true);
   $("pastSearch").oninput = (e) => { pastQuery = e.target.value; renderPast(); };
@@ -46,7 +46,7 @@ function groupNode(group) {
   const tabs = tabsIn(group.id);
   const box = el("div", `group${group.collapsed ? " collapsed" : ""}${group.minimized ? " minimized" : ""}`);
 
-  const head = el("div", "ghead");
+  const head = el("div", `ghead${group.name ? "" : " unnamed"}`);
   head.append(
     groupCollapseButton(group),
     colorDot(group.color, "dot"),

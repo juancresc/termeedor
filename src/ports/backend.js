@@ -6,7 +6,7 @@
 // write(tabId, data): bytes for what is running. "\x03" is Ctrl+C, and the command ends with a finish event.
 // resize(tabId, cols, rows)
 // kill(tabId): ends the tab's shell, and whatever it was running.
-// complete(tabId, input, { cwd, history }): Promise<[{ value, label, kind }]>, where value is
+// complete(tabId, input, { cwd, history }): Promise<[{ value, label, kind, description? }]>, where value is
 //   the whole new input and always starts with `input`.
 // onEvent(listener): returns a function that stops listening. listener({ tabId, event }) gets:
 //   { type: "output", data }        terminal bytes, escape sequences included

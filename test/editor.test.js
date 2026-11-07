@@ -362,6 +362,20 @@ test("several completions open the menu, and Enter takes one without running any
   eraseDraft();
 });
 
+test("matches that share less than what is typed leave the line as it is, and the menu shows descriptions", async () => {
+  store.addTab();
+  completionsFor = () => [{ value: "cat readme.md ", label: "readme.md", kind: "file", description: "the readme" }, { value: "cat some.md ", label: "some.md", kind: "file" }];
+  type("cat me");
+  press("Tab");
+  await pause(0);
+  assert.equal(tab().draft, "cat me");
+  const [menu] = document.body.allWithClass("completions");
+  assert.deepEqual(menu.children.map((row) => row.children[1].textContent), ["the readme", "file"]);
+  completionsFor = () => [];
+  closeMenu();
+  eraseDraft();
+});
+
 // ---------- the blocks ----------
 test("a command's own output that looks like a command gets no button and can't run", async () => {
   store.addTab();

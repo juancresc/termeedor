@@ -5,7 +5,7 @@ import { beforeEach, test } from "node:test";
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 
 const { STORAGE_KEYS } = await import("../src/constants.js");
-const { state, activateTab, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
+const { state, activateTab, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, groupLabel, moveTabToNewGroup, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
 
 beforeEach(() => {
   state.ws.groups = [];
@@ -152,7 +152,7 @@ test("with no group selected, a past session reopens in a new group", () => {
   assert.equal(state.ws.groups.length, 0);
   reopenPast(state.past[0]);
   assert.equal(state.ws.groups.length, 1);
-  assert.equal(state.ws.groups[0].name, "Group 1");
+  assert.equal(state.ws.groups[0].name, "");
   assert.equal(activeTab().groupId, state.ws.groups[0].id);
 
   const minimized = state.ws.groups[0];
@@ -164,18 +164,17 @@ test("with no group selected, a past session reopens in a new group", () => {
   assert.equal(activeTab().groupId, state.ws.groups[1].id);
 });
 
-test("a new group skips names already taken", () => {
-  const [one, two, three] = [addGroup(), addGroup(), addGroup()];
-  assert.deepEqual([one.name, two.name, three.name], ["Group 1", "Group 2", "Group 3"]);
-  closeGroup(one); // leaves Group 2 and Group 3: the next number, 3, is taken
-  assert.equal(addGroup().name, "Group 4");
+test("a new group has no name until renamed, and menus still have something to call it", () => {
+  const group = addGroup();
+  assert.equal(group.name, "");
+  assert.equal(groupLabel(group), "Unnamed group");
+  group.name = "Work";
+  assert.equal(groupLabel(group), "Work");
+});
 
-  three.name = "group 5"; // differs only in case, and is what the next number would be
-  assert.equal(addGroup().name, "Group 6");
-
-  setGroupMinimized(two, true); // still counts while minimized
-  const names = state.ws.groups.map((g) => g.name.toLowerCase());
-  assert.equal(new Set(names).size, names.length);
+test("a tab sent to a new group leaves it unnamed", () => {
+  const tab = tabsIn(addGroup().id)[0];
+  assert.equal(moveTabToNewGroup(tab).name, "");
 });
 
 test("a new group starts expanded", () => {
