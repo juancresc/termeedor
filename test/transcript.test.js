@@ -4,10 +4,10 @@ import { LIMITS, PROMPT } from "../src/constants.js";
 import { createRunState } from "../src/terminal/runState.js";
 import {
   addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, commandForEnter, copyBlocks, finishBlock,
-  layoutTranscript, locateOffset, migrateLegacyContent, renderTranscript, sanitizeTranscript, textBlock, trimTranscript,
+  layoutTranscript, locateOffset, migrateLegacyContent, promptFor, promptLengthAt, renderTranscript, sanitizeTranscript, textBlock, trimTranscript,
 } from "../src/terminal/transcript.js";
 
-const command = (text, output = "") => ({ command: text, output, exit: 0, cwd: "~" });
+const command = (text, output = "") => ({ command: text, output, exit: 0, cwd: null });
 const offsetOf = (transcript, needle) => renderTranscript(transcript).indexOf(needle);
 
 // The output line says `❯ rm -rf x`, but only the first line of this block is a command.
@@ -62,6 +62,42 @@ test("offsets match what a textarea does to carriage returns", () => {
   assert.equal(layout.text, "a\nb\nc\n❯ ls\nx\ny\n❯ ");
   assert.deepEqual(locateOffset(layout, layout.text.indexOf("❯ ls")), { kind: "command", index: 1 });
   assert.deepEqual(layout.commandLines, [3, 6]);
+});
+
+// ---------- the directory in the prompt ----------
+test("the prompt shows the last name of the directory", () => {
+  assert.equal(promptFor("~/dev/termeedor"), "termeedor ❯ ");
+  assert.equal(promptFor("/tmp/a b/"), "a b ❯ ");
+  assert.equal(promptFor("~"), "~ ❯ ");
+  assert.equal(promptFor("/"), "/ ❯ ");
+  assert.equal(promptFor(null), PROMPT);
+});
+
+test("a directory name with a line break stays on the prompt's line", () => {
+  assert.equal(promptFor("/tmp/a\nb"), "a b ❯ ");
+});
+
+test("a command keeps the directory it ran in, and the draft shows the current one", () => {
+  const transcript = { blocks: [{ command: "cd b", output: "", exit: 0, cwd: "~/a" }], draft: "ls", cwd: "~/a/b" };
+  const layout = layoutTranscript(transcript);
+  assert.equal(layout.text, "a ❯ cd b\nb ❯ ls");
+  assert.equal(layout.text.slice(layout.draftStart), "ls");
+  assert.equal(promptLengthAt(layout, 0), "a ❯ ".length);
+  assert.equal(promptLengthAt(layout, layout.text.length), "b ❯ ".length);
+  assert.deepEqual(commandForEnter(transcript, "a ❯ c".length), { command: "cd b", rerun: true });
+});
+
+test("output lines have no prompt", () => {
+  const layout = layoutTranscript({ blocks: [{ command: "ls", output: "file", exit: 0, cwd: "~/a" }], draft: "", cwd: "~/a" });
+  assert.equal(promptLengthAt(layout, layout.text.indexOf("file")), 0);
+  assert.equal(promptLengthAt(layoutTranscript({ blocks: [], draft: "" }, { prompt: false }), 0), 0);
+});
+
+test("trimming counts the directory in the prompt", () => {
+  const transcript = { blocks: [{ command: "ls", output: "aaaa\nbbbb\ncccc", exit: 0, cwd: "~/project" }], draft: "" };
+  trimTranscript(transcript, 20);
+  assert.equal(transcript.blocks[0].output, "cccc");
+  assert.ok(renderTranscript(transcript, { prompt: false }).length <= 20);
 });
 
 // ---------- the bug ----------

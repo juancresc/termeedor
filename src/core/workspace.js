@@ -252,7 +252,9 @@ export function closeActive() {
 }
 
 function showGroup(group) {
+  if (!group.minimized) return;
   group.minimized = false;
+  group.collapsed = false;
 }
 
 /** If this group is selected, select the group next to it instead. */
@@ -269,11 +271,15 @@ export function setGroupCollapsed(group, collapsed) {
   commit();
 }
 
-/** Minimizing takes the group out of the top row. Restoring brings it back and selects it. */
+/**
+ * Minimizing takes the group out of the top row and collapses it in the sidebar, where it can
+ * still be expanded while minimized. Restoring brings it back expanded and selects it.
+ */
 export function setGroupMinimized(group, minimized) {
   if (minimized) {
     leaveGroup(group);
     group.minimized = true;
+    group.collapsed = true;
   } else {
     showGroup(group);
     show(group);

@@ -72,7 +72,7 @@
     </div>
 
     <h4>Display</h4>
-    <label class="setRow">Font size <span><input type="range" id="fontSize" min="10" max="20" step="1"> <output id="fontSizeOut"></output></span></label>
+    <div class="setRow"><label for="fontSize">Font size</label> <span><button type="button" class="btn stepBtn" id="fontSizeDown" title="Reduce font size" aria-label="Reduce font size">−</button> <input type="range" id="fontSize" min="10" max="20" step="1"> <button type="button" class="btn stepBtn" id="fontSizeUp" title="Increase font size" aria-label="Increase font size">+</button> <output id="fontSizeOut"></output></span></div>
     <div class="setRow">Default color for new tabs <span class="colorPick" id="defaultTabColor"></span></div>
     <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
     <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>

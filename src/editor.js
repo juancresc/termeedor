@@ -4,7 +4,7 @@
 // Enter on an earlier command runs it again. The text is only a view of the tab's transcript
 // (terminal/transcript.js), which is what says where the commands are.
 
-import { PROMPT, colorVar } from "./constants.js";
+import { colorVar } from "./constants.js";
 import { $, el } from "./util.js";
 import { state, activeTab, getTab, getGroup, commit, saveSoon, hasSaveFailed, isRunning, startRun, finishRun, stopRun } from "./store.js";
 import { isMac } from "./platform.js";
@@ -14,7 +14,7 @@ import { forwardKey, forwardPaste, getCompletions, runCommand } from "./terminal
 import { runs } from "./terminal/runState.js";
 import {
   addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, commandForEnter, finishBlock,
-  layoutTranscript, locateOffset, oneLine, trimTranscript,
+  layoutTranscript, oneLine, promptFor, promptLengthAt, trimTranscript,
 } from "./terminal/transcript.js";
 
 const editor = $("editor");
@@ -194,7 +194,7 @@ function keepCursorOutOfPrompt() {
   if (document.activeElement !== editor) return;
   const start = inputStart();
   const from = editor.selectionStart;
-  if (start === null || from >= start || from < start - PROMPT.length) return;
+  if (start === null || from >= start || from < start - promptFor(activeTab().cwd).length) return;
   editor.setSelectionRange(start, Math.max(editor.selectionEnd, start), editor.selectionDirection);
   renderCursorPosition();
 }
@@ -263,7 +263,7 @@ function deleteToInput(type) {
 function dropDraft() {
   const tab = activeTab();
   if (!tab || inputStart() === null || !tab.draft || editor.selectionStart !== editor.selectionEnd) return false;
-  addTextBlock(tab, `${PROMPT}${tab.draft}^C`);
+  addTextBlock(tab, `${promptFor(tab.cwd)}${tab.draft}^C`);
   tab.draft = "";
   recall = null;
   showContent(tab);
@@ -293,8 +293,7 @@ const CTRL_KEYS = {
 function selectLineAtCursor() {
   const { start, end } = lineAtCursor();
   const tab = activeTab();
-  const hasPrompt = tab && locateOffset(layoutOf(tab), start).kind !== "output";
-  editor.setSelectionRange(start + (hasPrompt ? PROMPT.length : 0), end);
+  editor.setSelectionRange(start + (tab ? promptLengthAt(layoutOf(tab), start) : 0), end);
 }
 
 // ---------- tab completion ----------

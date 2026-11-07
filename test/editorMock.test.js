@@ -27,7 +27,7 @@ test("a mock command's returned output lands in its block", async () => {
   await pause(SETTLE_MS);
   assert.equal(store.isRunning(tab().id), false);
   assert.deepEqual(tab().blocks.at(-1), { command: "echo hello", output: "hello", exit: null, cwd: "~" });
-  assert.ok(textarea.value.endsWith("❯ echo hello\nhello\n❯ "));
+  assert.ok(textarea.value.endsWith("❯ echo hello\nhello\n~ ❯ "));
 });
 
 test("Enter on mock output that looks like a command runs the draft", async () => {
@@ -54,7 +54,7 @@ test("the mock's clear leaves only a prompt", async () => {
   enter("clear");
   await pause(SETTLE_MS);
   assert.deepEqual(tab().blocks, []);
-  assert.equal(textarea.value, "❯ ");
+  assert.equal(textarea.value, "~ ❯ ");
 });
 
 test("keys and pastes stay with the editor while a mock command runs", async () => {

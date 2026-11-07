@@ -5,7 +5,7 @@ import { beforeEach, test } from "node:test";
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 
 const { STORAGE_KEYS } = await import("../src/constants.js");
-const { state, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
+const { state, activateTab, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
 
 beforeEach(() => {
   state.ws.groups = [];
@@ -138,15 +138,41 @@ test("collapsing a group leaves it selected, in the top row, and its tab active"
   assert.equal(group.collapsed, false);
 });
 
-test("minimizing and restoring a group leaves its collapsed state alone", () => {
+test("minimizing a group collapses it in the sidebar", () => {
   const group = addGroup();
   setGroupMinimized(group, true);
-  assert.equal(group.collapsed, false);
-  setGroupMinimized(group, false);
-  setGroupCollapsed(group, true);
-  setGroupMinimized(group, true);
   assert.equal(group.collapsed, true);
+});
+
+test("a minimized group can be expanded in the sidebar and stays minimized", () => {
+  const group = addGroup();
+  setGroupMinimized(group, true);
+  setGroupCollapsed(group, false);
+  assert.equal(group.collapsed, false);
+  assert.equal(group.minimized, true);
+});
+
+test("restoring a minimized group expands it", () => {
+  const group = addGroup();
+  setGroupMinimized(group, true);
   setGroupMinimized(group, false);
+  assert.equal(group.minimized, false);
+  assert.equal(group.collapsed, false);
+});
+
+test("adding a tab to a minimized group restores and expands it", () => {
+  const group = addGroup();
+  setGroupMinimized(group, true);
+  addTab(group.id);
+  assert.equal(group.minimized, false);
+  assert.equal(group.collapsed, false);
+});
+
+test("activating a tab in a collapsed group that is not minimized leaves it collapsed", () => {
+  const group = addGroup();
+  const tab = activeTab();
+  setGroupCollapsed(group, true);
+  activateTab(tab.id);
   assert.equal(group.collapsed, true);
 });
 

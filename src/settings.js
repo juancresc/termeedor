@@ -1,6 +1,6 @@
 // Settings dialog: theme picker (built-in + imported .css files) and display options.
 
-import { BUILTIN_THEMES, TAB_COLORS, colorVar } from "./constants.js";
+import { BUILTIN_THEMES, FONT_SIZE, TAB_COLORS, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
 import { state, updateSettings, addCustomTheme, removeCustomTheme, setSidebarOpen } from "./store.js";
 import { parseThemeFile } from "./themeImport.js";
@@ -19,6 +19,8 @@ export function initSettings() {
   dialog.addEventListener("close", focusEditor);
 
   $("fontSize").oninput = (e) => updateSettings({ fontSize: Number(e.target.value) });
+  $("fontSizeDown").onclick = () => updateSettings({ fontSize: state.settings.fontSize - 1 });
+  $("fontSizeUp").onclick = () => updateSettings({ fontSize: state.settings.fontSize + 1 });
   $("lineNumbers").onchange = (e) => updateSettings({ lineNumbers: e.target.checked });
   $("showAllGroups").onchange = (e) => updateSettings({ showAllGroups: e.target.checked });
   $("showSidebar").onchange = (e) => setSidebarOpen(e.target.checked);
@@ -44,6 +46,8 @@ export function renderSettings() {
   const { fontSize, lineNumbers } = state.settings;
   $("fontSize").value = fontSize;
   $("fontSizeOut").textContent = `${fontSize}px`;
+  $("fontSizeDown").disabled = fontSize <= FONT_SIZE.min;
+  $("fontSizeUp").disabled = fontSize >= FONT_SIZE.max;
   $("lineNumbers").checked = lineNumbers;
   $("showAllGroups").checked = state.settings.showAllGroups;
   $("showSidebar").checked = state.ws.sidebarOpen;

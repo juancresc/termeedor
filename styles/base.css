@@ -211,6 +211,7 @@ dialog::backdrop { background: var(--backdrop); }
 .setRow { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
 .setRow span { display: flex; align-items: center; gap: 8px; }
 .setRow input { accent-color: var(--accent); }
+.setRow .stepBtn { width: 22px; height: 22px; padding: 0; font-size: 14px; line-height: 22px; text-align: center; }
 .colorPick { display: flex; gap: 5px; }
 .colorPick .sw { width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
 .colorPick .sw.on { border-color: var(--text); }

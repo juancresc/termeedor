@@ -85,7 +85,7 @@ test("typing fills the draft, and running moves it into a block", async () => {
   assert.equal(store.isRunning(tab().id), false);
   const block = tab().blocks.at(-1);
   assert.deepEqual(block, { command: "echo hi", output: "hi", exit: 0, cwd: "~" });
-  assert.ok(textarea.value.endsWith("❯ echo hi\nhi\n❯ "));
+  assert.ok(textarea.value.endsWith("❯ echo hi\nhi\n~ ❯ "));
   assert.equal(textarea.selectionStart, textarea.value.length);
 });
 
@@ -178,14 +178,14 @@ test("printing during a run goes above its output, which keeps redrawing", async
   printToTab(tab(), "note");
   sendEvent({ tabId: tab().id, event: { type: "output", data: "two\r\n" } });
   await pause(FLUSH_WAIT);
-  assert.ok(textarea.value.endsWith("note\n❯ build\none\ntwo"));
+  assert.ok(textarea.value.endsWith("note\n~ ❯ build\none\ntwo"));
   await finish();
 });
 
 test("printing at the prompt keeps what is typed and leaves a prompt below", async () => {
   type("half");
   printToTab(tab(), "hello");
-  assert.ok(textarea.value.endsWith("hello\n❯ half"));
+  assert.ok(textarea.value.endsWith("hello\n~ ❯ half"));
   assert.equal(tab().draft, "half");
   eraseDraft();
 });
@@ -197,7 +197,7 @@ test("output that erases the scrollback clears the tab, its command too", async 
   await pause(FLUSH_WAIT);
   assert.equal(textarea.value, "");
   await finish();
-  assert.equal(textarea.value, "❯ ");
+  assert.equal(textarea.value, "~ ❯ ");
   assert.deepEqual(tab().blocks, []);
 });
 
@@ -258,11 +258,55 @@ test("selecting a line skips the prompt only on a real command or the input", as
   textarea.listeners.keydown(selectAll);
   assert.equal(textarea.selectionStart, spoof);
 
-  clickOn("❯ cat notes");
+  clickOn("~ ❯ cat notes");
   const real = textarea.selectionStart;
   textarea.listeners.keydown(selectAll);
-  assert.equal(textarea.selectionStart, real + 2);
+  assert.equal(textarea.selectionStart, real + "~ ❯ ".length);
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+});
+
+test("changing directory changes the prompt, and past commands keep theirs", async () => {
+  store.addTab();
+  type("cd project");
+  pressEnter();
+  sendEvent({ tabId: tab().id, event: { type: "finish", exit: 0, cwd: "~/dev/project" } });
+  await pause(SETTLE_MS);
+  assert.ok(textarea.value.endsWith("\n~ ❯ cd project\nproject ❯ "));
+
+  type("ls");
+  assert.equal(tab().draft, "ls");
+  assert.ok(textarea.value.endsWith("\n~ ❯ cd project\nproject ❯ ls"));
+  eraseDraft();
+});
+
+test("the cursor can't stop anywhere in a prompt with a directory, and selecting skips all of it", async () => {
+  store.addTab();
+  type("cd project");
+  pressEnter();
+  sendEvent({ tabId: tab().id, event: { type: "finish", exit: 0, cwd: "~/project" } });
+  await pause(SETTLE_MS);
+  type("ls");
+  const inputAt = textarea.value.length - "ls".length;
+  const lineStart = inputAt - "project ❯ ".length;
+  const isMacLike = /Mac/.test(navigator.platform);
+  const selectAll = { key: "a", code: "KeyA", ctrlKey: !isMacLike, metaKey: isMacLike, altKey: false, shiftKey: false, preventDefault: noop };
+
+  textarea.setSelectionRange(lineStart, lineStart);
+  textarea.listeners.keydown(selectAll);
+  assert.equal(textarea.selectionStart, inputAt);
+  assert.equal(textarea.selectionEnd, textarea.value.length);
+
+  for (const inPrompt of [lineStart, lineStart + 3, inputAt - 1]) {
+    textarea.setSelectionRange(inPrompt, inPrompt);
+    document.listeners.selectionchange();
+    assert.equal(textarea.selectionStart, inputAt);
+  }
+
+  textarea.setSelectionRange(lineStart - 1, lineStart - 1); // the line above stays selectable
+  document.listeners.selectionchange();
+  assert.equal(textarea.selectionStart, lineStart - 1);
+  caretToEnd();
+  eraseDraft();
 });
 
 test("Ctrl+W deletes the input's last word and stops at the prompt", { skip: !/Mac/.test(navigator.platform) }, () => {
@@ -306,8 +350,8 @@ test("Ctrl+C with nothing running drops the typed line, unless text is selected 
   caretToEnd();
   ctrl("KeyC");
   assert.equal(tab().draft, "");
-  assert.equal(tab().blocks.at(-1).output, "\u276F oops^C");
-  assert.ok(textarea.value.endsWith("^C\n\u276F "));
+  assert.equal(tab().blocks.at(-1).output, "~ \u276F oops^C");
+  assert.ok(textarea.value.endsWith("^C\n~ \u276F "));
   assert.equal(textarea.selectionStart, textarea.value.length);
 });
 
@@ -342,7 +386,7 @@ test("Enter moves the cursor to a new line right away, even with a trailing spac
   assert.ok(textarea.value.endsWith("\u276F code .\n"), JSON.stringify(textarea.value.slice(-12)));
   assert.equal(textarea.selectionStart, textarea.value.length);
   await finish("");
-  assert.ok(textarea.value.endsWith("\u276F code .\n\u276F "), JSON.stringify(textarea.value.slice(-14)));
+  assert.ok(textarea.value.endsWith("\u276F code .\n~ \u276F "), JSON.stringify(textarea.value.slice(-14)));
   assert.equal(textarea.selectionStart, textarea.value.length);
 });
 

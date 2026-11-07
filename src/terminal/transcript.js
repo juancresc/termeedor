@@ -9,6 +9,13 @@ const isObject = (v) => v !== null && typeof v === "object";
 const hasLineBreak = (v) => /[\r\n]/.test(v);
 export const oneLine = (v) => v.replace(/\r?\n|\r/g, " ");
 
+/** The prompt for a directory: its last name, so `~/dev/app` shows `app ❯ `. No directory, just the symbol. */
+export function promptFor(cwd) {
+  if (!cwd) return PROMPT;
+  const name = oneLine(cwd).replace(/\/+$/, "").split("/").pop() || "/";
+  return `${name} ${PROMPT}`;
+}
+
 export const textBlock = (output) => ({ command: null, output, exit: null, cwd: null });
 
 export const copyBlocks = (blocks) => blocks.map((block) => ({ ...block }));
@@ -50,8 +57,9 @@ export function finishBlock(transcript, block, exit) {
 // ---------- text ----------
 /**
  * The text for the text area and what each part of it is. `prompt` is false while a command runs.
- * Each segment is { kind: "command" | "output" | "draft", index, start, end }, with `index`
- * the block's position (null for the draft) and start/end offsets in `text`.
+ * Each segment is { kind: "command" | "output" | "draft", index, start, end, promptLength }, with
+ * `index` the block's position (null for the draft) and start/end offsets in `text`. A command
+ * shows the directory it ran in, and the draft the tab's directory now.
  */
 export function layoutTranscript(transcript, { prompt = true } = {}) {
   const parts = [];
@@ -60,28 +68,33 @@ export function layoutTranscript(transcript, { prompt = true } = {}) {
   let offset = 0;
   let line = 0;
 
-  const add = (raw, kind, index) => {
+  const add = (raw, kind, index, promptLength = 0) => {
     const text = raw.replace(/\r\n?/g, "\n"); // a textarea does this to its value, and offsets must match it
     if (parts.length) { offset++; line++; }
     if (kind !== "output") commandLines.push(line);
     parts.push(text);
-    segments.push({ kind, index, start: offset, end: offset + text.length });
+    segments.push({ kind, index, start: offset, end: offset + text.length, promptLength });
     offset += text.length;
     if (kind === "output") line += countLineBreaks(text);
   };
 
   transcript.blocks.forEach((block, index) => {
-    if (block.command !== null) add(PROMPT + block.command, "command", index);
+    if (block.command !== null) {
+      const blockPrompt = promptFor(block.cwd);
+      add(blockPrompt + block.command, "command", index, blockPrompt.length);
+    }
     if (block.output || block.command === null) add(block.output, "output", index);
   });
-  if (prompt) add(PROMPT + transcript.draft, "draft", null);
-  else {
+  if (prompt) {
+    const draftPrompt = promptFor(transcript.cwd);
+    add(draftPrompt + transcript.draft, "draft", null, draftPrompt.length);
+  } else {
     // A command with no output yet: the cursor waits on the next line, as in a terminal.
     const last = transcript.blocks.at(-1);
     if (last && last.command !== null && !last.output) add("", "output", transcript.blocks.length - 1);
   }
 
-  const draftStart = prompt ? segments.at(-1).start + PROMPT.length : null;
+  const draftStart = prompt ? segments.at(-1).start + segments.at(-1).promptLength : null;
   return { text: parts.join("\n"), segments, commandLines, draftStart };
 }
 
@@ -98,6 +111,10 @@ export function locateOffset(layout, offset) {
   const segment = layout.segments.find((s) => offset <= s.end) ?? layout.segments.at(-1);
   return segment ? { kind: segment.kind, index: segment.index } : { kind: "output", index: null };
 }
+
+/** How long the prompt is on the line at an offset. 0 on output. */
+export const promptLengthAt = (layout, offset) =>
+  (layout.segments.find((s) => offset <= s.end) ?? layout.segments.at(-1))?.promptLength ?? 0;
 
 /** What Enter runs at an offset: a real command line's own command, otherwise the draft. */
 export function commandForEnter(transcript, offset) {
@@ -118,12 +135,12 @@ export function newestText(v, max) {
 
 const blockLength = (block) => {
   if (block.command === null) return block.output.length;
-  return PROMPT.length + block.command.length + (block.output ? 1 + block.output.length : 0);
+  return promptFor(block.cwd).length + block.command.length + (block.output ? 1 + block.output.length : 0);
 };
 
 /** Fits the block into `room`. A command is kept whole or not at all: part of one must never run. */
 function shrinkBlock(block, room) {
-  const commandLine = block.command === null ? 0 : PROMPT.length + block.command.length;
+  const commandLine = block.command === null ? 0 : promptFor(block.cwd).length + block.command.length;
   if (block.command !== null && commandLine < room) {
     block.output = newestText(block.output, room - commandLine - 1);
   } else {

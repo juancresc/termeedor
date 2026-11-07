@@ -77,7 +77,7 @@ const REFERENCE = `/*
  *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
  *   Menus      .menu .menu button .menu hr .menu .lbl .menu .swatches .menu .sw .menu .sw.none .menu .danger
  *   Tooltips   .tooltip .tooltip kbd
- *   Settings   dialog dialog::backdrop .setHead .setBody .setRow .hint .btn
+ *   Settings   dialog dialog::backdrop .setHead .setBody .setRow .stepBtn .hint .btn
  *              .colorPick .colorPick .sw .colorPick .sw.none .colorPick .sw.groupOpt
  *              .themes .themeActions .themePick .themeCard .themeCard.on .themeCard .pv .themeCard .label
  *              .themeCard .remove .themeLink

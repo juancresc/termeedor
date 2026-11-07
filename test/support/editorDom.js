@@ -50,7 +50,8 @@ globalThis.document = {
   getElementById: nodeFor,
   createElement: () => Object.assign(stubNode(), { getContext: () => ({ measureText: () => ({ width: 8 }) }) }),
   querySelector: () => null,
-  addEventListener: noop,
+  listeners: {},
+  addEventListener(type, listener) { this.listeners[type] = listener; },
   activeElement: textarea,
 };
 globalThis.window = { addEventListener: noop };
