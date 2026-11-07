@@ -14,7 +14,8 @@
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "dist": "electron-builder",
-    "dist:dir": "electron-builder --dir"
+    "dist:dir": "electron-builder --dir",
+    "postinstall": "node scripts/fix-node-pty.cjs"
   },
   "build": {
     "appId": "com.termeedor.app",
@@ -70,12 +71,20 @@
         "libuuid1",
         "libsecret-1-0",
         "libgbm1",
-        "libasound2 | libasound2t64"
+        "libasound2t64 | libasound2"
       ]
-    }
+    },
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ]
   },
   "devDependencies": {
     "electron": "^45.2.3",
     "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0"
   }
 }

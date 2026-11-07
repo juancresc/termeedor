@@ -67,6 +67,7 @@ export function sanitizeWorkspace(raw) {
     groups,
     tabs,
     activeTab: text(raw.activeTab, 20, null),
+    activeGroup: text(raw.activeGroup, 20, null),
     sidebarOpen: raw.sidebarOpen !== false,
     sidebarWidth: clamp(raw.sidebarWidth, SIDEBAR.min, SIDEBAR.max, SIDEBAR.default),
   };

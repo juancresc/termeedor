@@ -25,11 +25,16 @@
         <rect id="sbFill" x="2" y="3" width="3.5" height="10" fill="currentColor" stroke="none" opacity=".5"/>
       </svg>
     </button>
-    <button class="tb-btn" id="toggleAllGroups"></button>
-    <div class="tabs" id="tabs"></div>
-    <button class="tb-btn" id="newTabBtn" title="New tab" data-shortcut="newTab">＋</button>
+    <div class="tabs groupTabs" id="groupTabs"></div>
+    <button class="tb-btn" id="newGroupTabBtn" title="New group" data-shortcut="newGroup">＋</button>
     <button class="tb-btn" id="settingsBtn" title="Settings" data-shortcut="openSettings">⚙</button>
   </header>
+
+  <!-- The selected group's tabs -->
+  <nav class="tabStrip">
+    <div class="tabs" id="tabs"></div>
+    <button class="tb-btn" id="newTabBtn" title="New tab" data-shortcut="newTab">＋</button>
+  </nav>
 
   <!-- Sidebar (resizable) and the strip shown when it is hidden -->
   <div class="resizer" id="resizer" title="Drag to resize · double-click to reset"></div>
@@ -37,7 +42,7 @@
     <span class="arrow">»</span><span class="vlabel">Groups &amp; sessions</span>
   </div>
   <aside class="sidebar">
-    <div class="sbhead"><button class="hideBtn" id="hideSidebar" title="Hide sidebar" data-shortcut="toggleSidebar">« Hide</button></div>
+    <div class="sbhead"><button class="hideBtn" id="hideSidebar" title="Hide sidebar" data-shortcut="toggleSidebar">«</button></div>
     <div class="sec">Groups <button id="newGroupBtn" title="New group" data-shortcut="newGroup">＋</button></div>
     <div id="groups"></div>
     <div class="sec">Sessions</div>

@@ -13,7 +13,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   position: relative;
   display: grid;
   grid-template-columns: var(--sbw) 1fr;
-  grid-template-rows: 38px 1fr 24px;
+  grid-template-rows: 38px 32px 1fr 24px;
   height: 100vh;
   transition: grid-template-columns .18s ease;
 }
@@ -21,7 +21,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .app.resizing { transition: none; cursor: col-resize; user-select: none; }
 
 /* ---------- Title bar & tabs ---------- */
-.titlebar { grid-column: 1 / 3; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.titlebar { grid-column: 1 / 3; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--panel); }
 .lights { display: flex; gap: 7px; margin-right: 8px; }
 .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
 .lights i:nth-child(1) { background: var(--light-close); }
@@ -35,43 +35,38 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .sbToggle[aria-pressed="true"] { color: var(--accent); }
 
 
-.tabs { display: flex; gap: 2px; flex: 1; overflow-x: auto; height: 100%; align-items: flex-end; scrollbar-width: none; }
-.tab {
-  display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; max-width: 200px;
-  border-radius: 7px 7px 0 0; border-top: 2px solid transparent;
-  background: var(--panel2); color: var(--dim); white-space: nowrap; cursor: pointer; user-select: none;
-}
-.tab.active { background: var(--term); color: var(--text); }
-.tab .name { overflow: hidden; text-overflow: ellipsis; }
-.tab { box-shadow: inset 0 -2px 0 var(--group-color, transparent); } /* group color underline */
-.tab .x { opacity: 0; width: 16px; height: 16px; padding: 0; border-radius: 4px; line-height: 16px; text-align: center; color: var(--dim); }
-.tab:hover .x, .tab.active .x { opacity: .7; }
-.tab.collapsed { gap: 2px; padding: 0 4px 0 10px; }
-.tab.collapsed .initial { font-weight: 600; min-width: 12px; text-align: center; }
-.tab.collapsed .x { width: 0; overflow: hidden; transition: width .12s; }
-.tab.collapsed:hover .x { width: 16px; }
-.tab .x:hover { background: var(--line); color: var(--text); opacity: 1; }
+/* top row: groups, like tabs of tabs. Second row: the selected group's tabs. */
+.tabStrip { grid-column: 1 / 3; display: flex; align-items: flex-end; gap: 8px; padding: 0 10px; background: var(--panel2); }
+.tabStrip .tb-btn { align-self: center; }
+.tabStrip .tb-btn:hover { background: var(--line); }
+.tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; height: 100%; align-items: flex-end; scrollbar-width: none; }
+.tabsEmpty { align-self: center; color: var(--dim); font-size: 12px; }
 
-/* group label in the top bar: click to minimize/restore, drop tabs on it to send them */
-.groupChip {
-  display: flex; align-items: center; gap: 4px; flex: none; align-self: center;
-  height: 22px; margin: 0 2px 0 8px; padding: 0 4px 0 9px; border-radius: 6px;
-  background: var(--panel2); color: var(--text); border: 1px solid var(--line);
-  font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none;
-}
-.groupChip.colored { color: var(--on-color); border-color: transparent; }
-.groupChip:first-child { margin-left: 0; }
-.groupChip.folded { opacity: .85; }
-.groupTray { border-style: dashed; color: var(--dim); }
-.groupChip.folded:hover, .groupChip:hover { filter: brightness(1.08); }
-.groupChip.dragover, .tab.dragover { outline: 2px dashed var(--text); outline-offset: 1px; }
-.groupChip .chipName { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
-.groupChip .inlineInput { width: 110px; color: var(--text); font-weight: 600; }
+.groupTab, .tab { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; border-radius: 7px 7px 0 0; border-top: 2px solid transparent; white-space: nowrap; cursor: pointer; user-select: none; }
+.groupTab { padding: 0 6px 0 12px; max-width: 300px; color: var(--dim); font-size: 12px; font-weight: 600; }
+.groupTab:hover { background: color-mix(in srgb, var(--panel2) 60%, transparent); color: var(--text); }
+.groupTab.active { background: var(--panel2); color: var(--text); }
+.groupTray { padding-right: 12px; opacity: .8; }
+.groupTab.dragover, .tab.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
+.groupTab .chipName { overflow: hidden; text-overflow: ellipsis; }
+.groupTab .inlineInput { width: 110px; font-weight: 600; }
 .chipCount { padding: 0 5px; border-radius: 8px; background: color-mix(in srgb, currentColor 18%, transparent); font-size: 10px; color: inherit; line-height: 15px; }
 button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transparent); }
-.chipBtn { width: 16px; height: 16px; padding: 0; border-radius: 4px; color: inherit; opacity: .55; line-height: 16px; }
-.chipBtn:hover { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); }
-.groupChip .spinner { color: inherit; }
+
+.tab { padding: 0 6px 0 10px; max-width: 280px; color: var(--dim); box-shadow: inset 0 -2px 0 var(--group-color, transparent); /* group color underline */ }
+.tab:hover { background: color-mix(in srgb, var(--term) 35%, transparent); color: var(--text); }
+.tab.active { background: var(--term); color: var(--text); }
+.tab .name { overflow: hidden; text-overflow: ellipsis; }
+.tab.collapsed { gap: 2px; padding: 0 4px 0 10px; }
+.tab.collapsed .initial { font-weight: 600; min-width: 12px; text-align: center; }
+
+/* move left, minimize, move right, a gap, close */
+.itemBtns { display: flex; align-items: center; gap: 1px; flex: none; margin-left: 2px; }
+.x { width: 18px; height: 18px; padding: 0; border-radius: 4px; font-size: 14px; line-height: 18px; text-align: center; color: var(--dim); font-weight: 400; opacity: 0; }
+.x.closeBtn { margin-left: 8px; }
+.tab:hover .x, .tab.active .x, .groupTab:hover .x, .groupTab.active .x { opacity: .7; }
+.tab .x:hover:enabled, .groupTab .x:hover:enabled { background: var(--line); color: var(--text); opacity: 1; }
+.tab .x:disabled, .groupTab .x:disabled { opacity: .2; pointer-events: none; } /* a click goes to the tab under it */
 
 /* ---------- Sidebar ---------- */
 .sidebar { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
@@ -90,7 +85,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .rail .vlabel { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 
 /* drag handle on the sidebar's right edge */
-.resizer { position: absolute; top: 38px; bottom: 24px; left: calc(var(--sbw) - 3px); width: 6px; cursor: col-resize; z-index: 5; }
+.resizer { position: absolute; top: 70px; bottom: 24px; left: calc(var(--sbw) - 3px); width: 6px; cursor: col-resize; z-index: 5; }
 .resizer::after { content: ""; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px; background: transparent; transition: background .15s; }
 .resizer:hover::after, .app.resizing .resizer::after { background: var(--accent); }
 .app.nosidebar .resizer { display: none; }
@@ -124,7 +119,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .item .iname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item.minimized { opacity: .5; font-style: italic; }
 
-.icon-btn { opacity: 0; font-size: 12px; padding: 0 3px; border-radius: 4px; color: var(--dim); }
+.icon-btn { opacity: 0; font-size: 13px; padding: 1px 4px; border-radius: 4px; color: var(--dim); }
 .item:hover .icon-btn, .ghead:hover .icon-btn, .session:hover .icon-btn { opacity: .8; }
 .icon-btn:hover { opacity: 1; background: var(--line); color: var(--text); }
 .icon-btn.shown { opacity: .8; font-size: 14px; padding: 2px 6px; }

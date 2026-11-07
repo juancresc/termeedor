@@ -54,7 +54,7 @@ export const subscribe = (fn) => listeners.add(fn);
 
 /** Save the given parts (default: workspace) and re-render. */
 export function commit(...parts) {
-  ensureActiveTab();
+  ensureSelection();
   for (const part of parts.length ? parts : ["workspace"]) savers[part]();
   listeners.forEach((fn) => fn());
 }
@@ -72,15 +72,47 @@ export const getTab = (id) => state.ws.tabs.find((t) => t.id === id);
 export const getGroup = (id) => state.ws.groups.find((g) => g.id === id);
 export const activeTab = () => getTab(state.ws.activeTab);
 export const tabsIn = (groupId) => state.ws.tabs.filter((t) => t.groupId === groupId);
-/** Tabs shown in the top bar, in order: every expanded, non-minimized group's non-minimized tabs. */
-export const barTabs = () => state.ws.groups.filter((g) => !g.collapsed && !g.minimized).flatMap((g) => tabsIn(g.id).filter((t) => !t.minimized));
+const visibleTabsIn = (groupId) => tabsIn(groupId).filter((t) => !t.minimized);
+/** The groups in the top row, in order. */
+export const barGroups = () => state.ws.groups.filter((g) => !g.minimized);
+/** The tabs in the second row: the selected group's, in order. */
+export const barTabs = () => visibleTabsIn(state.ws.activeGroup);
 export const minimizedGroups = () => state.ws.groups.filter((g) => g.minimized);
-const barGroups = () => state.ws.groups.filter((g) => !g.minimized);
 export const allGroupsCollapsed = () => barGroups().length > 0 && barGroups().every((g) => g.collapsed);
 
-function ensureActiveTab() {
-  if (activeTab()) return;
-  state.ws.activeTab = state.ws.tabs[0]?.id ?? null;
+// ---------- what is selected ----------
+const lastTabIn = new Map(); // groupId -> tabId, so returning to a group returns to its tab
+
+const tabToShow = (group) => {
+  const last = getTab(lastTabIn.get(group.id));
+  return last && last.groupId === group.id && !last.minimized ? last : visibleTabsIn(group.id)[0];
+};
+
+function show(group) {
+  state.ws.activeGroup = group?.id ?? null;
+  state.ws.activeTab = group ? tabToShow(group)?.id ?? null : null;
+}
+
+/** The selected tab decides the selected group. With no usable tab, the group decides (it may be empty). */
+function ensureSelection() {
+  const tab = activeTab();
+  if (tab && !tab.minimized && !getGroup(tab.groupId).minimized) {
+    state.ws.activeGroup = tab.groupId;
+    lastTabIn.set(tab.groupId, tab.id);
+    return;
+  }
+  const group = getGroup(state.ws.activeGroup);
+  show(group && !group.minimized ? group : barGroups()[0]);
+}
+ensureSelection();
+
+/** Swaps an item with its neighbor in the bar. Items not in the bar keep their places. */
+function moveInBar(list, bar, item, delta) {
+  const other = bar[bar.indexOf(item) + delta];
+  if (!other) return;
+  const [a, b] = [list.indexOf(item), list.indexOf(other)];
+  [list[a], list[b]] = [list[b], list[a]];
+  commit();
 }
 
 // ---------- running commands (runtime only, never saved) ----------
@@ -115,7 +147,7 @@ export function activateTab(id) {
   commit();
 }
 
-export function addTab(groupId = activeTab()?.groupId ?? state.ws.groups[0]?.id) {
+export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id) {
   let group = getGroup(groupId);
   if (!group) {
     group = createGroup("Group 1");
@@ -138,7 +170,7 @@ export function closeTab(tab) {
   const position = siblings.indexOf(tab);
   state.ws.tabs.splice(state.ws.tabs.indexOf(tab), 1);
   if (state.ws.activeTab === tab.id) {
-    const remaining = siblings.filter((t) => t !== tab);
+    const remaining = siblings.filter((t) => t !== tab && !t.minimized);
     state.ws.activeTab = remaining[Math.min(position, remaining.length - 1)]?.id ?? null;
   }
   commit("workspace", "past");
@@ -150,6 +182,8 @@ export function duplicateTab(tab) {
   state.ws.activeTab = copy.id;
   commit();
 }
+
+export const moveTabBy = (tab, delta) => moveInBar(state.ws.tabs, barTabs(), tab, delta);
 
 /** Send one tab to another group (moves it to the end of that group). */
 export function moveTab(tab, groupId) {
@@ -176,13 +210,10 @@ export function setTabCollapsed(tab, collapsed) {
   commit();
 }
 
-/** Minimize folds a single tab into its group's label; activating it brings it back. */
+/** Minimize takes a tab out of the bar, counted on its group's tab; activating it brings it back. */
 export function setTabMinimized(tab, minimized) {
   tab.minimized = minimized;
-  if (minimized && state.ws.activeTab === tab.id) {
-    const next = barTabs()[0];
-    if (next) state.ws.activeTab = next.id;
-  }
+  if (minimized && state.ws.activeTab === tab.id) state.ws.activeTab = barTabs()[0]?.id ?? null;
   commit();
 }
 
@@ -198,16 +229,25 @@ export function setTabColor(tab, color) {
 }
 
 // ---------- group actions ----------
-/** Creates an empty group (no terminal). */
+/** Creates an empty group (no terminal) and selects it. */
 export function addGroup() {
   const group = createGroup(`Group ${state.ws.groups.length + 1}`);
   state.ws.groups.push(group);
+  show(group);
   commit();
   return group;
 }
 
+export function selectGroup(group) {
+  show(group);
+  commit();
+}
+
+export const moveGroupBy = (group, delta) => moveInBar(state.ws.groups, barGroups(), group, delta);
+
 /** Closing a group moves all its tabs to Past sessions. */
 export function closeGroup(group) {
+  leaveGroup(group);
   const tabs = state.ws.tabs.filter((t) => t.groupId === group.id);
   tabs.reverse().forEach((t) => { stopRun(t.id); archiveTab(t); });
   state.ws.tabs = state.ws.tabs.filter((t) => t.groupId !== group.id);
@@ -220,27 +260,28 @@ function showGroup(group) {
   group.minimized = false;
 }
 
-/** If the active tab's group was just hidden, switch to a tab that is still visible. */
-function leaveHiddenGroup(group) {
-  if (activeTab()?.groupId !== group.id) return;
-  const next = barTabs()[0];
-  if (next) state.ws.activeTab = next.id;
+/** If this group is selected, select the group next to it instead. */
+function leaveGroup(group) {
+  if (state.ws.activeGroup !== group.id) return;
+  const bar = barGroups();
+  const index = bar.indexOf(group);
+  show(bar[index + 1] ?? bar[index - 1]);
 }
 
-/** Collapsing folds a group's tabs into its label (top bar and sidebar). */
+/** Collapsing folds a group's tabs in the sidebar's list. */
 export function setGroupCollapsed(group, collapsed) {
   group.collapsed = collapsed;
-  if (collapsed) leaveHiddenGroup(group);
   commit();
 }
 
-/** Minimizing takes the whole group, label included, out of the top bar. Restoring brings it back expanded. */
+/** Minimizing takes the group out of the top row. Restoring brings it back and selects it. */
 export function setGroupMinimized(group, minimized) {
   if (minimized) {
+    leaveGroup(group);
     group.minimized = true;
-    leaveHiddenGroup(group);
   } else {
     showGroup(group);
+    show(group);
   }
   commit();
 }

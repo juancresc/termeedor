@@ -15,9 +15,12 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        # One native runner per CPU: node-pty is compiled, so cross-building isn't reliable.
         include:
-          - { runner: macos-latest, platform: --mac }
-          - { runner: ubuntu-latest, platform: --linux }
+          - { runner: macos-latest, args: --mac --arm64 }
+          - { runner: macos-15-intel, args: --mac --x64 }
+          - { runner: ubuntu-latest, args: --linux --x64 }
+          - { runner: ubuntu-24.04-arm, args: --linux --arm64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +30,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npx electron-builder ${{ matrix.platform }} --x64 --arm64 --publish never
+      - run: npx electron-builder ${{ matrix.args }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false" # no Apple certificate yet
       - uses: actions/upload-artifact@v4

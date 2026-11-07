@@ -61,13 +61,14 @@ const REFERENCE = `/*
  * Selectors
  *   Page       body .app
  *   Title bar  .titlebar .lights .tb-btn .sbToggle
- *   Tabs       .tabs .tab .tab.active .tab.collapsed .tab .name .tab .x
- *   Groups     .groupChip .groupChip.colored .groupChip.folded .groupTray .chipName .chipCount .chipBtn
+ *   Groups     .groupTabs .groupTab .groupTab.active .groupTray .chipName .chipCount
+ *   Tabs       .tabStrip .tabs .tab .tab.active .tab.collapsed .tab .name .tabsEmpty
+ *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .sbhead .hideBtn .rail .resizer .sec .empty
  *              .group .group.collapsed .group.minimized .ghead .ghead .gname .ghead .count .glist
  *              .item .item.active .item.minimized .tdot .icon-btn
  *   History    .pastSearch .session .session .sname
- *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLine
+ *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLines div
  *   Status bar .status #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
  *   Menus      .menu .menu button .menu hr .menu .lbl .menu .sw .menu .danger
  *   Tooltips   .tooltip .tooltip kbd

@@ -5,7 +5,7 @@
 
 import { el } from "./util.js";
 
-const DELAY_MS = 1000;
+const DELAY_MS = 500;
 const GAP = 6;  // between tooltip and element
 const EDGE = 6; // between tooltip and window edge
 const TALL = 60; // elements taller than this (rail, resizer) get the tooltip at their side

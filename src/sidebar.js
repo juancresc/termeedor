@@ -94,7 +94,7 @@ function tabRow(tab) {
   const row = el("div", `item${tab.id === state.ws.activeTab ? " active" : ""}${tab.minimized ? " minimized" : ""}`);
   row.title = tab.minimized ? "Minimized — click to restore" : "";
 
-  const [, minimize, close] = tabButtons(tab);
+  const [minimize, close] = tabButtons(tab);
 
   row.append(
     isRunning(tab.id) ? spinner() : colorDot(tab.color),

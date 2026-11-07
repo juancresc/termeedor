@@ -43,8 +43,8 @@ export function groupMenu(group, event, where = "sidebar") {
   openMenu(event, [
     { label: "New tab in group", onSelect: () => addTab(group.id) },
     { label: "Rename", onSelect: () => startRename("group", group, where) },
-    { label: group.collapsed ? "Expand" : "Collapse into label", onSelect: () => toggleGroupCollapsed(group) },
-    { label: group.minimized ? "Restore to top bar" : "Minimize", onSelect: () => setGroupMinimized(group, !group.minimized) },
+    { label: group.collapsed ? "Unfold in sidebar" : "Fold in sidebar", onSelect: () => toggleGroupCollapsed(group) },
+    { label: group.minimized ? "Restore" : "Minimize", onSelect: () => setGroupMinimized(group, !group.minimized) },
     ...(tabsIn(group.id).some((t) => t.minimized) ? [{ label: "Restore minimized tabs", onSelect: () => restoreMinimized(group) }] : []),
     { swatches: { label: "Group color", colors: TAB_COLORS, current: group.color, allowNone: true, onPick: (c) => setGroupColor(group, c) } },
     { swatches: { label: "Color all tabs", colors: TAB_COLORS, allowNone: true, onPick: (c) => setGroupTabs(group, { color: c }) } },
@@ -58,7 +58,7 @@ export function minimizedGroupsMenu(event) {
   openMenu(event, minimizedGroups().map((g) => ({ label: `Restore › ${g.name}`, onSelect: () => setGroupMinimized(g, false) })));
 }
 
-function confirmRemoveGroup(group) {
+export function confirmRemoveGroup(group) {
   if (state.ws.groups.length === 1) return alert("You need at least one group.");
   const count = tabsIn(group.id).length;
   const message = count

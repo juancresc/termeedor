@@ -73,6 +73,7 @@ function onInput() {
   recall = null;
   const tab = activeTab();
   if (tab) tab.content = editor.value;
+  editor.scrollTop = editor.scrollHeight; // edits only happen on the last line, so show it fully
   renderGutter();
   saveSoon();
   if (isMenuOpen()) refreshMenu();
@@ -153,7 +154,6 @@ function insertIntoInput(text) {
   const inInput = editor.selectionStart >= start;
   const end = editor.value.length;
   editor.setRangeText(text, inInput ? editor.selectionStart : end, inInput ? editor.selectionEnd : end, "end");
-  editor.scrollTop = editor.scrollHeight;
   onInput();
 }
 
