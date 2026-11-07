@@ -8,12 +8,15 @@ A plugin is a folder with a `plugin.js` in it, much like a zsh plugin. Plugins o
 mkdir -p ~/.termeedor/plugins/greet
 cat > ~/.termeedor/plugins/greet/plugin.js <<'EOF'
 export function activate(api) {
-  api.commands.register("greet", ({ arg }) => `Hello, ${arg || "world"}!`);
+  api.menus.addTabItem({
+    label: "Greet",
+    onSelect: (tab) => api.workspace.print(tab, `Hello, ${tab.name}!`),
+  });
 }
 EOF
 ```
 
-In Termeedor, open Settings, click **Reload plugins** and turn on **greet**. Then type `greet` in a tab.
+In Termeedor, open Settings, click **Reload plugins** and turn on **greet**. Then right-click a tab and choose **Greet**.
 
 Plugins are off until you turn them on. There's a fuller example in [`plugins/hello`](../plugins/hello).
 
@@ -42,7 +45,7 @@ The folder name is the plugin's id. It can use letters, numbers, dots, dashes an
   "description": "Shown in Settings.",
   "main": "plugin.js",
   "host": "host.cjs",
-  "apiVersion": 1
+  "apiVersion": 2
 }
 ```
 
@@ -63,18 +66,7 @@ export function activate(api) {
 
 Every `register`/`add`/`on` call below returns an object with `dispose()`, which removes just that item early. Invalid or conflicting calls throw; if that happens during `activate`, the plugin fails to start and Settings shows the error.
 
-### `api.commands.register(name, handler, { description })`
-
-Adds a shell command. Built-in commands and another plugin's commands can't be replaced.
-
-```js
-api.commands.register("wait", async ({ arg, args, session, emit, signal }) => {
-  emit("starting");           // stream a line of output
-  await doWork(signal);       // signal aborts on Ctrl+C or when the tab closes
-  session.name = arg;         // session is the tab: name, color, cwd and history can be changed
-  return "done";              // a string to print, { output }, { clear: true }, or nothing
-}, { description: "shown in help" });
-```
+Plugins can't add commands: everything typed in a tab goes to the shell. For a new command, use a zsh or bash alias or function.
 
 ### `api.shortcuts.register(combo, handler)`
 

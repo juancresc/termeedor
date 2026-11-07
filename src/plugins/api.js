@@ -25,12 +25,9 @@ export function createApi(plugin, scope) {
   if (plugin.hostFile) scope.track(() => window.termeedorHost.stopPluginHost(plugin.id));
   const { id } = plugin;
   return Object.freeze({
-    apiVersion: 1,
+    apiVersion: 2,
     plugin: Object.freeze({ id, name: plugin.name, version: plugin.version }),
 
-    commands: {
-      register: (name, handler, { description = "" } = {}) => scope.track(registry.registerCommand(id, name, handler, description)),
-    },
     shortcuts: {
       register: (combo, handler) => scope.track(registry.registerShortcut(id, combo, handler)),
     },

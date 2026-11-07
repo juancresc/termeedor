@@ -5,7 +5,7 @@
 
 import { LIMITS, PROMPT, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
-import { state, activeTab, getTab, getGroup, commit, saveSoon, isRunning, startRun, finishRun, stopRun } from "./store.js";
+import { state, activeTab, getTab, getGroup, commit, saveSoon, hasSaveFailed, isRunning, startRun, finishRun, stopRun } from "./store.js";
 import { runCommand, getCompletions } from "./shell.js";
 import { emit as emitPluginEvent } from "./plugins/registry.js";
 import { isMenuOpen, selectedItem, showMenu, closeMenu, moveSelection, placeMenu } from "./completionMenu.js";
@@ -52,7 +52,7 @@ export function renderEditor() {
     editor.dataset.tab = "";
     $("stTab").textContent = "No open tabs";
     $("stCwd").textContent = "";
-    $("stRunning").textContent = "";
+    $("stRunning").textContent = statusNotice(null);
     renderGutter();
     return;
   }
@@ -66,9 +66,16 @@ export function renderEditor() {
   }
   $("stTab").textContent = `${getGroup(tab.groupId).name} › ${tab.name}`;
   $("stCwd").textContent = tab.cwd;
-  $("stRunning").textContent = isRunning(tab.id) ? "● running — Ctrl+C to stop" : "";
+  $("stRunning").textContent = statusNotice(tab);
   renderGutter();
   renderCursorPosition();
+}
+
+function statusNotice(tab) {
+  const notices = [];
+  if (tab && isRunning(tab.id)) notices.push("● running — Ctrl+C to stop");
+  if (hasSaveFailed()) notices.push("⚠ Couldn't save: storage may be full");
+  return notices.join(" · ");
 }
 
 // ---------- events ----------
@@ -380,7 +387,7 @@ async function execute(tab, command) {
   try {
     result = await runCommand(command, tab, {
       emit: (text) => appendToTab(tab, `\n${text}`),
-      setOutput: (text) => setRunningOutput(tab, text),
+      setOutput: (text, clearEarlier) => setRunningOutput(tab, text, clearEarlier),
       signal,
     });
   } catch (err) {
@@ -393,7 +400,7 @@ async function execute(tab, command) {
   if (!getTab(tab.id)) return; // tab was closed meanwhile
 
   if (result.clear) setTabContent(tab, PROMPT);
-  else appendToTab(tab, `${result.output && !result.shown ? `\n${result.output}` : ""}\n${PROMPT}`);
+  else appendToTab(tab, `${result.output && !result.shown ? `\n${result.output}` : ""}${tab.content ? "\n" : ""}${PROMPT}`);
   trimOldContent(tab);
   if (editor.dataset.tab === tab.id) moveCursorToEnd();
   commit(); // refresh tab name/color/spinner and save
@@ -417,8 +424,10 @@ function appendToTab(tab, text) {
 }
 
 /** Replaces what the running command has shown so far: output can overwrite itself. */
-function setRunningOutput(tab, text) {
-  tab.content = tab.content.slice(0, runningBlocks.get(tab.id)) + (text ? `\n${text}` : "");
+function setRunningOutput(tab, text, clearEarlier = false) {
+  if (clearEarlier) runningBlocks.set(tab.id, 0);
+  const block = runningBlocks.get(tab.id);
+  tab.content = tab.content.slice(0, block) + (text && block ? "\n" : "") + text;
   showContent(tab);
 }
 

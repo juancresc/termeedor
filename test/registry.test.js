@@ -1,33 +1,11 @@
 import assert from "node:assert/strict";
 import { test, mock } from "node:test";
 import {
-  addMenuItem, addStatusItem, emit, getCommand, getShortcut, listCommands, menuItemsFor, on,
-  onStatusChange, registerCommand, registerShortcut, reserve, statusItems,
+  addMenuItem, addStatusItem, emit, getShortcut, menuItemsFor, on,
+  onStatusChange, registerShortcut, reserve, statusItems,
 } from "../src/plugins/registry.js";
 
 const quietly = () => mock.method(console, "error", () => {});
-
-test("commands register, list and remove", () => {
-  const remove = registerCommand("a", "greet", () => "hi", "say hi");
-  assert.equal(getCommand("greet").pluginId, "a");
-  assert.deepEqual(listCommands(), [{ name: "greet", description: "say hi" }]);
-  remove();
-  assert.equal(getCommand("greet"), undefined);
-});
-
-test("commands can't replace built-ins or another plugin's command", () => {
-  reserve("commands", ["ls"]);
-  assert.throws(() => registerCommand("a", "ls", () => {}), /built in/);
-  const remove = registerCommand("a", "mine", () => {});
-  assert.throws(() => registerCommand("b", "mine", () => {}), /already belongs to plugin "a"/);
-  remove();
-});
-
-test("invalid commands are rejected", () => {
-  assert.throws(() => registerCommand("a", "has space", () => {}), /Invalid command name/);
-  assert.throws(() => registerCommand("a", "__proto__", () => {}), /Invalid command name/);
-  assert.throws(() => registerCommand("a", "ok", "not a function"), /must be a function/);
-});
 
 test("shortcuts need Mod, skip built-ins and resolve by key", () => {
   reserve("shortcuts", ["KeyT"]);

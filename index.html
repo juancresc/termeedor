@@ -18,15 +18,9 @@
   <!-- Title bar: sidebar toggle, current group, tabs -->
   <header class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
-    <button class="tb-btn sbToggle" id="toggleSidebar" title="Show/hide sidebar" data-shortcut="toggleSidebar" aria-pressed="true">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
-        <rect x="1.5" y="2.5" width="13" height="11" rx="2"/>
-        <line x1="6" y1="2.5" x2="6" y2="13.5"/>
-        <rect id="sbFill" x="2" y="3" width="3.5" height="10" fill="currentColor" stroke="none" opacity=".5"/>
-      </svg>
-    </button>
     <div class="tabs groupTabs" id="groupTabs"></div>
     <button class="tb-btn" id="newGroupTabBtn" title="New group" data-shortcut="newGroup">＋</button>
+    <button class="tb-btn" id="allGroupsBtn" aria-pressed="false">⊞</button>
     <button class="tb-btn" id="settingsBtn" title="Settings" data-shortcut="openSettings">⚙</button>
   </header>
 
@@ -42,8 +36,7 @@
     <span class="arrow">»</span><span class="vlabel">Groups &amp; sessions</span>
   </div>
   <aside class="sidebar">
-    <div class="sbhead"><button class="hideBtn" id="hideSidebar" title="Hide sidebar" data-shortcut="toggleSidebar">«</button></div>
-    <div class="sec">Groups <button id="newGroupBtn" title="New group" data-shortcut="newGroup">＋</button></div>
+    <div class="sec">Groups <span class="secBtns"><button id="hideSidebar" title="Hide sidebar" data-shortcut="toggleSidebar">«</button><button id="newGroupBtn" title="New group" data-shortcut="newGroup">＋</button></span></div>
     <div id="groups"></div>
     <div class="sec">Sessions</div>
     <input class="pastSearch" id="pastSearch" placeholder="Search closed tabs…" maxlength="60">
@@ -83,6 +76,7 @@
     <div class="setRow">Default color for new tabs <span class="colorPick" id="defaultTabColor"></span></div>
     <label class="setRow">Line numbers <input type="checkbox" id="lineNumbers"></label>
     <label class="setRow">Show sidebar <input type="checkbox" id="showSidebar"></label>
+    <label class="setRow">Show tabs from all groups <input type="checkbox" id="showAllGroups"></label>
 
     <h4>Plugins</h4>
     <div id="pluginList"></div>

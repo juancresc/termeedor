@@ -30,10 +30,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 .tb-btn { padding: 4px 8px; border-radius: 6px; color: var(--dim); }
 .tb-btn:hover { background: var(--panel2); color: var(--text); }
-#settingsBtn { margin-left: auto; }
-.sbToggle { display: flex; align-items: center; }
-.sbToggle svg { width: 16px; height: 16px; }
-.sbToggle[aria-pressed="true"] { color: var(--accent); }
+#allGroupsBtn { margin-left: auto; }
+#allGroupsBtn, #settingsBtn { padding: 2px 7px; font-size: 18px; line-height: 24px; }
+#allGroupsBtn[aria-pressed="true"] { color: var(--accent); }
 
 
 /* top row: groups, like tabs of tabs. Second row: the selected group's tabs. */
@@ -43,6 +42,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .tabStrip .tb-btn:hover { background: var(--line); }
 .tabs { display: flex; gap: 2px; flex: 0 1 auto; min-width: 0; /* only as wide as its tabs, so ＋ sits right after them */ overflow-x: auto; height: 100%; align-items: flex-end; scrollbar-width: none; }
 .tabsEmpty { align-self: center; color: var(--dim); font-size: 12px; }
+/* "show all" mode: each group's name, tabs and ＋ share the group's color, with space between groups */
+.tabGroupLabel { flex: none; align-self: center; max-width: 160px; height: 22px; padding: 0 8px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--group-color) 45%, transparent); color: var(--text); font-size: 11px; font-weight: 700; line-height: 22px; cursor: pointer; user-select: none; }
+.tabGroupLabel:hover { background: color-mix(in srgb, var(--group-color) 60%, transparent); }
+.tabGroupLabel:not(:first-child) { margin-left: 20px; }
+.tabGroupLabel.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
+.tabs.showAll .tab:not(.active) { background: color-mix(in srgb, var(--group-color) 20%, transparent); }
+.tabs.showAll .tab:not(.active):hover { background: color-mix(in srgb, var(--group-color) 32%, transparent); }
+.tabStrip .groupAdd { flex: none; align-self: flex-end; height: 26px; margin-bottom: 1px; padding: 0 8px; color: var(--group-color); }
 
 .groupTab, .tab { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; border-radius: 7px 7px 0 0; border-top: 2px solid transparent; white-space: nowrap; cursor: pointer; user-select: none; }
 .groupTab { padding: 0 6px 0 12px; max-width: 300px; color: var(--dim); font-size: 12px; font-weight: 600; }
@@ -75,9 +82,6 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .sidebar { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
 .app.nosidebar .sidebar { display: none; }
 
-.sbhead { display: flex; justify-content: flex-end; padding: 8px 8px 0; }
-.hideBtn { padding: 4px 8px; border-radius: 6px; color: var(--dim); font-size: 12px; border: 1px solid var(--line); }
-.hideBtn:hover { color: var(--text); background: var(--panel2); border-color: var(--dim); }
 
 /* thin strip shown when the sidebar is hidden */
 .rail { display: none; flex-direction: column; align-items: center; gap: 8px; padding-top: 8px; background: var(--panel); border-right: 1px solid var(--line); cursor: pointer; }
@@ -94,6 +98,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .app.nosidebar .resizer { display: none; }
 
 .sec { padding: 10px 8px 4px; display: flex; align-items: center; justify-content: space-between; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.secBtns { display: flex; gap: 2px; }
 .sec button { font-size: 15px; color: var(--dim); padding: 0 6px; border-radius: 4px; }
 .sec button:hover { color: var(--text); background: var(--panel2); }
 .empty { color: var(--dim); font-size: 12px; padding: 4px 14px; }

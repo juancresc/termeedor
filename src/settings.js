@@ -20,6 +20,7 @@ export function initSettings() {
 
   $("fontSize").oninput = (e) => updateSettings({ fontSize: Number(e.target.value) });
   $("lineNumbers").onchange = (e) => updateSettings({ lineNumbers: e.target.checked });
+  $("showAllGroups").onchange = (e) => updateSettings({ showAllGroups: e.target.checked });
   $("showSidebar").onchange = (e) => setSidebarOpen(e.target.checked);
 
   $("importTheme").onclick = () => $("themeFile").click();
@@ -44,6 +45,7 @@ export function renderSettings() {
   $("fontSize").value = fontSize;
   $("fontSizeOut").textContent = `${fontSize}px`;
   $("lineNumbers").checked = lineNumbers;
+  $("showAllGroups").checked = state.settings.showAllGroups;
   $("showSidebar").checked = state.ws.sidebarOpen;
   renderDefaultTabColor();
   renderThemeGrid();

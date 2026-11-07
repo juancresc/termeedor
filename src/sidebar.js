@@ -4,12 +4,12 @@
 import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, spinner, timeAgo } from "./util.js";
 import {
-  state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
+  state, getTab, getGroup, tabsIn, groupColor, isRunning, groupHasRunning,
   activateTab, addTab, addGroup, moveTab, selectGroup, setGroupMinimized,
   reopenPast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
 import { nameLabel, startRename, isEditing, isRenaming } from "./rename.js";
-import { tabMenu, groupMenu, pastMenu } from "./contextMenus.js";
+import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
 import { tabButtons, groupMinimizeButton } from "./controls.js";
 
 let pastQuery = "";
@@ -34,8 +34,6 @@ function renderLayout() {
   const app = $("app");
   app.classList.toggle("nosidebar", !open);
   app.style.setProperty("--sbw", `${state.ws.sidebarWidth}px`);
-  $("toggleSidebar").setAttribute("aria-pressed", String(open));
-  $("sbFill").style.display = open ? "" : "none";
 }
 
 // ---------- groups ----------
@@ -56,7 +54,7 @@ function groupNode(group) {
 
   const head = el("div", "ghead");
   head.append(
-    colorDot(group.color, "dot"),
+    colorDot(groupColor(group), "dot"),
     nameLabel("group", group, "sidebar", "span", "gname"),
     // its tabs are hidden while minimized, so show here that something is running
     ...(group.minimized && groupHasRunning(group.id) ? [spinner()] : []),
@@ -80,7 +78,6 @@ function groupNode(group) {
 
   const list = el("div", "glist");
   list.append(...tabs.map(tabRow));
-  if (!tabs.length) list.append(el("div", "empty", "No tabs here. Press ＋ to add a terminal."));
 
   box.append(head, list);
   return box;
@@ -123,7 +120,7 @@ function renderPast() {
 
 function pastRow(entry) {
   const row = el("div", "session");
-  row.title = "Click to reopen";
+  row.title = reopenLabel();
 
   const info = el("div", "sname");
   const lines = entry.tab.content.split("\n").length;
@@ -133,7 +130,7 @@ function pastRow(entry) {
   );
 
   const reopen = el("button", "icon-btn", "↺");
-  reopen.title = "Reopen";
+  reopen.title = reopenLabel();
   reopen.onclick = (e) => { e.stopPropagation(); reopenPast(entry); };
   const more = el("button", "icon-btn", "⋯");
   more.title = "More actions";

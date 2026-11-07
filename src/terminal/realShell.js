@@ -34,7 +34,7 @@ function textAreaSize() {
 function flush(run) {
   clearTimeout(run.timer);
   run.timer = null;
-  run.setOutput(run.model.text());
+  run.setOutput(run.model.text(), run.model.takeErasedScrollback());
 }
 
 function onEvent({ tabId, event }) {
@@ -76,7 +76,10 @@ function setFullscreen(tabId, run, on) {
   }
 }
 
-/** Resolves when the command finishes. setOutput(text) replaces what the command has shown so far. */
+/**
+ * Resolves when the command finishes. setOutput(text, clearEarlier) replaces what the command
+ * has shown so far; clearEarlier means the tab's earlier content should go too.
+ */
 export function runInShell(tab, command, { signal, setOutput }) {
   return new Promise((resolve) => {
     const run = { tab, model: createTextModel(), setOutput, resolve, timer: null, fullscreen: false };

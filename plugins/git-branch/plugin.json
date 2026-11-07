@@ -3,5 +3,5 @@
   "version": "1.0.0",
   "description": "Shows the current tab's git branch in the status bar.",
   "host": "host.cjs",
-  "apiVersion": 1
+  "apiVersion": 2
 }

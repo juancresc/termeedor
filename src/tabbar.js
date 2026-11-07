@@ -5,8 +5,8 @@
 import { $, el, spinner } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
-  state, getGroup, getTab, tabsIn, barGroups, barTabs, isRunning, groupHasRunning, minimizedGroups,
-  activateTab, addGroup, addTab, moveTab, selectGroup, restoreMinimized, setSidebarOpen,
+  state, getGroup, getTab, tabsIn, visibleTabsIn, barGroups, barTabs, groupColor, isRunning, groupHasRunning, minimizedGroups,
+  activateTab, addGroup, addTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, minimizedGroupsMenu } from "./contextMenus.js";
@@ -16,19 +16,45 @@ import { renderRow } from "./slide.js";
 export function initTabbar() {
   $("newGroupTabBtn").onclick = () => startRename("group", addGroup(), "tabbar");
   $("newTabBtn").onclick = () => addTab();
-  $("toggleSidebar").onclick = () => setSidebarOpen(!state.ws.sidebarOpen);
+  $("allGroupsBtn").onclick = () => updateSettings({ showAllGroups: !state.settings.showAllGroups });
 }
 
 export function renderTabbar() {
   const tray = minimizedGroups().length ? [minimizedTray()] : [];
   renderRow($("groupTabs"), [...barGroups().map(groupTab), ...tray]);
 
+  const showAll = state.settings.showAllGroups;
   const group = getGroup(state.ws.activeGroup);
-  const tabs = barTabs();
-  renderRow($("tabs"), tabs.length
-    ? tabs.map((tab) => tabNode(tab, group))
-    : [el("span", "tabsEmpty", group ? "No tabs here. Press ＋ to add a terminal." : "All groups are minimized.")]);
-  $("newTabBtn").hidden = !group;
+  $("tabs").classList.toggle("showAll", showAll);
+  renderRow($("tabs"), tabRowNodes(group, showAll));
+  $("newTabBtn").hidden = !group || showAll; // in "show all" mode each group has its own
+
+  const toggle = $("allGroupsBtn");
+  toggle.setAttribute("aria-pressed", String(showAll));
+  toggle.title = showAll ? "Show only the selected group's tabs" : "Show tabs from all groups";
+}
+
+function tabRowNodes(group, showAll) {
+  if (!group) return [el("span", "tabsEmpty", "All groups are minimized.")];
+  if (!showAll) return barTabs().map((tab) => tabNode(tab, group));
+  return barGroups().flatMap(groupSection);
+}
+
+/** "Show all" mode: a group's name, its tabs and its own new tab button. */
+function groupSection(group) {
+  const label = el("span", `tabGroupLabel${group.id === state.ws.activeGroup ? " active" : ""}`, group.name);
+  label.dataset.slideKey = `label-${group.id}`;
+  label.style.setProperty("--group-color", colorVar(groupColor(group)));
+  label.onclick = () => selectGroup(group);
+  acceptTabDrops(label, group);
+
+  const add = el("button", "tb-btn groupAdd", "＋");
+  add.dataset.slideKey = `add-${group.id}`;
+  add.style.setProperty("--group-color", colorVar(groupColor(group)));
+  add.title = `New tab in ${group.name}`;
+  add.onclick = () => addTab(group.id);
+
+  return [label, ...visibleTabsIn(group.id).map((tab) => tabNode(tab, group)), add];
 }
 
 function minimizedTray() {
@@ -46,7 +72,7 @@ function groupTab(group) {
   const minimizedCount = tabs.filter((t) => t.minimized).length;
   const node = el("div", `groupTab${group.id === state.ws.activeGroup ? " active" : ""}`);
   node.dataset.slideKey = group.id;
-  if (group.color) node.style.borderTopColor = colorVar(group.color);
+  if (groupColor(group)) node.style.borderTopColor = colorVar(groupColor(group));
 
   if (group.id !== state.ws.activeGroup && groupHasRunning(group.id)) node.append(spinner());
   node.append(nameLabel("group", group, "tabbar", "span", "chipName"), el("span", "chipCount", String(tabs.length)));
@@ -69,7 +95,7 @@ function tabNode(tab, group) {
   const isActive = tab.id === state.ws.activeTab;
   const node = el("div", `tab${isActive ? " active" : ""}${tab.collapsed ? " collapsed" : ""}`);
   node.dataset.slideKey = tab.id;
-  if (group.color) node.style.setProperty("--group-color", colorVar(group.color));
+  if (groupColor(group)) node.style.setProperty("--group-color", colorVar(groupColor(group)));
   if (tab.color) node.style.borderTopColor = colorVar(tab.color);
 
   if (tab.collapsed) {

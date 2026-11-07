@@ -4,7 +4,7 @@
 
 import { el } from "./util.js";
 import {
-  activateTab, closeTab, moveTabBy, moveGroupBy, barTabs, barGroups,
+  activateTab, closeTab, moveTabBy, moveGroupBy, visibleTabsIn, barGroups,
   setTabCollapsed, setTabMinimized, setGroupMinimized,
 } from "./store.js";
 import { confirmRemoveGroup } from "./contextMenus.js";
@@ -36,7 +36,7 @@ function barButtons(noun, item, bar, { move, minimize, close, closeTitle }) {
   return box;
 }
 
-export const tabBarButtons = (tab) => barButtons("tab", tab, barTabs(), {
+export const tabBarButtons = (tab) => barButtons("tab", tab, visibleTabsIn(tab.groupId), {
   move: moveTabBy,
   minimize: (t) => setTabMinimized(t, true),
   close: closeTab,

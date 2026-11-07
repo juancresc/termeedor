@@ -60,11 +60,11 @@ const REFERENCE = `/*
  *
  * Selectors
  *   Page       body .app
- *   Title bar  .titlebar .lights .tb-btn .sbToggle
+ *   Title bar  .titlebar .lights .tb-btn
  *   Groups     .groupTabs .groupTab .groupTab.active .groupTray .chipName .chipCount
- *   Tabs       .tabStrip .tabs .tab .tab.active .tab.collapsed .tab .name .tabsEmpty
+ *   Tabs       .tabStrip .tabs .tab .tab.active .tab.collapsed .tab .name .tabsEmpty .tabGroupLabel .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn
- *   Sidebar    .sidebar .sbhead .hideBtn .rail .resizer .sec .empty
+ *   Sidebar    .sidebar .rail .resizer .sec .secBtns .empty
  *              .group .group.minimized .ghead .ghead .gname .ghead .count .glist
  *              .item .item.active .item.minimized .tdot .icon-btn
  *   History    .pastSearch .session .session .sname

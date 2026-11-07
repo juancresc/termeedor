@@ -11,6 +11,7 @@ export function createTextModel() {
   let row = 0;
   let col = 0;
   let pending = ""; // the start of an escape sequence cut off at the end of a chunk
+  let erasedScrollback = false; // ESC[3J, which `clear` sends: everything above goes too
 
   function put(char) {
     const line = lines[row];
@@ -49,7 +50,9 @@ export function createTextModel() {
       for (let i = 0; i < row; i++) lines[i] = [];
       eraseInLine(1);
     } else {
-      // A clear screen starts this command's output over. Earlier commands stay above it.
+      // A clear screen starts this command's output over. Earlier commands stay above it,
+      // as a real terminal keeps its scrollback, unless the scrollback was erased as well.
+      if (mode === 3) erasedScrollback = true;
       lines = [[]];
       row = 0;
       col = 0;
@@ -99,6 +102,12 @@ export function createTextModel() {
           put(char);
         }
       }
+    },
+    /** True once for each time the program erased the scrollback. */
+    takeErasedScrollback() {
+      const erased = erasedScrollback;
+      erasedScrollback = false;
+      return erased;
     },
     text() {
       const output = lines.map((line) => line.join("").trimEnd());

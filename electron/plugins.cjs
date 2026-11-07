@@ -6,7 +6,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const API_VERSION = 1;
+const API_VERSION = 2;
 const VALID_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const text = (value, max, fallback) => (typeof value === "string" && value ? value.slice(0, max) : fallback);
 

@@ -6,7 +6,7 @@ import { askConfirm, showNotice } from "./dialogs.js";
 import { startRename } from "./rename.js";
 import { menuItemsFor } from "./plugins/registry.js";
 import {
-  state, activeTab, activateTab, getGroup, isRunning, stopRun,
+  state, activateTab, getGroup, isRunning, stopRun,
   addTab, closeTab, duplicateTab, moveTab, moveTabToNewGroup, setTabColor, setTabCollapsed, setTabMinimized, restoreMinimized, tabsIn,
   closeGroup, setGroupMinimized, minimizedGroups, setGroupColor, setGroupTabs,
   reopenPast, deletePast,
@@ -66,11 +66,15 @@ export async function confirmRemoveGroup(group) {
   if (await askConfirm({ title: `Close "${group.name}"?`, message, acceptLabel: "Close group", danger: true })) closeGroup(group);
 }
 
+/** Says where reopening a closed tab will put it. */
+export function reopenLabel() {
+  const group = getGroup(state.ws.activeGroup);
+  return group ? `Reopen in › ${group.name}` : "Reopen";
+}
+
 export function pastMenu(entry, event) {
-  const current = activeTab() && getGroup(activeTab().groupId);
   openMenu(event, [
-    { label: "Reopen", onSelect: () => reopenPast(entry) },
-    ...(current && current.id !== entry.groupId ? [{ label: `Reopen in › ${current.name}`, onSelect: () => reopenPast(entry, current.id) }] : []),
+    { label: reopenLabel(), onSelect: () => reopenPast(entry) },
     { label: "Rename", onSelect: () => startRename("past", entry) },
     "-",
     { label: "Delete forever", danger: true, onSelect: () => deletePast(entry) },

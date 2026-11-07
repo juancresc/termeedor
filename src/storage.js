@@ -25,6 +25,13 @@ export function save(key, value) {
 // ---------- primitive validators ----------
 const isObject = (v) => v !== null && typeof v === "object";
 const text = (v, max, fallback = "") => (typeof v === "string" ? v.slice(0, max) : fallback);
+/** The end of a long text, starting on a whole line where possible: the newest output is what matters. */
+const newestText = (v, max) => {
+  if (typeof v !== "string") return "";
+  if (v.length <= max) return v;
+  const newline = v.indexOf("\n", v.length - max);
+  return v.slice(newline === -1 ? v.length - max : newline + 1);
+};
 const safeId = (v) => (typeof v === "string" && /^[a-z0-9-]{1,20}$/i.test(v) ? v : uid());
 const tabColor = (v) => (TAB_COLORS.includes(v) ? v : null);
 const clamp = (v, min, max, fallback) => (typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : fallback);
@@ -40,7 +47,7 @@ export function cssColor(v) {
 function sanitizeTabBody(t) {
   return {
     color: tabColor(t.color),
-    content: text(t.content, LIMITS.content),
+    content: newestText(t.content, LIMITS.content),
     cwd: text(t.cwd, LIMITS.cwd, "~"),
     history: Array.isArray(t.history) ? t.history.filter((h) => typeof h === "string").slice(-LIMITS.history) : [],
   };
@@ -54,6 +61,7 @@ export function sanitizeWorkspace(raw) {
     name: text(g.name, LIMITS.name, "Group"),
     color: tabColor(g.color),
     minimized: !!g.minimized,
+    autoColor: tabColor(g.autoColor),
   }));
   if (!groups.length) return null;
 
@@ -106,6 +114,7 @@ export function sanitizeSettings(raw) {
     theme: knownTheme ? s.theme : "default",
     fontSize: clamp(s.fontSize, FONT_SIZE.min, FONT_SIZE.max, FONT_SIZE.default),
     lineNumbers: s.lineNumbers !== false,
+    showAllGroups: s.showAllGroups === true, // second row: every group's tabs, not just the selected group's
     // color for new tabs: "none", "group" (use the group's color) or one of TAB_COLORS
     defaultTabColor: s.defaultTabColor === "group" || TAB_COLORS.includes(s.defaultTabColor) ? s.defaultTabColor : "none",
     customThemes,

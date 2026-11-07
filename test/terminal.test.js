@@ -37,6 +37,16 @@ test("clear screen starts over; erase-below removes the lines underneath", () =>
   assert.equal(render("a\r\nb\r\nc\x1b[1A\x1b[1G\x1b[J"), "a");
 });
 
+test("erasing the scrollback is reported once; a plain clear screen isn't reported", () => {
+  const model = createTextModel();
+  model.write("old\r\n\x1b[2J\x1b[Hnew");
+  assert.equal(model.takeErasedScrollback(), false);
+  model.write("\x1b[3J\x1b[H\x1b[2Jafter"); // what `clear` sends
+  assert.equal(model.text(), "after");
+  assert.equal(model.takeErasedScrollback(), true);
+  assert.equal(model.takeErasedScrollback(), false);
+});
+
 test("a sequence cut across chunks isn't printed", () => {
   assert.equal(render("x\x1b", "[31", "my\x1b]0;ti", "tle\x07z"), "xyz");
 });

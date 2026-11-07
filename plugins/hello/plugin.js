@@ -18,11 +18,6 @@ export function activate(api) {
 
   api.events.on("command:finish", () => setCount(count + 1));
 
-  // Return a string to print it, or use emit() to stream lines. Same ctx as the built-in commands.
-  api.commands.register("hello", ({ arg, session }) => `Hello, ${arg || session.name}!`, {
-    description: "say hello",
-  });
-
   api.menus.addTabItem({
     label: "Say hello",
     onSelect: (tab) => api.workspace.print(tab, `Hello, ${tab.name}!`),

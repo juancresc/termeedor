@@ -1,12 +1,11 @@
-// Everything plugins have added to the app. The shell, menus, shortcuts and status bar
+// Everything plugins have added to the app. Menus, shortcuts and the status bar
 // read from here and know nothing else about plugins. No DOM or store imports.
 // Each add/register function returns the function that removes what it added.
 
-const commands = new Map();  // name -> { pluginId, handler, description }
 const shortcuts = new Map(); // "KeyJ" | "Shift+KeyJ" -> { pluginId, handler }
 const menuItems = { tab: [], group: [] };
 const statusEntries = [];
-const reserved = { commands: new Set(), shortcuts: new Set() };
+const reserved = { shortcuts: new Set() };
 
 export const EVENTS = ["tab:open", "tab:close", "tab:activate", "command:start", "command:finish"];
 const listeners = new Map(EVENTS.map((name) => [name, new Set()]));
@@ -30,20 +29,6 @@ export function reserve(kind, names) {
 function assertFn(value, what) {
   if (typeof value !== "function") throw new TypeError(`${what} must be a function`);
 }
-
-// ---------- commands ----------
-export function registerCommand(pluginId, name, handler, description = "") {
-  if (typeof name !== "string" || !/^[A-Za-z0-9][\w:.-]*$/.test(name)) throw new TypeError(`Invalid command name: ${name}`);
-  assertFn(handler, "Command handler");
-  if (reserved.commands.has(name)) throw new Error(`Command "${name}" is built in`);
-  const taken = commands.get(name);
-  if (taken) throw new Error(`Command "${name}" already belongs to plugin "${taken.pluginId}"`);
-  commands.set(name, { pluginId, handler, description });
-  return () => commands.delete(name);
-}
-
-export const getCommand = (name) => commands.get(name);
-export const listCommands = () => [...commands].map(([name, { description }]) => ({ name, description })).sort((a, b) => a.name.localeCompare(b.name));
 
 // ---------- shortcuts ----------
 /** "Mod+KeyJ" or "Mod+Shift+KeyJ", using KeyboardEvent.code names. Mod is Cmd on macOS, Ctrl elsewhere. */

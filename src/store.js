@@ -1,13 +1,13 @@
 // Single source of truth: workspace (groups + open tabs), past sessions, settings.
 // UI modules read `state`, call the actions below, and re-render when `commit()` notifies them.
 
-import { STORAGE_KEYS, LIMITS, TAB_COLORS, PROMPT, SIDEBAR, FONT_SIZE } from "./constants.js";
+import { STORAGE_KEYS, LIMITS, TAB_COLORS, AUTO_GROUP_COLORS, PROMPT, SIDEBAR, FONT_SIZE } from "./constants.js";
 import { uid } from "./util.js";
 import { load, save, sanitizeWorkspace, sanitizePastEntry, sanitizeSettings } from "./storage.js";
 
 // ---------- factories ----------
 const banner = () =>
-  `Termeedor — ${new Date().toLocaleString()}\nType 'help' for commands.\n\n`;
+  `Termeedor — ${new Date().toLocaleString()}\n\n`;
 
 export function createTab(groupId, name = "shell") {
   return { id: uid(), groupId, name, color: null, collapsed: false, minimized: false, content: banner() + PROMPT, cwd: "~", history: [] };
@@ -43,12 +43,26 @@ export const state = {
 };
 
 // ---------- persistence & change notification ----------
-const savers = {
-  workspace: () => save(STORAGE_KEYS.workspace, state.ws),
-  past: () => save(STORAGE_KEYS.past, state.past),
-  settings: () => save(STORAGE_KEYS.settings, state.settings),
-};
+const failedSaves = new Set(); // the parts whose last save failed
 const listeners = new Set();
+
+/** Re-renders when a part starts or stops failing, so the status bar can say so. */
+function savePart(part, value) {
+  const ok = save(STORAGE_KEYS[part], value);
+  const changed = ok === failedSaves.has(part);
+  if (ok) failedSaves.delete(part);
+  else failedSaves.add(part);
+  if (changed) queueMicrotask(() => listeners.forEach((fn) => fn()));
+  return ok;
+}
+
+const savers = {
+  workspace: () => savePart("workspace", state.ws),
+  past: () => savePart("past", state.past),
+  settings: () => savePart("settings", state.settings),
+};
+
+export const hasSaveFailed = () => failedSaves.size > 0;
 
 export const subscribe = (fn) => listeners.add(fn);
 
@@ -72,12 +86,25 @@ export const getTab = (id) => state.ws.tabs.find((t) => t.id === id);
 export const getGroup = (id) => state.ws.groups.find((g) => g.id === id);
 export const activeTab = () => getTab(state.ws.activeTab);
 export const tabsIn = (groupId) => state.ws.tabs.filter((t) => t.groupId === groupId);
-const visibleTabsIn = (groupId) => tabsIn(groupId).filter((t) => !t.minimized);
+export const visibleTabsIn = (groupId) => tabsIn(groupId).filter((t) => !t.minimized);
 /** The groups in the top row, in order. */
 export const barGroups = () => state.ws.groups.filter((g) => !g.minimized);
-/** The tabs in the second row: the selected group's, in order. */
-export const barTabs = () => visibleTabsIn(state.ws.activeGroup);
+/** The tabs in the second row, in order: the selected group's, or every group's in "show all" mode. */
+export const barTabs = () => (state.settings.showAllGroups
+  ? barGroups().flatMap((g) => visibleTabsIn(g.id))
+  : visibleTabsIn(state.ws.activeGroup));
 export const minimizedGroups = () => state.ws.groups.filter((g) => g.minimized);
+/** The color a group shows: the one picked for it, or in "show all" mode its automatic one. */
+export const groupColor = (group) => group.color ?? (state.settings.showAllGroups ? group.autoColor : null);
+
+/** Every group keeps one automatic color, the least used when it was created, so groups can be told apart. */
+function assignAutoColors() {
+  const uses = (color) => state.ws.groups.filter((g) => (g.color ?? g.autoColor) === color).length;
+  for (const group of state.ws.groups) {
+    if (group.autoColor) continue;
+    group.autoColor = AUTO_GROUP_COLORS.reduce((best, color) => (uses(color) < uses(best) ? color : best));
+  }
+}
 
 // ---------- what is selected ----------
 const lastTabIn = new Map(); // groupId -> tabId, so returning to a group returns to its tab
@@ -94,6 +121,7 @@ function show(group) {
 
 /** The selected tab decides the selected group. With no usable tab, the group decides (it may be empty). */
 function ensureSelection() {
+  assignAutoColors();
   const tab = activeTab();
   if (tab && !tab.minimized && !getGroup(tab.groupId).minimized) {
     state.ws.activeGroup = tab.groupId;
@@ -170,7 +198,7 @@ export function closeTab(tab) {
   state.ws.tabs.splice(state.ws.tabs.indexOf(tab), 1);
   if (state.ws.activeTab === tab.id) {
     const remaining = siblings.filter((t) => t !== tab && !t.minimized);
-    state.ws.activeTab = remaining[Math.min(position, remaining.length - 1)]?.id ?? null;
+    state.ws.activeTab = (remaining[Math.min(position, remaining.length - 1)] ?? barTabs()[0])?.id ?? null;
   }
   commit("workspace", "past");
 }
@@ -182,7 +210,7 @@ export function duplicateTab(tab) {
   commit();
 }
 
-export const moveTabBy = (tab, delta) => moveInBar(state.ws.tabs, barTabs(), tab, delta);
+export const moveTabBy = (tab, delta) => moveInBar(state.ws.tabs, visibleTabsIn(tab.groupId), tab, delta);
 
 /** Send one tab to another group (moves it to the end of that group). */
 export function moveTab(tab, groupId) {
@@ -212,7 +240,7 @@ export function setTabCollapsed(tab, collapsed) {
 /** Minimize takes a tab out of the bar, counted on its group's tab; activating it brings it back. */
 export function setTabMinimized(tab, minimized) {
   tab.minimized = minimized;
-  if (minimized && state.ws.activeTab === tab.id) state.ws.activeTab = barTabs()[0]?.id ?? null;
+  if (minimized && state.ws.activeTab === tab.id) state.ws.activeTab = (visibleTabsIn(tab.groupId)[0] ?? barTabs()[0])?.id ?? null;
   commit();
 }
 
@@ -303,9 +331,12 @@ function archiveTab(tab) {
   state.past.length = Math.min(state.past.length, LIMITS.past);
 }
 
-/** Reopen into: the given group, else the original group, else one with the same name, else recreate it. */
-export function reopenPast(entry, intoGroupId) {
-  let group = getGroup(intoGroupId) ?? getGroup(entry.groupId) ?? state.ws.groups.find((g) => g.name === entry.groupName);
+/**
+ * Reopens into the selected group. With none selected (all minimized): the original group,
+ * else one with the same name, else recreate it.
+ */
+export function reopenPast(entry) {
+  let group = getGroup(state.ws.activeGroup) ?? getGroup(entry.groupId) ?? state.ws.groups.find((g) => g.name === entry.groupName);
   if (!group) {
     group = createGroup(entry.groupName, entry.groupColor);
     state.ws.groups.push(group);
