@@ -2,7 +2,7 @@
 
 import { TAB_COLORS } from "./constants.js";
 import { openMenu } from "./menu.js";
-import { askConfirm, showNotice } from "./dialogs.js";
+import { askConfirm } from "./dialogs.js";
 import { startRename } from "./rename.js";
 import { menuItemsFor } from "./plugins/registry.js";
 import {
@@ -49,8 +49,8 @@ export function groupMenu(group, event, where = "sidebar") {
     { swatches: { label: "Group color", colors: TAB_COLORS, current: group.color, allowNone: true, onPick: (c) => setGroupColor(group, c) } },
     { swatches: { label: "Color all tabs", colors: TAB_COLORS, allowNone: true, onPick: (c) => setGroupTabs(group, { color: c }) } },
     ...pluginSection("group", group),
-    // removing a group is only offered from the sidebar
-    ...(where === "sidebar" ? ["-", { label: "Remove group", danger: true, onSelect: () => confirmRemoveGroup(group) }] : []),
+    "-",
+    { label: "Close group", danger: true, onSelect: () => confirmRemoveGroup(group) },
   ]);
 }
 
@@ -59,10 +59,9 @@ export function minimizedGroupsMenu(event) {
 }
 
 export async function confirmRemoveGroup(group) {
-  if (state.ws.groups.length === 1) return showNotice("This is your only group", "You need at least one group.");
   const count = tabsIn(group.id).length;
-  const message = count === 0 ? "It has no tabs."
-    : `Its ${count === 1 ? "tab" : `${count} tabs`} will move to Sessions, where you can reopen ${count === 1 ? "it" : "them"}.`;
+  if (count === 0) return closeGroup(group);
+  const message = `Its ${count === 1 ? "tab" : `${count} tabs`} will move to Sessions, where you can reopen ${count === 1 ? "it" : "them"}.`;
   if (await askConfirm({ title: `Close "${group.name}"?`, message, acceptLabel: "Close group", danger: true })) closeGroup(group);
 }
 

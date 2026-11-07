@@ -65,7 +65,7 @@ const REFERENCE = `/*
  *   Tabs       .tabStrip .tabs .tab .tab.active .tab.collapsed .tab .name .tabsEmpty .tabGroupLabel .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .rail .resizer .sec .secBtns .empty
- *              .group .group.minimized .ghead .ghead .gname .ghead .count .glist
+ *              .group .group.minimized .ghead .ghead .gname .glist
  *              .item .item.active .item.minimized .tdot .icon-btn
  *   History    .pastSearch .session .session .sname
  *   Terminal   .main .colorbar .gutter .editor .editor::selection .cmdLines div

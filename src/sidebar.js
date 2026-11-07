@@ -4,13 +4,14 @@
 import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, spinner, timeAgo } from "./util.js";
 import {
-  state, getTab, getGroup, tabsIn, groupColor, isRunning, groupHasRunning,
-  activateTab, addTab, addGroup, moveTab, selectGroup, setGroupMinimized,
-  reopenPast, setSidebarOpen, setSidebarWidth,
+  state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
+  activateTab, addGroup, moveTab, selectGroup, setGroupMinimized,
+  reopenPast, deletePast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
+import { renderTranscript } from "./terminal/transcript.js";
 import { nameLabel, startRename, isEditing, isRenaming } from "./rename.js";
 import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
-import { tabButtons, groupMinimizeButton } from "./controls.js";
+import { tabRowButtons, groupRowButtons } from "./controls.js";
 
 let pastQuery = "";
 
@@ -45,23 +46,13 @@ function groupNode(group) {
   const tabs = tabsIn(group.id);
   const box = el("div", `group${group.minimized ? " minimized" : ""}`);
 
-  const add = el("button", "icon-btn", "＋");
-  add.title = "New tab in group";
-  add.onclick = (e) => { e.stopPropagation(); addTab(group.id); };
-  const more = el("button", "icon-btn", "⋯");
-  more.title = "More actions";
-  more.onclick = (e) => groupMenu(group, e);
-
   const head = el("div", "ghead");
   head.append(
-    colorDot(groupColor(group), "dot"),
+    colorDot(group.color, "dot"),
     nameLabel("group", group, "sidebar", "span", "gname"),
     // its tabs are hidden while minimized, so show here that something is running
     ...(group.minimized && groupHasRunning(group.id) ? [spinner()] : []),
-    el("span", "count", String(tabs.length)),
-    add,
-    groupMinimizeButton(group),
-    more,
+    groupRowButtons(group),
   );
   head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : selectGroup(group));
   head.ondblclick = (e) => { e.stopPropagation(); startRename("group", group); };
@@ -87,13 +78,10 @@ function tabRow(tab) {
   const row = el("div", `item${tab.id === state.ws.activeTab ? " active" : ""}${tab.minimized ? " minimized" : ""}`);
   row.title = tab.minimized ? "Minimized — click to restore" : "";
 
-  const [minimize, close] = tabButtons(tab);
-
   row.append(
     isRunning(tab.id) ? spinner() : colorDot(tab.color),
     nameLabel("tab", tab, "sidebar", "span", "iname"),
-    minimize,
-    close,
+    tabRowButtons(tab),
   );
   row.onclick = () => activateTab(tab.id);
   row.ondblclick = () => startRename("tab", tab, "sidebar");
@@ -108,7 +96,7 @@ function renderPast() {
   const all = state.past;
   const query = pastQuery.trim().toLowerCase();
   const matches = query
-    ? all.filter((p) => `${p.name} ${p.groupName} ${p.tab.content}`.toLowerCase().includes(query))
+    ? all.filter((p) => `${p.name} ${p.groupName} ${renderTranscript(p.tab)}`.toLowerCase().includes(query))
     : all;
 
   $("pastSearch").style.display = all.length > 5 ? "" : "none";
@@ -123,7 +111,7 @@ function pastRow(entry) {
   row.title = reopenLabel();
 
   const info = el("div", "sname");
-  const lines = entry.tab.content.split("\n").length;
+  const lines = renderTranscript(entry.tab).split("\n").length;
   info.append(
     nameLabel("past", entry, "sidebar", "b"),
     el("small", null, `${entry.groupName} · ${lines} lines · ${timeAgo(entry.closedAt)}`),
@@ -132,11 +120,11 @@ function pastRow(entry) {
   const reopen = el("button", "icon-btn", "↺");
   reopen.title = reopenLabel();
   reopen.onclick = (e) => { e.stopPropagation(); reopenPast(entry); };
-  const more = el("button", "icon-btn", "⋯");
-  more.title = "More actions";
-  more.onclick = (e) => pastMenu(entry, e);
+  const close = el("button", "icon-btn", "×");
+  close.title = "Delete forever";
+  close.onclick = (e) => { e.stopPropagation(); deletePast(entry); };
 
-  row.append(colorDot(entry.tab.color ?? entry.groupColor), info, reopen, more);
+  row.append(colorDot(entry.tab.color ?? entry.groupColor), info, reopen, close);
   row.onclick = () => reopenPast(entry);
   row.ondblclick = (e) => { e.stopPropagation(); startRename("past", entry); };
   row.oncontextmenu = (e) => pastMenu(entry, e);

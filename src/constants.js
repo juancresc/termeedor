@@ -6,8 +6,6 @@ export const PROMPT = "❯ ";
 // (--c1 … --c8 in themes/*.css), so colors always match the current theme.
 // null = no color: the item just uses the theme's normal colors (the default).
 export const TAB_COLORS = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"];
-// Colors given to groups in "show all" mode, ordered so that neighbors look clearly different.
-export const AUTO_GROUP_COLORS = ["c6", "c1", "c4", "c7", "c3", "c5", "c2", "c8"];
 export const colorVar = (token) => (token ? `var(--${token})` : null);
 
 export const STORAGE_KEYS = {

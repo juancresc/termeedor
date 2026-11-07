@@ -5,11 +5,11 @@ import { $ } from "../util.js";
 import { state, subscribe } from "../store.js";
 import { closeFullscreen, openFullscreen, refitFullscreen, showFullscreenFor, writeFullscreen } from "./fullscreen.js";
 import { keyToBytes } from "./keys.js";
+import { runs } from "./runState.js";
 import { createTextModel } from "./textModel.js";
 
 const host = globalThis.termeedorHost?.shell ?? null;
 const FLUSH_MS = 50;
-const runs = new Map(); // tabId -> the running command
 const started = new Set(); // tabs that have a shell
 
 export const hasRealShell = () => !!host;
@@ -38,7 +38,7 @@ function flush(run) {
 }
 
 function onEvent({ tabId, event }) {
-  const run = runs.get(tabId);
+  const run = runs.shell(tabId);
   if (!run) return;
   if (event.type === "output") {
     if (run.fullscreen) {
@@ -52,7 +52,7 @@ function onEvent({ tabId, event }) {
   } else if (event.type === "finish") {
     flush(run);
     setFullscreen(tabId, run, false);
-    runs.delete(tabId);
+    runs.detachShell(tabId);
     if (event.shellExited) started.delete(tabId);
     run.tab.cwd = event.cwd;
     run.resolve({ output: run.model.text(), shown: true, exit: event.exit });
@@ -82,12 +82,11 @@ function setFullscreen(tabId, run, on) {
  */
 export function runInShell(tab, command, { signal, setOutput }) {
   return new Promise((resolve) => {
-    const run = { tab, model: createTextModel(), setOutput, resolve, timer: null, fullscreen: false };
-    runs.set(tab.id, run);
+    runs.attachShell(tab.id, { tab, model: createTextModel(), setOutput, resolve, timer: null, fullscreen: false });
     started.add(tab.id);
     signal.addEventListener("abort", () => host.write(tab.id, "\x03"), { once: true });
     host.run(tab.id, command, { cwd: tab.cwd, ...textAreaSize() }).catch((err) => {
-      runs.delete(tab.id);
+      runs.detachShell(tab.id);
       resolve({ output: err.message.replace(/^Error invoking remote method '[^']*': (Error: )?/, ""), exit: 1 });
     });
   });
@@ -95,7 +94,7 @@ export function runInShell(tab, command, { signal, setOutput }) {
 
 /** Forwards a key press to the tab's running program. Returns true if it was used. */
 export function forwardKey(tabId, event) {
-  if (!runs.has(tabId)) return false;
+  if (!runs.shell(tabId)) return false;
   const bytes = keyToBytes(event);
   if (bytes === null) return false;
   host.write(tabId, bytes);
@@ -103,7 +102,7 @@ export function forwardKey(tabId, event) {
 }
 
 export function forwardPaste(tabId, text) {
-  if (!runs.has(tabId)) return false;
+  if (!runs.shell(tabId)) return false;
   host.write(tabId, text);
   return true;
 }
@@ -120,10 +119,10 @@ export function initRealShell() {
     for (const tabId of started) {
       if (open.has(tabId)) continue;
       started.delete(tabId);
-      const run = runs.get(tabId);
+      const run = runs.shell(tabId);
       if (run) {
         closeFullscreen(tabId);
-        runs.delete(tabId);
+        runs.detachShell(tabId);
         clearTimeout(run.timer);
         run.resolve({ output: "", shown: true, exit: 130 });
       }
@@ -138,7 +137,7 @@ export function initRealShell() {
     resizeTimer = setTimeout(() => {
       refitFullscreen();
       const { cols, rows } = textAreaSize();
-      for (const tabId of started) if (!runs.get(tabId)?.fullscreen) host.resize(tabId, cols, rows);
+      for (const tabId of started) if (!runs.shell(tabId)?.fullscreen) host.resize(tabId, cols, rows);
     }, 100);
   });
 }

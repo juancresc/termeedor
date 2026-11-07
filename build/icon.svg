@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+<linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f2030"/><stop offset="1" stop-color="#0b0b10"/></linearGradient>
+<linearGradient id="front" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a92a55"/><stop offset="1" stop-color="#6f1534"/></linearGradient>
+<linearGradient id="side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#541029"/><stop offset="1" stop-color="#330818"/></linearGradient>
+<linearGradient id="top" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d0587f"/><stop offset="1" stop-color="#a93460"/></linearGradient>
+<filter id="soft" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="9"/></filter>
+<clipPath id="tc"><rect x="100" y="100" width="824" height="824" rx="184"/></clipPath>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="184" fill="url(#tile)"/>
+<g clip-path="url(#tc)">
+<g transform="translate(512 512) scale(1.25) translate(-515 -498)">
+<path d="M296 700 650 716 734 688 765 708 655 746 290 726Z" fill="#000" opacity=".75" filter="url(#soft)"/>
+<path d="M300 300 650 316V720L300 704Z" fill="url(#front)"/>
+<path d="M650 316 730 292V692L650 720Z" fill="url(#side)"/>
+<path d="M650 316 730 292 690 350Z" fill="#000" opacity=".2"/>
+<path d="M300 300 650 316 730 292 380 276Z" fill="url(#top)"/>
+<path d="M650 318V718" stroke="#fff" stroke-opacity=".18" stroke-width="3"/>
+<path d="M300 300 650 316 730 292" fill="none" stroke="#ffd9e4" stroke-opacity=".3" stroke-width="3" stroke-linejoin="round"/>
+<g transform="matrix(1 .0457 0 1 0 -13.71)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="42">
+<path d="M365 415 480 500 365 585" stroke="#f8eee1"/>
+<path d="M510 587H590" stroke="#e2bd7e"/>
+</g>
+</g>
+</g>
+<rect x="102" y="102" width="820" height="820" rx="182" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="4"/>
+</svg>

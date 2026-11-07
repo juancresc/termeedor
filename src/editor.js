@@ -1,15 +1,21 @@
 // The terminal area: a plain textarea that behaves like a terminal. Only the text after
 // the last prompt can be edited; the history above is read-only but can be selected and
 // copied. Typing anywhere goes to the input, Enter runs it, Up/Down recall past commands.
-// Enter on an earlier prompt line runs that line again.
+// Enter on an earlier command runs it again. The text is only a view of the tab's transcript
+// (terminal/transcript.js), which is what says where the commands are.
 
-import { LIMITS, PROMPT, colorVar } from "./constants.js";
+import { PROMPT, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
 import { state, activeTab, getTab, getGroup, commit, saveSoon, hasSaveFailed, isRunning, startRun, finishRun, stopRun } from "./store.js";
 import { runCommand, getCompletions } from "./shell.js";
 import { emit as emitPluginEvent } from "./plugins/registry.js";
 import { isMenuOpen, selectedItem, showMenu, closeMenu, moveSelection, placeMenu } from "./completionMenu.js";
 import { forwardKey, forwardPaste } from "./terminal/realShell.js";
+import { runs } from "./terminal/runState.js";
+import {
+  addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, commandForEnter, finishBlock,
+  layoutTranscript, locateOffset, oneLine, trimTranscript,
+} from "./terminal/transcript.js";
 
 const editor = $("editor");
 const gutter = $("gutter");
@@ -19,7 +25,6 @@ const textMeasure = document.createElement("canvas").getContext("2d");
 let commandLines = []; // indexes of the lines that start a command
 let recall = null; // browsing past commands: { tabId, index, draft }
 let completionRequest = 0; // only the newest request may show its results
-const runningBlocks = new Map(); // tabId -> where the running command's output starts in tab.content
 
 export function initEditor() {
   $("lineProbe").textContent = "x\n".repeat(PROBE_LINES - 1) + "x";
@@ -58,8 +63,7 @@ export function renderEditor() {
   }
 
   if (editor.dataset.tab !== tab.id) {
-    ensurePrompt(tab);
-    editor.value = tab.content;
+    editor.value = layoutOf(tab).text;
     editor.dataset.tab = tab.id;
     moveCursorToEnd();
     if (!document.querySelector(".inlineInput")) editor.focus();
@@ -82,7 +86,7 @@ function statusNotice(tab) {
 function onInput() {
   recall = null;
   const tab = activeTab();
-  if (tab) tab.content = editor.value;
+  if (tab) syncDraft(tab);
   editor.scrollTop = editor.scrollHeight; // edits only happen on the last line, so show it fully
   renderGutter();
   saveSoon();
@@ -152,18 +156,24 @@ function deleteBackToInput(type, start, caret) {
 }
 
 // ---------- the input: everything after the last prompt ----------
+const layoutOf = (tab) => layoutTranscript(tab, { prompt: !isRunning(tab.id) });
+
 /** Where the input starts, or null if it can't be edited right now (a command is running). */
 function inputStart() {
   const tab = activeTab();
-  if (!tab || isRunning(tab.id)) return null;
-  const lastLine = editor.value.lastIndexOf("\n") + 1;
-  return editor.value.startsWith(PROMPT, lastLine) ? lastLine + PROMPT.length : null;
+  return tab ? layoutOf(tab).draftStart : null;
 }
 
-/** Tabs saved before the history became read-only may not end in a prompt. */
-function ensurePrompt(tab) {
-  if (isRunning(tab.id) || tab.content.slice(tab.content.lastIndexOf("\n") + 1).startsWith(PROMPT)) return;
-  tab.content += `${tab.content ? "\n" : ""}${PROMPT}`;
+/** Only the draft comes back from the text area. An edit that got past the input rules, such as undo, is put back. */
+function syncDraft(tab) {
+  const { text, draftStart } = layoutOf(tab);
+  const draft = editor.value.slice(draftStart ?? 0);
+  if (draftStart !== null && editor.value.startsWith(text.slice(0, draftStart)) && !/[\r\n]/.test(draft)) {
+    tab.draft = draft;
+  } else {
+    editor.value = text;
+    moveCursorToEnd();
+  }
 }
 
 /** Inserts at the cursor if it is in the input, otherwise at the end of the input. */
@@ -220,9 +230,9 @@ function recallOnArrow(event) {
   if (index < 0 || index > history.length) return;
   recall.index = index;
 
-  editor.setRangeText(index === history.length ? recall.draft : history[index], start, editor.value.length, "end");
+  editor.setRangeText(index === history.length ? recall.draft : oneLine(history[index]), start, editor.value.length, "end");
   editor.scrollTop = editor.scrollHeight;
-  tab.content = editor.value;
+  syncDraft(tab);
   renderGutter();
   renderCursorPosition();
   saveSoon();
@@ -235,8 +245,10 @@ const isSelectAll = (event) =>
 
 /** Selects the cursor's line; on a prompt line, only the input after the prompt. */
 function selectLineAtCursor() {
-  const { text, start, end } = lineAtCursor();
-  editor.setSelectionRange(start + (text.startsWith(PROMPT) ? PROMPT.length : 0), end);
+  const { start, end } = lineAtCursor();
+  const tab = activeTab();
+  const hasPrompt = tab && locateOffset(layoutOf(tab), start).kind !== "output";
+  editor.setSelectionRange(start + (hasPrompt ? PROMPT.length : 0), end);
 }
 
 // ---------- tab completion ----------
@@ -359,83 +371,69 @@ function lineAtCursor() {
   const pos = editor.selectionStart;
   const start = value.lastIndexOf("\n", pos - 1) + 1;
   const newline = value.indexOf("\n", pos);
-  const end = newline === -1 ? value.length : newline;
-  return { text: value.slice(start, end), start, end };
+  return { start, end: newline === -1 ? value.length : newline };
 }
 
 function runLineAtCursor() {
   const tab = activeTab();
   if (!tab || isRunning(tab.id)) return;
-  if (!lineAtCursor().text.startsWith(PROMPT)) moveCursorToEnd(); // on an output line: run the input
-  const line = lineAtCursor();
   recall = null;
 
-  const command = line.text.slice(PROMPT.length).trim();
-  if (line.end !== editor.value.length) {
-    // Re-running an earlier line: copy it onto the last prompt at the bottom.
-    setTabContent(tab, tab.content.replace(/\n?❯ ?\s*$/, "") + `\n${PROMPT}${command}`);
-  }
+  // Re-running an earlier command leaves what is being typed in the draft, for when it ends.
+  const { command: line, rerun } = commandForEnter(tab, editor.selectionStart);
+  if (!rerun) tab.draft = "";
+  const command = line.trim();
   if (command) tab.history.push(command);
   execute(tab, command);
 }
 
 async function execute(tab, command) {
-  const signal = startRun(tab);
+  const block = addCommandBlock(tab, command, tab.cwd);
+  const signal = startRun(tab, block);
+  showContent(tab);
+  if (editor.dataset.tab === tab.id) moveCursorToEnd();
   emitPluginEvent("command:start", { tab, command });
-  runningBlocks.set(tab.id, tab.content.length);
   let result;
   try {
     result = await runCommand(command, tab, {
-      emit: (text) => appendToTab(tab, `\n${text}`),
-      setOutput: (text, clearEarlier) => setRunningOutput(tab, text, clearEarlier),
+      emit: (text) => {
+        appendOutput(block, text);
+        showContent(tab);
+      },
+      setOutput: (text, erased) => setRunningOutput(tab, block, text, erased),
       signal,
     });
   } catch (err) {
     result = { output: signal.aborted ? "^C" : `error: ${err.message}` };
   } finally {
     finishRun(tab);
-    runningBlocks.delete(tab.id);
   }
   emitPluginEvent("command:finish", { tab, command, output: result.output ?? "", aborted: signal.aborted });
   if (!getTab(tab.id)) return; // tab was closed meanwhile
 
-  if (result.clear) setTabContent(tab, PROMPT);
-  else appendToTab(tab, `${result.output && !result.shown ? `\n${result.output}` : ""}${tab.content ? "\n" : ""}${PROMPT}`);
-  trimOldContent(tab);
+  if (result.output && !result.shown) appendOutput(block, result.output);
+  finishBlock(tab, block, result.exit);
+  if (result.clear) clearTranscript(tab);
+  trimTranscript(tab);
+  showContent(tab);
   if (editor.dataset.tab === tab.id) moveCursorToEnd();
   commit(); // refresh tab name/color/spinner and save
 }
 
 // ---------- content helpers ----------
-function setTabContent(tab, content) {
-  tab.content = content;
-  if (editor.dataset.tab === tab.id) {
-    editor.value = content;
-    moveCursorToEnd();
-    renderGutter();
-  }
-  saveSoon();
-}
-
-/** Append output without moving the user's cursor, unless it was already at the end. */
-function appendToTab(tab, text) {
-  tab.content += text;
-  showContent(tab);
-}
-
 /** Replaces what the running command has shown so far: output can overwrite itself. */
-function setRunningOutput(tab, text, clearEarlier = false) {
-  if (clearEarlier) runningBlocks.set(tab.id, 0);
-  const block = runningBlocks.get(tab.id);
-  tab.content = tab.content.slice(0, block) + (text && block ? "\n" : "") + text;
+function setRunningOutput(tab, block, text, erased = false) {
+  if (erased) clearEarlier(tab, block);
+  block.output = text;
   showContent(tab);
 }
 
+/** Shows the transcript without moving the user's cursor, unless it was already at the end. */
 function showContent(tab) {
   if (editor.dataset.tab === tab.id) {
     const atEnd = editor.selectionStart === editor.value.length;
     const { selectionStart, selectionEnd, scrollTop } = editor;
-    editor.value = tab.content;
+    editor.value = layoutOf(tab).text;
     if (atEnd) moveCursorToEnd();
     else {
       editor.setSelectionRange(selectionStart, selectionEnd);
@@ -446,22 +444,9 @@ function showContent(tab) {
   saveSoon();
 }
 
-/** The oldest output goes first once a tab holds more than can be saved. */
-function trimOldContent(tab) {
-  if (tab.content.length <= LIMITS.content) return;
-  const cut = tab.content.indexOf("\n", tab.content.length - LIMITS.content);
-  tab.content = tab.content.slice(cut + 1);
-  showContent(tab);
-}
-
-/** A line of output from outside a command. Leaves a fresh prompt unless a command is still running. */
+/** A line of output from outside a command. It goes above a running command, and above the prompt otherwise. */
 export function printToTab(tab, text) {
-  const block = runningBlocks.get(tab.id);
-  if (block === undefined) return appendToTab(tab, `\n${text}\n${PROMPT}`);
-  // Goes above the running command's output, which is redrawn from its start position.
-  const line = `\n${text}`;
-  tab.content = tab.content.slice(0, block) + line + tab.content.slice(block);
-  runningBlocks.set(tab.id, block + line.length);
+  addTextBlock(tab, `${text}`, runs.block(tab.id));
   showContent(tab);
 }
 
@@ -475,7 +460,8 @@ function renderGutter() {
   const lines = editor.value.split("\n");
   gutter.textContent = lines.map((_, i) => i + 1).join("\n");
   gutter.scrollTop = editor.scrollTop;
-  commandLines = lines.flatMap((line, i) => (i > 0 && line.startsWith(PROMPT) ? [i] : [])); // nothing to separate above line 1
+  const tab = getTab(editor.dataset.tab);
+  commandLines = tab ? layoutOf(tab).commandLines.filter((line) => line > 0) : []; // nothing to separate above line 1
   renderCommandLines();
 }
 

@@ -1,16 +1,18 @@
 // Single source of truth: workspace (groups + open tabs), past sessions, settings.
 // UI modules read `state`, call the actions below, and re-render when `commit()` notifies them.
 
-import { STORAGE_KEYS, LIMITS, TAB_COLORS, AUTO_GROUP_COLORS, PROMPT, SIDEBAR, FONT_SIZE } from "./constants.js";
+import { STORAGE_KEYS, LIMITS, TAB_COLORS, SIDEBAR, FONT_SIZE } from "./constants.js";
 import { uid } from "./util.js";
 import { load, save, sanitizeWorkspace, sanitizePastEntry, sanitizeSettings } from "./storage.js";
+import { copyBlocks, textBlock } from "./terminal/transcript.js";
+import { runs } from "./terminal/runState.js";
 
 // ---------- factories ----------
 const banner = () =>
-  `Termeedor — ${new Date().toLocaleString()}\n\n`;
+  textBlock(`Termeedor — ${new Date().toLocaleString()}\n`);
 
 export function createTab(groupId, name = "shell") {
-  return { id: uid(), groupId, name, color: null, collapsed: false, minimized: false, content: banner() + PROMPT, cwd: "~", history: [] };
+  return { id: uid(), groupId, name, color: null, collapsed: false, minimized: false, blocks: [banner()], draft: "", cwd: "~", history: [] };
 }
 
 function defaultTabColorFor(group) {
@@ -94,17 +96,6 @@ export const barTabs = () => (state.settings.showAllGroups
   ? barGroups().flatMap((g) => visibleTabsIn(g.id))
   : visibleTabsIn(state.ws.activeGroup));
 export const minimizedGroups = () => state.ws.groups.filter((g) => g.minimized);
-/** The color a group shows: the one picked for it, or in "show all" mode its automatic one. */
-export const groupColor = (group) => group.color ?? (state.settings.showAllGroups ? group.autoColor : null);
-
-/** Every group keeps one automatic color, the least used when it was created, so groups can be told apart. */
-function assignAutoColors() {
-  const uses = (color) => state.ws.groups.filter((g) => (g.color ?? g.autoColor) === color).length;
-  for (const group of state.ws.groups) {
-    if (group.autoColor) continue;
-    group.autoColor = AUTO_GROUP_COLORS.reduce((best, color) => (uses(color) < uses(best) ? color : best));
-  }
-}
 
 // ---------- what is selected ----------
 const lastTabIn = new Map(); // groupId -> tabId, so returning to a group returns to its tab
@@ -121,7 +112,6 @@ function show(group) {
 
 /** The selected tab decides the selected group. With no usable tab, the group decides (it may be empty). */
 function ensureSelection() {
-  assignAutoColors();
   const tab = activeTab();
   if (tab && !tab.minimized && !getGroup(tab.groupId).minimized) {
     state.ws.activeGroup = tab.groupId;
@@ -143,26 +133,18 @@ function moveInBar(list, bar, item, delta) {
 }
 
 // ---------- running commands (runtime only, never saved) ----------
-const runs = new Map(); // tabId -> AbortController
+export const isRunning = (tabId) => runs.isRunning(tabId);
+export const groupHasRunning = (groupId) => state.ws.tabs.some((t) => t.groupId === groupId && runs.isRunning(t.id));
 
-export const isRunning = (tabId) => runs.has(tabId);
-export const groupHasRunning = (groupId) => state.ws.tabs.some((t) => t.groupId === groupId && runs.has(t.id));
-
-export function startRun(tab) {
-  const controller = new AbortController();
-  runs.set(tab.id, controller);
+export function startRun(tab, block) {
+  const signal = runs.start(tab.id, block);
   commit();
-  return controller.signal;
+  return signal;
 }
 export function finishRun(tab) {
-  runs.delete(tab.id);
+  runs.finish(tab.id);
 }
-export function stopRun(tabId) {
-  const controller = runs.get(tabId);
-  if (!controller) return false;
-  controller.abort();
-  return true;
-}
+export const stopRun = (tabId) => runs.stop(tabId);
 
 // ---------- tab actions ----------
 export function activateTab(id) {
@@ -174,7 +156,8 @@ export function activateTab(id) {
   commit();
 }
 
-export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id) {
+/** Opens at the end, or right after the `after` tab. */
+export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id, after = null) {
   let group = getGroup(groupId);
   if (!group) {
     group = createGroup("Group 1");
@@ -183,7 +166,7 @@ export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id)
   showGroup(group);
   const tab = createTab(group.id, `shell ${state.ws.tabs.filter((t) => t.groupId === group.id).length + 1}`);
   tab.color = defaultTabColorFor(group);
-  state.ws.tabs.push(tab);
+  state.ws.tabs.splice(after ? state.ws.tabs.indexOf(after) + 1 : state.ws.tabs.length, 0, tab);
   state.ws.activeTab = tab.id;
   commit();
   return tab;
@@ -204,7 +187,7 @@ export function closeTab(tab) {
 }
 
 export function duplicateTab(tab) {
-  const copy = { ...tab, id: uid(), name: `${tab.name} copy`.slice(0, LIMITS.name), history: [...tab.history] };
+  const copy = { ...tab, id: uid(), name: `${tab.name} copy`.slice(0, LIMITS.name), blocks: copyBlocks(tab.blocks), history: [...tab.history] };
   state.ws.tabs.splice(state.ws.tabs.indexOf(tab) + 1, 0, copy);
   state.ws.activeTab = copy.id;
   commit();
@@ -282,6 +265,14 @@ export function closeGroup(group) {
   commit("workspace", "past");
 }
 
+/** Closes the selected tab. With an empty group selected, closes the group instead. */
+export function closeActive() {
+  const tab = activeTab();
+  if (tab) return closeTab(tab);
+  const group = getGroup(state.ws.activeGroup);
+  if (group && !tabsIn(group.id).length) closeGroup(group);
+}
+
 function showGroup(group) {
   group.minimized = false;
 }
@@ -326,7 +317,7 @@ function archiveTab(tab) {
     groupId: tab.groupId,
     groupName: group?.name ?? "Group",
     groupColor: group?.color ?? null,
-    tab: { color: tab.color, content: tab.content, cwd: tab.cwd, history: [...tab.history] },
+    tab: { color: tab.color, blocks: copyBlocks(tab.blocks), draft: tab.draft, cwd: tab.cwd, history: [...tab.history] },
   });
   state.past.length = Math.min(state.past.length, LIMITS.past);
 }

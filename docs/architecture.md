@@ -14,7 +14,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `src/store.js`, `storage.js` | State, actions, validated localStorage |
 | `src/editor.js` | Textarea: input rules, history, completion UI, runs, gutter |
 | `src/shell.js` | Sends every line to the shell, or to the browser mock |
-| `src/terminal/` | `realShell` (IPC client), `textModel` (output to plain text), `fullscreen` (xterm for vim, top), `keys` |
+| `src/terminal/` | `transcript` (a tab's blocks and draft), `runState` (what is running), `realShell` (IPC client), `textModel` (output to plain text), `fullscreen` (xterm for vim, top), `keys` |
 | `src/plugins/` | Host, scope, registry, public API |
 | `src/*.js` (the rest) | UI: tab bar, sidebar, menus, settings, themes |
 
@@ -29,7 +29,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 
 - It behaves like a real terminal: everything typed goes to the user's shell. There are no custom commands, from the app or from plugins. App actions live in menus and shortcuts.
 - Output is an event stream, never a returned string.
-- Command boundaries come from shell markers, never from matching text.
+- Command boundaries come from shell markers, never from matching text. Whether a line is a command comes from the transcript. Only the migration of old saved tabs reads the prompt out of text.
 - Plugins are fully trusted. `api` is the only supported surface.
 - `src/` must keep working without Electron: the browser build uses the mock.
 - Stored data is untrusted and validated on load.
@@ -38,8 +38,6 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 
 | Problem | Where |
 | --- | --- |
-| Any line starting with `❯ ` counts as a command, so Enter on matching output runs it | `editor.js` `runLineAtCursor` |
-| Run state lives in four places | `store.runs`, `realShell.runs`, `editor.runningBlocks`, `shellSessions` |
 | Shells are killed by diffing state after a commit | `realShell.js` `initRealShell` |
 | All scrollback is one localStorage value, saved on every commit | `store.js`, `storage.js` |
 | Every commit rebuilds the DOM | `tabbar.js`, `sidebar.js` |
@@ -67,7 +65,7 @@ src/plugins/    unchanged, but the API hands out ids and copies
 Each step ships alone. New features can continue between steps.
 
 1. **Small fixes (done).** Every line goes to the shell, with no app or plugin commands. Erasing the scrollback (`ESC[3J`, sent by `clear`) clears the whole tab. Load trims keep the newest text. Failed saves show in the status bar.
-2. **Transcript model.** Replace `tab.content` with blocks and migrate saved tabs. One run state machine replaces the four. The textarea stays, rendered from blocks, so re-running a line uses its block and the `❯ ` matching goes away.
+2. **Transcript model (done).** `tab.content` became `blocks` and `draft`, and saved tabs migrate on load. A migrated tab's history is one plain block, so its old commands can't be re-run. `runState` replaces the renderer's three run records; `shellSessions` keeps the PTY's own state. The textarea stays, rendered from blocks, so re-running a line uses its block and the `❯ ` matching is gone.
 3. **Store split.** Move to `core` with tests. Save layout and scrollback separately, with scrollback capped per tab.
 4. **Backend port.** One place chooses Electron or mock. `shell.js` becomes the mock adapter, the only place fake commands remain.
 5. **Editor-style view.** A separate input editor over command blocks. Keep color in the model and render it. Multi-line input.

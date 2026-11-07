@@ -42,14 +42,16 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .tabStrip .tb-btn:hover { background: var(--line); }
 .tabs { display: flex; gap: 2px; flex: 0 1 auto; min-width: 0; /* only as wide as its tabs, so ＋ sits right after them */ overflow-x: auto; height: 100%; align-items: flex-end; scrollbar-width: none; }
 .tabsEmpty { align-self: center; color: var(--dim); font-size: 12px; }
-/* "show all" mode: each group's name, tabs and ＋ share the group's color, with space between groups */
-.tabGroupLabel { flex: none; align-self: center; max-width: 160px; height: 22px; padding: 0 8px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--group-color) 45%, transparent); color: var(--text); font-size: 11px; font-weight: 700; line-height: 22px; cursor: pointer; user-select: none; }
-.tabGroupLabel:hover { background: color-mix(in srgb, var(--group-color) 60%, transparent); }
-.tabGroupLabel:not(:first-child) { margin-left: 20px; }
-.tabGroupLabel.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
-.tabs.showAll .tab:not(.active) { background: color-mix(in srgb, var(--group-color) 20%, transparent); }
-.tabs.showAll .tab:not(.active):hover { background: color-mix(in srgb, var(--group-color) 32%, transparent); }
-.tabStrip .groupAdd { flex: none; align-self: flex-end; height: 26px; margin-bottom: 1px; padding: 0 8px; color: var(--group-color); }
+/* "show all" mode: a box around each group's name, tabs and ＋, in its color if it has one */
+.tabs.showAll { gap: 6px; }
+.tabGroupBox { display: flex; align-items: flex-end; gap: 2px; flex: none; padding: 1px 4px 0; border: 1px solid color-mix(in srgb, var(--group-color, var(--dim)) 45%, transparent); border-bottom: 0; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--group-color, var(--line)) 22%, transparent); }
+.tabGroupBox.active { border-color: var(--group-color, var(--dim)); }
+.tabGroupBox.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
+.tabGroupLabel { flex: none; align-self: center; max-width: 160px; height: 22px; padding: 0 8px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: color-mix(in srgb, var(--group-color, var(--line)) 45%, transparent); color: var(--text); font-size: 11px; font-weight: 700; line-height: 22px; cursor: pointer; user-select: none; }
+.tabGroupLabel:hover { background: color-mix(in srgb, var(--group-color, var(--line)) 60%, transparent); }
+.tabs.showAll .tab.groupColored:not(.active) { background: color-mix(in srgb, var(--group-color) 20%, transparent); }
+.tabs.showAll .tab.groupColored:not(.active):hover { background: color-mix(in srgb, var(--group-color) 32%, transparent); }
+.tabStrip .groupAdd { flex: none; align-self: flex-end; height: 26px; margin-bottom: 1px; padding: 0 8px; color: var(--group-color, var(--dim)); }
 
 .groupTab, .tab { display: flex; align-items: center; gap: 6px; flex: none; height: 30px; border-radius: 7px 7px 0 0; border-top: 2px solid transparent; white-space: nowrap; cursor: pointer; user-select: none; }
 .groupTab { padding: 0 6px 0 12px; max-width: 300px; color: var(--dim); font-size: 12px; font-weight: 600; }
@@ -69,7 +71,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .tab.collapsed { gap: 2px; padding: 0 4px 0 10px; }
 .tab.collapsed .initial { font-weight: 600; min-width: 12px; text-align: center; }
 
-/* move left, minimize, move right, a gap, close */
+/* top bars: move left, move right, new tab, minimize, a gap, close, more */
 .itemBtns { display: flex; align-items: center; gap: 1px; flex: none; margin-left: 2px; }
 .x { width: 18px; height: 18px; padding: 0; border-radius: 4px; font-size: 14px; line-height: 18px; text-align: center; color: var(--dim); font-weight: 400; opacity: 0; }
 .x.closeBtn { margin-left: 8px; }
@@ -112,7 +114,6 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .group.minimized .gname { font-style: italic; }
 .ghead .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .ghead .gname { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ghead .count { color: var(--dim); font-size: 11px; }
 .glist { padding-left: 14px; }
 .group.minimized .glist { display: none; }
 
@@ -124,6 +125,9 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .item .iname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item.minimized { opacity: .5; font-style: italic; }
 
+/* sidebar rows: the buttons only take up room on hover, so names keep the full width */
+.item:not(:hover, :focus-within) .itemBtns, .ghead:not(:hover, :focus-within) .itemBtns { display: none; }
+.itemBtns .icon-btn.closeBtn { margin-left: 4px; }
 .icon-btn { opacity: 0; font-size: 13px; padding: 1px 4px; border-radius: 4px; color: var(--dim); }
 .item:hover .icon-btn, .ghead:hover .icon-btn, .session:hover .icon-btn { opacity: .8; }
 .icon-btn:hover { opacity: 1; background: var(--line); color: var(--text); }
