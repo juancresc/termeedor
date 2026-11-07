@@ -1,6 +1,7 @@
 // What plugins look like in the app: the Plugins section of Settings and status bar items.
 
 import { $, el } from "../util.js";
+import { patchChildren } from "../patch.js";
 import { onPluginsChange, openPluginsFolder, pluginList, pluginsDir, pluginsSupported, setPluginEnabled } from "./index.js";
 import { onStatusChange, statusItems } from "./registry.js";
 import { applySettingsSearch } from "../settingsSearch.js";
@@ -24,12 +25,13 @@ export function renderPluginSettings() {
     : "Plugins are available in the desktop app.";
 
   const plugins = pluginList();
-  $("pluginList").replaceChildren(...(plugins.length ? plugins.map(pluginRow) : (supported ? [el("div", "hint", "No plugins found.")] : [])));
+  patchChildren($("pluginList"), plugins.length ? plugins.map(pluginRow) : (supported ? [el("div", "hint", "No plugins found.")] : []));
   applySettingsSearch();
 }
 
 function pluginRow(plugin) {
   const row = el("label", "setRow pluginRow");
+  row.dataset.slideKey = plugin.id;
   row.title = plugin.dir;
 
   const info = el("div", "pluginInfo");
@@ -54,7 +56,7 @@ function pluginRow(plugin) {
 }
 
 function renderPluginStatus() {
-  $("stPlugins").replaceChildren(...statusItems().map((item) => {
+  patchChildren($("stPlugins"), statusItems().map((item) => {
     const node = el(item.onClick ? "button" : "span", "stPlugin", item.text);
     if (item.title) node.title = item.title;
     if (item.onClick) node.onclick = item.onClick;

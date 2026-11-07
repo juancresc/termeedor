@@ -3,11 +3,9 @@
 // The top bars put move left and move right before them. The sidebar adds more actions after them.
 
 import { el } from "./util.js";
-import {
-  activateTab, addTab, closeTab, moveTabBy, moveGroupBy, visibleTabsIn, barGroups,
-  setTabCollapsed, setTabMinimized, setGroupCollapsed, setGroupMinimized,
-} from "./store.js";
-import { confirmRemoveGroup, tabMenu, groupMenu } from "./contextMenus.js";
+import { runAction } from "./core/actions.js";
+import { moveTabBy, moveGroupBy, visibleTabsIn, barGroups } from "./store.js";
+import { tabMenu, groupMenu } from "./contextMenus.js";
 import { slideNextRender } from "./slide.js";
 
 function button(className, text, title, run) {
@@ -29,17 +27,17 @@ const moreButton = (openMenu) => button("icon-btn", "⋯", "More actions", openM
 
 const tabActions = (tab, className) => actions(className, "tab", {
   minimized: tab.minimized,
-  toggleMinimized: () => (tab.minimized ? activateTab(tab.id) : setTabMinimized(tab, true)),
-  close: () => closeTab(tab),
+  toggleMinimized: () => runAction("tab.toggleMinimized", tab),
+  close: () => runAction("tab.close", tab),
   closeTitle: "Close tab (moves to Sessions)",
 });
 
 const groupActions = (group, className) => actions(className, "group", {
-  add: () => addTab(group.id),
+  add: () => runAction("group.newTab", group),
   addTitle: "New tab in group",
   minimized: group.minimized,
-  toggleMinimized: () => setGroupMinimized(group, !group.minimized),
-  close: () => confirmRemoveGroup(group),
+  toggleMinimized: () => runAction("group.toggleMinimized", group),
+  close: () => runAction("group.close", group),
   closeTitle: "Close group (its tabs move to Sessions)",
 });
 
@@ -75,10 +73,10 @@ export const groupRowButtons = (group) => buttonBox(...groupActions(group, "icon
 
 /** Always visible at the start of a sidebar group. A quick second click must not start a rename. */
 export function groupCollapseButton(group) {
-  const node = button("gchevron", "›", `${group.collapsed ? "Expand" : "Collapse"} group`, () => setGroupCollapsed(group, !group.collapsed));
+  const node = button("gchevron", "›", `${group.collapsed ? "Expand" : "Collapse"} group`, () => runAction("group.toggleCollapsed", group));
   node.ondblclick = (e) => e.stopPropagation();
   return node;
 }
 
 /** On a tab collapsed to a small chip (see the tab's right-click menu). */
-export const expandTabButton = (tab) => button("x", "›", "Expand tab", () => setTabCollapsed(tab, false));
+export const expandTabButton = (tab) => button("x", "›", "Expand tab", () => runAction("tab.toggleCollapsed", tab));

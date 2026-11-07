@@ -51,6 +51,6 @@ export function nameLabel(kind, item, where, tag = "span", className = "") {
   for (const type of ["click", "dblclick", "mousedown", "contextmenu"]) input.addEventListener(type, (e) => e.stopPropagation());
 
   label.append(input);
-  requestAnimationFrame(() => { input.focus(); input.select(); });
+  requestAnimationFrame(() => { if (input.isConnected) { input.focus(); input.select(); } }); // later renders keep the first input
   return label;
 }

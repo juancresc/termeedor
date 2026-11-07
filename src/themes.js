@@ -74,7 +74,7 @@ const REFERENCE = `/*
  *              .group .group.collapsed .group.minimized .group.dragover .ghead .ghead.unnamed .gchevron .ghead .dot .ghead .gname .glist
  *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
- *   Output     .main .colorbar .termScroll .output .output.running .output ::selection .block .block.isCommand
+ *   Output     .main .termScroll .output .output.running .output ::selection .block .block.isCommand
  *              .commandLine .commandPrompt .commandText .blockOutput .outputChunk .outputTail .rerun
  *              .ansiBold .ansiDim .ansiItalic .ansiUnderline
  *   Input      .inputRow .inputRow.running .inputRow.multiline .inputLines .promptMark .editor .editor::selection

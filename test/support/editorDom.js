@@ -9,6 +9,7 @@ class StubText {
     this.data = data;
     this.parent = null;
     this.tagName = "#text";
+    this.nodeType = 3;
   }
   appendData(more) { this.data += more; }
   remove() { this.parent?.removeChild(this); }
@@ -24,6 +25,7 @@ const siblingAfter = (node) => {
 class StubElement {
   constructor(tagName = "DIV") {
     this.tagName = tagName;
+    this.nodeType = 1;
     this.style = { setProperty: noop };
     this.dataset = {};
     this.listeners = {};
@@ -54,6 +56,7 @@ class StubElement {
   blur() { if (document.activeElement === this) document.activeElement = document.body; }
   select() { this.setSelectionRange?.(0, this.value.length); }
   scrollIntoView() {}
+  get childNodes() { return this.children; }
   get firstChild() { return this.children[0] ?? null; }
   get nextSibling() { return siblingAfter(this); }
   contains(node) { return node === this || this.children.some((child) => child.contains?.(node)); }
@@ -73,10 +76,10 @@ class StubElement {
     for (const child of [...this.children]) this.removeChild(child);
     this.append(...nodes);
   }
-  get textContent() { return this.ownText ?? this.children.map((child) => child.textContent).join(""); }
+  get textContent() { return this.children.map((child) => child.textContent).join(""); }
   set textContent(text) {
     this.replaceChildren();
-    this.ownText = text;
+    if (text !== "") this.append(new StubText(String(text)));
   }
   /** Every element under this one with the class. */
   allWithClass(name) {

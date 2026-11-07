@@ -15,8 +15,10 @@
 //   rename.js       inline rename   contextMenus.js / menu.js   right-click menus
 //   settings.js     settings dialog themeImport.js  .css theme files
 //   themes.js       theme helpers   themeEditor.js  theme CSS dialog
+//   core/actions.js what the app can do, by id    appActions.js  the app's own
 //   keymap.js       which keys do what (browser vs Electron)
 //   shortcuts.js    runs those actions from the keyboard
+//   patch.js        updates the page, changing only what differs
 //   tooltip.js      styled tooltips for every `title` attribute
 //   plugins/        registry.js  what plugins added     host.js  plugin lifecycle
 //                   api.js       the plugin API         index.js wiring    ui.js  settings, status bar
@@ -35,13 +37,30 @@ import { initTabbar, refreshTabbarRuns, renderTabbar } from "./tabbar.js";
 import { initSidebar, refreshSidebarRuns, renderSidebar } from "./sidebar.js";
 import { initSettings, applySettings, renderSettings } from "./settings.js";
 import { initShortcuts } from "./shortcuts.js";
+import "./appActions.js";
 
+let rendering = false;
+let renderAgain = false;
+
+/** Removing a focused rename box commits from inside a render: that one waits for this one to end. */
 function render() {
-  applySettings();
-  renderTabbar();
-  renderSidebar();
-  renderEditor();
-  renderSettings();
+  if (rendering) {
+    renderAgain = true;
+    return;
+  }
+  rendering = true;
+  try {
+    do {
+      renderAgain = false;
+      applySettings();
+      renderTabbar();
+      renderSidebar();
+      renderEditor();
+      renderSettings();
+    } while (renderAgain);
+  } finally {
+    rendering = false;
+  }
 }
 
 if (isDesktop) {

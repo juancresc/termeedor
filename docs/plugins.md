@@ -8,10 +8,12 @@ A plugin is a folder with a `plugin.js` in it, much like a zsh plugin. Plugins o
 mkdir -p ~/.termeedor/plugins/greet
 cat > ~/.termeedor/plugins/greet/plugin.js <<'EOF'
 export function activate(api) {
-  api.menus.addTabItem({
+  api.actions.register({
+    id: "greet",
     label: "Greet",
-    onSelect: (tab) => api.workspace.print(tab, `Hello, ${tab.name}!`),
+    run: (tab) => api.workspace.print(tab, `Hello, ${tab.name}!`),
   });
+  api.menus.addTabItem("greet");
 }
 EOF
 ```
@@ -68,17 +70,34 @@ Every `register`/`add`/`on` call below returns an object with `dispose()`, which
 
 Plugins can't add commands: everything typed in a tab goes to the shell. For a new command, use a zsh or bash alias or function.
 
-### `api.shortcuts.register(combo, handler)`
+Tabs and groups you receive are copies, so changing one changes nothing in the app. Anywhere a call takes a tab, a copy or its id works. A tab that has closed is ignored.
+
+### `api.actions`
+
+What a plugin can do goes in an action, and shortcuts, menus and status items refer to it by id.
+
+`register({ id, label, run(...args), enabled?(...args), danger? })` adds one. Its full id is `<plugin id>.<id>`, also on the returned object. A plugin uses its own by `id` alone, others' by full id. A menu passes `run` and `enabled` the tab or group clicked, and hides the item when `enabled` returns false.
+
+`run(id, target?, ...args)` runs any action. The app's own:
+
+| Id | Takes |
+| --- | --- |
+| `newTab`, `reopenTab`, `closeTab`, `newGroup`, `toggleSidebar`, `openSettings`, `previousTab`, `nextTab`, `clearSessions` | nothing |
+| `goToTab` | a number, 1 to 9 |
+| `tab.rename`, `tab.toggleCollapsed`, `tab.toggleMinimized`, `tab.duplicate`, `tab.stop`, `tab.sendToNewGroup`, `tab.close` | a tab |
+| `group.newTab`, `group.rename`, `group.toggleCollapsed`, `group.toggleMinimized`, `group.restoreTabs`, `group.close` | a group |
+
+### `api.shortcuts.register(combo, actionId)`
 
 `"Mod+KeyJ"` or `"Mod+Shift+KeyJ"`, using [`KeyboardEvent.code`](https://developer.mozilla.org/docs/Web/API/UI_Events/Keyboard_event_code_values) names. `Mod` is Cmd on macOS and Ctrl elsewhere. Built-in shortcuts and copy, paste, cut, undo, select all and quit can't be taken.
 
-### `api.menus.addTabItem(item)` and `api.menus.addGroupItem(item)`
+### `api.menus.addTabItem(actionId)` and `api.menus.addGroupItem(actionId)`
 
-Adds to the right-click menu. `item` is `{ label, onSelect(target), danger?, when?(target) }`, where `target` is the tab or group clicked and `when` decides whether the item shows.
+Adds the action to the right-click menu, with its label.
 
-### `api.statusBar.add({ text, title, onClick })`
+### `api.statusBar.add({ text, title, action })`
 
-Adds an item to the status bar. Besides `dispose()`, the returned object has `update({ text, title })`.
+Adds an item to the status bar. Clicking it runs `action`, if given. Besides `dispose()`, the returned object has `update({ text, title })`.
 
 ### `api.events.on(name, handler)`
 
@@ -94,7 +113,7 @@ Loads a stylesheet, with `path` relative to the entry file. Themes list the app'
 
 ### `api.workspace`
 
-`activeTab()`, `tabs()`, `groups()`, `openTab(groupId?)`, `activateTab(tab)`, `closeTab(tab)`, `renameTab(tab, name)`, `setTabColor(tab, color)`, and `print(tab, text)`, which prints a line of output and leaves a prompt below it.
+`activeTab()`, `tabs()`, `groups()` and `openTab(groupId?)` return copies. `activateTab(tab)`, `closeTab(tab)`, `renameTab(tab, name)` and `setTabColor(tab, color)` change the app. `print(tab, text)` prints a line of output and leaves a prompt below it.
 
 ### `api.storage`
 
@@ -126,7 +145,7 @@ The plugin's `{ id, name, version }`, and the API version it is running against.
 
 ## What plugins can and can't do
 
-Plugins are fully trusted code, like a zsh plugin. A plugin can read and change everything in the app, including the contents of every tab, and can run anything on your computer as you. That's true even without a host file, because the page can reach the tabs' shells. Only turn on plugins you trust.
+Plugins are fully trusted code, like a zsh plugin. Copies keep mistakes out of the app's state, but they aren't a wall: a plugin can read the contents of every tab, and can run anything on your computer as you. That's true even without a host file, because the page can reach the tabs' shells. Only turn on plugins you trust.
 
 Code in `plugin.js` has no Node.js and can't make network requests directly, because of the page's security policy. Use a host file for those.
 

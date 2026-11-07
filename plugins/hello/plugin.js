@@ -4,10 +4,11 @@
 export function activate(api) {
   let count = api.storage.get("commandCount", 0);
 
+  api.actions.register({ id: "resetCount", label: "Reset command count", run: () => setCount(0) });
   const counter = api.statusBar.add({
     text: `${count} commands`,
     title: "Commands run. Click to reset.",
-    onClick: () => setCount(0),
+    action: "resetCount",
   });
 
   function setCount(value) {
@@ -18,13 +19,20 @@ export function activate(api) {
 
   api.events.on("command:finish", () => setCount(count + 1));
 
-  api.menus.addTabItem({
+  api.actions.register({
+    id: "sayHello",
     label: "Say hello",
-    onSelect: (tab) => api.workspace.print(tab, `Hello, ${tab.name}!`),
+    run: (tab) => api.workspace.print(tab, `Hello, ${tab.name}!`),
   });
+  api.menus.addTabItem("sayHello");
 
-  api.shortcuts.register("Mod+Shift+KeyH", () => {
-    const tab = api.workspace.activeTab();
-    if (tab) api.workspace.print(tab, "Hello from a shortcut!");
+  api.actions.register({
+    id: "shortcutHello",
+    label: "Say hello from a shortcut",
+    run: () => {
+      const tab = api.workspace.activeTab();
+      if (tab) api.workspace.print(tab, "Hello from a shortcut!");
+    },
   });
+  api.shortcuts.register("Mod+Shift+KeyH", "shortcutHello");
 }

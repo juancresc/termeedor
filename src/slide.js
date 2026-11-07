@@ -1,6 +1,8 @@
 // Slides items to their new places when a row of tabs is reordered, and brings a new tab in.
 // A group's box moves as one: what is inside it measures from the box (position: relative).
-// Rows are rebuilt on every render, so nodes are matched by data-slide-key.
+// Nodes are matched by data-slide-key.
+
+import { patchChildren } from "./patch.js";
 
 const DURATION_MS = 180;
 let slideNext = false;
@@ -23,14 +25,14 @@ const motion = { duration: DURATION_MS, easing: "ease-out" };
 const fadeIn = [{ opacity: 0 }, { opacity: 1 }];
 
 /**
- * Rebuilds rows that are laid out together: { row, nodes, enteringKey? }, where enteringKey is the
+ * Updates rows that are laid out together: { row, nodes, enteringKey? }, where enteringKey is the
  * item that just opened. It comes in, and the items it pushes aside slide. `arrange` runs once the
  * nodes are in, before their new places are read.
  */
 export function renderRows(rows, arrange = () => {}) {
   const animates = slideNext || rows.some((r) => r.enteringKey);
   const before = rows.map(({ row }) => (animates ? positions(row) : null));
-  rows.forEach(({ row, nodes }) => row.replaceChildren(...nodes));
+  rows.forEach(({ row, nodes }) => patchChildren(row, nodes));
   arrange();
   if (!animates || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   rows.forEach(({ row, enteringKey = null }, i) => animateRow(row, before[i], enteringKey));
@@ -45,6 +47,7 @@ function animateRow(row, before, enteringKey) {
     } else if (!was) {
       if (slideNext) node.animate(fadeIn, motion); // shown by the change that slides the rest
     } else if (was.place !== node.offsetLeft) {
+      node.getAnimations().forEach((running) => running.cancel()); // the node may still be sliding from the last move
       node.animate([{ transform: `translateX(${was.seen - node.getBoundingClientRect().left}px)` }, { transform: "none" }], motion);
     }
   }

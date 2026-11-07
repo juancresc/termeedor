@@ -5,12 +5,14 @@ import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, timeAgo } from "./util.js";
 import {
   state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
-  activateTab, addGroup, moveTab, selectGroup, setGroupMinimized,
+  activateTab, moveTab, selectGroup, setGroupMinimized,
   reopenPast, deletePast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
+import { runAction } from "./core/actions.js";
+import { keptNode, patchChildren } from "./patch.js";
 import { renderTranscript } from "./terminal/transcript.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
-import { tabMenu, groupMenu, pastMenu, reopenLabel, confirmClearPast } from "./contextMenus.js";
+import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
 import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";
 import { createRunMarks } from "./runMarks.js";
 
@@ -20,11 +22,11 @@ let pastQuery = "";
 let pastTimes = []; // { node, lines, closedAt } for each row on screen
 
 export function initSidebar() {
-  $("newGroupBtn").onclick = () => addGroup();
-  $("hideSidebar").onclick = () => setSidebarOpen(false);
-  $("rail").onclick = () => setSidebarOpen(true);
+  $("newGroupBtn").onclick = () => runAction("newGroup");
+  $("hideSidebar").onclick = () => runAction("toggleSidebar");
+  $("rail").onclick = () => runAction("toggleSidebar");
   $("pastSearch").oninput = (e) => { pastQuery = e.target.value; renderPast(); };
-  $("clearPast").onclick = confirmClearPast;
+  $("clearPast").onclick = () => runAction("clearSessions");
   initResize();
   setInterval(refreshPastTimes, 1000); // so "5m ago" changes on time, and not when something else redraws the list
 }
@@ -48,12 +50,13 @@ function renderLayout() {
 // ---------- groups ----------
 function renderGroups() {
   runMarks.clear();
-  $("groups").replaceChildren(...state.ws.groups.map(groupNode));
+  patchChildren($("groups"), state.ws.groups.map(groupNode));
 }
 
 function groupNode(group) {
   const tabs = tabsIn(group.id);
   const box = el("div", `group${group.collapsed ? " collapsed" : ""}${group.minimized ? " minimized" : ""}`);
+  box.dataset.slideKey = group.id;
 
   const head = el("div", `ghead${group.name ? "" : " unnamed"}`);
   head.append(
@@ -86,6 +89,7 @@ function groupNode(group) {
 
 function tabRow(tab) {
   const row = el("div", `item${tab.id === state.ws.activeTab ? " active" : ""}${tab.minimized ? " minimized" : ""}`);
+  row.dataset.slideKey = tab.id;
   row.title = tab.minimized ? "Minimized — click to restore" : "";
 
   row.append(
@@ -103,20 +107,33 @@ function tabRow(tab) {
 }
 
 // ---------- past sessions ----------
+// A closed tab's text never changes and can be long, so nothing reads it twice.
+const lineCounts = new WeakMap(); // entry.tab -> lines
+let search = { key: null, matches: [] };
+
+function lineCount(tab) {
+  if (!lineCounts.has(tab)) lineCounts.set(tab, renderTranscript(tab).split("\n").length);
+  return lineCounts.get(tab);
+}
+
+function pastMatches(all, query) {
+  if (!query) return all;
+  const key = JSON.stringify([query, all.map((p) => [p.id, p.name])]);
+  if (key !== search.key) search = { key, matches: all.filter((p) => `${p.name} ${renderTranscript(p.tab)}`.toLowerCase().includes(query)) };
+  return search.matches;
+}
+
 function renderPast() {
   pastTimes = [];
   const all = state.past;
-  const query = pastQuery.trim().toLowerCase();
-  const matches = query
-    ? all.filter((p) => `${p.name} ${renderTranscript(p.tab)}`.toLowerCase().includes(query))
-    : all;
+  const matches = pastMatches(all, pastQuery.trim().toLowerCase());
 
   $("pastSearch").style.display = all.length > 5 ? "" : "none";
   $("clearPast").style.display = all.length ? "" : "none";
   const root = $("pastSessions");
-  if (!all.length) return root.replaceChildren(el("div", "empty", "Closed tabs show up here."));
-  if (!matches.length) return root.replaceChildren(el("div", "empty", "No matches."));
-  root.replaceChildren(...matches.map(pastRow));
+  if (!all.length) return patchChildren(root, [el("div", "empty", "Closed tabs show up here.")]);
+  if (!matches.length) return patchChildren(root, [el("div", "empty", "No matches.")]);
+  patchChildren(root, matches.map(pastRow));
 }
 
 const pastDetail = (lines, closedAt) => `${lines} lines · ${timeAgo(closedAt)}`;
@@ -125,16 +142,18 @@ const pastDetail = (lines, closedAt) => `${lines} lines · ${timeAgo(closedAt)}`
 function refreshPastTimes() {
   for (const { node, lines, closedAt } of pastTimes) {
     const text = pastDetail(lines, closedAt);
-    if (node.textContent !== text) node.textContent = text;
+    const shown = keptNode(node);
+    if (shown.textContent !== text) shown.textContent = text;
   }
 }
 
 function pastRow(entry) {
   const row = el("div", "session");
+  row.dataset.slideKey = entry.id;
   row.title = reopenLabel();
 
   const info = el("div", "sname");
-  const lines = renderTranscript(entry.tab).split("\n").length;
+  const lines = lineCount(entry.tab);
   const time = el("small", null, pastDetail(lines, entry.closedAt));
   pastTimes.push({ node: time, lines, closedAt: entry.closedAt });
   info.append(nameLabel("past", entry, "sidebar", "b"), time);

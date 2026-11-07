@@ -14,7 +14,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `electron/completions.cjs` | Tab completion's fallback: PATH commands and paths |
 | `electron/plugins.cjs`, `pluginHosts.cjs` | Plugin discovery, and one process per plugin host file |
 | `electron/dataStore.cjs` | Saved data as files in `~/.termeedor` (`TERMEEDOR_DATA_DIR` overrides it) |
-| `src/core/` | No DOM or storage. `workspace` (state, actions), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when) |
+| `src/core/` | No DOM or storage. `workspace` (state and what changes it), `actions` (the registry of what the app can do, by id), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when) |
 | `src/store.js` | The import path for state and actions. Loads saved data on import, and connects core to the adapter and to running commands |
 | `src/ports/persistence.js`, `src/adapters/` | The persistence interface. `fileStore` on the desktop (also migrates old localStorage), `localStorageStore` in the browser. `adapters/index.js` chooses |
 | `src/ports/backend.js`, `src/adapters/` | The backend interface: `run`, `write`, `resize`, `kill`, `complete`, and `output`, `alt`, `finish`, `exit` events. `electronBackend` is the IPC client, and `mockBackend` is the browser's fake shell, the only place fake commands exist. `adapters/index.js` chooses |
@@ -23,6 +23,8 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `src/editor.js` | The terminal area: connects the output and the input, runs commands, status bar |
 | `src/terminal/` | `outputView` (blocks as read-only DOM, scrolling), `inputEditor` (the input: keys, history, completion UI), `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the output area in characters), `textModel` (a terminal with no display, `@xterm/headless`, read back as text and styling), `styles` (styling's saved form, validation, CSS), `fullscreen` (xterm for vim, top), `keys` |
 | `src/plugins/` | Host, scope, registry, public API |
+| `src/appActions.js` | The app's own actions. Shortcuts, menus and most buttons name them by id |
+| `src/patch.js` | Updates the page from freshly built nodes, changing only what differs |
 | `src/*.js` (the rest) | UI: tab bar, sidebar, menus, settings, themes |
 
 ## Command flow
@@ -59,7 +61,7 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 
 ## Rules
 
-- It behaves like a real terminal: everything typed goes to the user's shell. There are no custom commands, from the app or from plugins. App actions live in menus and shortcuts.
+- It behaves like a real terminal: everything typed goes to the user's shell. There are no custom commands, from the app or from plugins. App actions live in menus and shortcuts, and nothing typed reaches them.
 - Output is an event stream, never a returned string.
 - Command boundaries come from shell markers, never from matching text. Whether a line is a command comes from the transcript. Only the migration of old saved tabs reads the prompt out of text.
 - Text reaches the page only as text nodes, and colors only as theme variables or `rgb()` of checked numbers.
@@ -73,7 +75,6 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 | Problem | Where |
 | --- | --- |
 | Shells are killed by diffing state after a commit | `terminal/runner.js` `initRunner` |
-| Every commit rebuilds the DOM, so a command doesn't commit: its spinners and status update in place | `tabbar.js`, `sidebar.js`, `runMarks.js` |
 | Plugins' `api.storage` is still localStorage, and the browser build keeps all scrollback in one value | `plugins/api.js`, `adapters/localStorageStore.js` |
 | `core` still imports the transcript model from `terminal/` | `core/saved.js`, `core/workspace.js` |
 | A desktop shell that ends between commands sends no `exit` event, so the tab's next `run` is what notices | `electron/shellSessions.cjs` |
@@ -93,7 +94,7 @@ src/ports/      backend, persistence
 src/adapters/   electron and mock backends; file and localStorage stores
 src/terminal/   one run state machine, transcript model, views
 src/ui/         reads state, dispatches actions
-src/plugins/    unchanged, but the API hands out ids and copies
+src/plugins/    the API hands out ids and copies
 ```
 
 - Dependencies point inward: `ui` and `adapters` depend on `core`, and `core` imports nothing outward.
@@ -109,6 +110,4 @@ Each step ships alone. New features can continue between steps.
 4. **Backend port (done).** `adapters/index.js` chooses Electron or mock, and `platform.js` is the one answer to desktop or browser and Mac or not. `shell.js` became the mock adapter, the only place fake commands remain. `realShell.js` became `terminal/runner.js` and `size.js`, and its IPC moved to the Electron adapter. The mock now sends events through the same path as the real shell.
 5. **Editor-style view (done).** Blocks are read-only DOM with native selection, and only what changed is redrawn. The input is a separate plain textarea right after the output, scrolling with it, so the rules guarding the caret and the prompt are gone. Multi-line commands go to the shell as a bracketed paste. Each real command has a re-run button, and clicking text never runs anything. Color is read from the terminal's cells and saved with each block. Line numbers apply to the input only.
 6. **Completion (done).** `shellCompleter` asks one hidden zsh, shared by all tabs and started on the first Tab, with the user's rc files. It gets requests over a socket and no keys, so it can't run the line, and it captures `compadd`. It answers within 1s, or `completions.cjs` does; the same on a crash, no results or another shell. zsh's own completion evaluates `$(x)/`, so lines with `(`, a backtick or a hidden operator never reach it.
-7. **Cleanup.** Action registry for shortcuts, menus and plugins. Render only what changed. Plugin API v2.
-
-Add a framework only if step 7 still hurts, and then only `lit-html`.
+7. **Cleanup (done).** Shortcuts, menus, most buttons and plugins name actions by id. Views still build their lists, and `patch` changes only what differs, so rows keep hover, focus and an open rename. Closed tabs' text is read once. A command never commits: its spinners and status update in place (`runMarks`). Plugins get copies and refer to actions by id. No framework was needed.

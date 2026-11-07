@@ -2,6 +2,7 @@
 // slot for each one and fill it directly instead of being rebuilt. An empty slot takes no room.
 
 import { el, spinner } from "./util.js";
+import { keptNode } from "./patch.js";
 
 export function createRunMarks() {
   let marks = [];
@@ -10,11 +11,11 @@ export function createRunMarks() {
     const on = mark.isOn();
     if (on === mark.on) return;
     mark.on = on;
-    mark.node.replaceChildren(...(on ? [spinner()] : []));
+    keptNode(mark.node).replaceChildren(...(on ? [spinner()] : []));
   }
 
   return {
-    /** Call when the rows are rebuilt: the old slots have gone with them. */
+    /** Call when the rows are rendered again: new slots take over from the old ones. */
     clear() { marks = []; },
     /** A new slot, showing a spinner whenever isOn() says so. */
     slot(isOn) {

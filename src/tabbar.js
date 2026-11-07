@@ -7,8 +7,9 @@ import { $, el } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
   state, getGroup, getTab, groupLabel, tabsIn, visibleTabsIn, barGroups, barTabs, isRunning, groupHasRunning, minimizedGroups,
-  activateTab, addGroup, addTab, moveTab, selectGroup, restoreMinimized, updateSettings,
+  activateTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
+import { runAction } from "./core/actions.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
@@ -18,8 +19,8 @@ import { createRunMarks } from "./runMarks.js";
 const runMarks = createRunMarks();
 
 export function initTabbar() {
-  $("newGroupTabBtn").onclick = () => addGroup();
-  $("newTabBtn").onclick = () => addTab();
+  $("newGroupTabBtn").onclick = () => runAction("newGroup");
+  $("newTabBtn").onclick = () => runAction("newTab");
   $("allGroupsBtn").onclick = () => {
     slideNextRender();
     updateSettings({ showAllGroups: !state.settings.showAllGroups });
@@ -78,7 +79,7 @@ function groupSection(group) {
   const add = el("button", "tb-btn groupAdd", "＋");
   add.dataset.slideKey = `add-${group.id}`;
   add.title = `New tab in ${groupLabel(group)}`;
-  add.onclick = () => addTab(group.id);
+  add.onclick = () => runAction("group.newTab", group);
 
   const box = el("div", `tabGroupBox${isActive ? " active" : ""}`);
   if (group.color) box.style.setProperty("--group-color", colorVar(group.color));

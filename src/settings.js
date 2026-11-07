@@ -2,6 +2,8 @@
 
 import { BUILTIN_THEMES, FONT_SIZE, TAB_COLORS, colorVar } from "./constants.js";
 import { $, el } from "./util.js";
+import { runAction } from "./core/actions.js";
+import { patchChildren } from "./patch.js";
 import { state, updateSettings, addCustomTheme, removeCustomTheme, setSidebarOpen } from "./store.js";
 import { parseThemeFile } from "./themeImport.js";
 import { applyTheme } from "./themes.js";
@@ -14,7 +16,7 @@ import { applySettingsSearch, initSettingsTopics } from "./settingsSearch.js";
 const dialog = $("settings");
 
 export function initSettings() {
-  $("settingsBtn").onclick = openSettings;
+  $("settingsBtn").onclick = () => runAction("openSettings");
   $("closeSettings").onclick = () => dialog.close();
   dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); }); // backdrop click
   dialog.addEventListener("close", focusEditor);
@@ -69,6 +71,7 @@ function renderDefaultTabColor() {
   const current = state.settings.defaultTabColor;
   const option = (value, className, title) => {
     const button = el("button", `${className}${current === value ? " on" : ""}`);
+    button.dataset.slideKey = value;
     button.title = title;
     button.onclick = () => updateSettings({ defaultTabColor: value });
     return button;
@@ -81,7 +84,7 @@ function renderDefaultTabColor() {
     swatch.style.background = colorVar(c);
     return swatch;
   });
-  $("defaultTabColor").replaceChildren(none, group, ...colors);
+  patchChildren($("defaultTabColor"), [none, group, ...colors]);
 }
 
 function renderThemeGrid() {
@@ -89,11 +92,12 @@ function renderThemeGrid() {
     ...BUILTIN_THEMES.map((t) => themeCard(t, false)),
     ...state.settings.customThemes.map((t) => themeCard(t, true)),
   ];
-  $("themes").replaceChildren(...cards);
+  patchChildren($("themes"), cards);
 }
 
 function themeCard({ id, name, preview }, removable) {
   const card = el("div", `themeCard${state.settings.theme === id ? " on" : ""}`);
+  card.dataset.slideKey = id;
 
   const pick = el("button", "themePick");
   pick.title = name;

@@ -1,40 +1,16 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
+import { MiniElement, installDom } from "./support/miniDom.js";
 
 // Just enough layout to run the tab bar in Node. Items are 100px wide, a group's box as wide as what
 // is in it. Measuring anything clamps both rows' scroll to what fits, as a browser's reflow does.
 const ROW_WIDTH = 150;
-const ids = new Map();
-const reflow = () => { for (const node of ids.values()) if (node instanceof FakeRow) node.clamp(); };
+const rows = new Set();
+const reflow = () => { for (const node of rows) node.clamp(); };
 
-class FakeNode {
-  constructor(tag = "div") {
-    this.tag = tag;
-    this.children = [];
-    this.dataset = {};
-    this.style = { setProperty() {}, marginRight: "" };
-    this.className = "";
-    this.textContent = "";
-    this.classList = {
-      add: (name) => { this.className += ` ${name}`; },
-      toggle() {},
-    };
-  }
-  append(...nodes) { this.children.push(...nodes); }
-  replaceChildren(...nodes) { this.children = nodes; }
-  addEventListener() {}
-  setAttribute() {}
-  remove() {}
-  getContext() { return {}; } // editor.js measures text with a canvas
+class FakeNode extends MiniElement {
   get ownWidth() { return this.has("tabGroupBox") ? this.children.reduce((sum, child) => sum + child.ownWidth, 0) : 100; }
   getBoundingClientRect() { reflow(); return { left: 0, width: this.ownWidth }; }
-  has(name) { return this.className.split(" ").includes(name); }
-  all() { return this.children.flatMap((child) => [child, ...child.all()]); }
-  querySelector(selector) { return this.querySelectorAll(selector)[0] ?? null; }
-  querySelectorAll(selector) {
-    const name = selector.match(/\.([\w-]+)/)[1];
-    return this.all().filter((node) => node.has(name));
-  }
 }
 
 class FakeRow extends FakeNode {
@@ -47,18 +23,15 @@ class FakeRow extends FakeNode {
   set scrollLeft(value) { this.scroll = value; this.clamp(); }
 }
 
-globalThis.localStorage = { getItem: () => null, setItem() {} };
-globalThis.window = { addEventListener() {} };
-globalThis.matchMedia = () => ({ matches: false });
-globalThis.document = {
-  createElement: (tag) => new FakeNode(tag),
-  getElementById(id) {
-    if (!ids.has(id)) ids.set(id, id === "groupTabs" || id === "tabs" ? new FakeRow() : new FakeNode());
-    return ids.get(id);
+installDom({
+  element: FakeNode,
+  byId(id) {
+    if (id !== "groupTabs" && id !== "tabs") return new FakeNode();
+    const row = new FakeRow();
+    rows.add(row);
+    return row;
   },
-  addEventListener() {},
-  querySelector: () => null,
-};
+});
 
 const { state, addGroup, addTab, activateTab, setGroupMinimized, tabsIn } = await import("../src/store.js");
 const { refreshTabbarRuns, renderTabbar } = await import("../src/tabbar.js");

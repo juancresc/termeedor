@@ -2,7 +2,6 @@
 // This connects the two, runs commands, and keeps the status bar. Both only display the tab's
 // transcript (terminal/transcript.js), which is what says what is a command.
 
-import { colorVar } from "./constants.js";
 import { $ } from "./util.js";
 import { activeTab, getTab, getGroup, onRunChange, saveSoon, saveWorkspace, hasSaveFailed, isRunning, startRun, finishRun } from "./store.js";
 import { emit as emitPluginEvent } from "./plugins/registry.js";
@@ -32,7 +31,6 @@ export const focusEditor = focusInput;
 
 export function renderEditor() {
   const tab = activeTab() ?? null;
-  $("colorbar").style.background = colorVar(tab?.color) ?? "transparent";
   showBoth(tab);
   $("stTab").textContent = tab ? [getGroup(tab.groupId).name, tab.name].filter(Boolean).join(" › ") : "No open tabs";
   renderRunStatus();

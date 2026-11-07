@@ -152,7 +152,6 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 
 /* ---------- Terminal / editor ---------- */
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--term); } /* min-height: 0 so the text scrolls inside instead of stretching the page */
-.colorbar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
 
 /* the output: read-only blocks that wrap as a terminal does, so selecting and copying are native */
 /* output and input scroll together, so the prompt sits right after the last output, as in a terminal */

@@ -1,8 +1,7 @@
 // Runs app actions from the keyboard. The keys themselves live in keymap.js.
 
-import { state, activeTab, barTabs, activateTab, addTab, addGroup, closeActive, setSidebarOpen, reopenLastClosed } from "./store.js";
+import { runAction } from "./core/actions.js";
 import { isMac } from "./platform.js";
-import { openSettings } from "./settings.js";
 import { getShortcut, reserve } from "./plugins/registry.js";
 import { builtinShortcutKeys, findShortcut, pluginShortcutKey, shortcutList, withShortcut } from "./keymap.js";
 
@@ -10,30 +9,6 @@ import { builtinShortcutKeys, findShortcut, pluginShortcutKey, shortcutList, wit
 reserve("shortcuts", [...builtinShortcutKeys(), "KeyA", "KeyC", "KeyV", "KeyX", "KeyZ", "Shift+KeyZ", "KeyQ"]);
 // Where the shortcut modifier is Ctrl, the editor's readline keys use it too.
 if (!isMac) reserve("shortcuts", ["KeyU", "KeyL", "KeyP", "KeyN"]);
-
-function switchTab(offset) {
-  const tabs = barTabs();
-  if (!tabs.length) return;
-  const index = tabs.indexOf(activeTab());
-  activateTab(tabs[(index + offset + tabs.length) % tabs.length].id);
-}
-
-function goToTab(n) {
-  const tab = barTabs()[n - 1];
-  if (tab) activateTab(tab.id);
-}
-
-const ACTIONS = {
-  newTab: () => addTab(),
-  reopenTab: () => reopenLastClosed(),
-  closeTab: () => closeActive(),
-  newGroup: () => addGroup(),
-  toggleSidebar: () => setSidebarOpen(!state.ws.sidebarOpen),
-  openSettings: () => openSettings(),
-  previousTab: () => switchTab(-1),
-  nextTab: () => switchTab(1),
-  goToTab,
-};
 
 export function initShortcuts() {
   for (const node of document.querySelectorAll("[data-shortcut]")) {
@@ -45,7 +20,7 @@ export function initShortcuts() {
   document.addEventListener("keydown", (e) => {
     if (document.getElementById("settings").open) return;
     const shortcut = findShortcut(e);
-    const action = shortcut ? () => ACTIONS[shortcut.action](shortcut.arg) : getShortcut(pluginShortcutKey(e));
+    const action = shortcut ? () => runAction(shortcut.action, shortcut.arg) : getShortcut(pluginShortcutKey(e));
     if (!action) return;
     e.preventDefault();
     action();
