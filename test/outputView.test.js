@@ -7,8 +7,8 @@ import { nodeFor } from "./support/editorDom.js";
 
 const { initOutput, noteSnapshot, renderOutput } = await import("../src/terminal/outputView.js");
 const { createTextModel } = await import("../src/terminal/textModel.js");
-const { setBlockOutput } = await import("../src/terminal/transcript.js");
-const { styledSegments, styleCss, parseStyleCode } = await import("../src/terminal/styles.js");
+const { setBlockOutput } = await import("../src/core/transcript.js");
+const { styledSegments, styleCss, parseStyleCode } = await import("../src/core/styles.js");
 
 initOutput({ rerun() {}, focusInput() {} });
 const output = nodeFor("output");

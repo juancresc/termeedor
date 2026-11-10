@@ -11,8 +11,9 @@ globalThis.termeedorHost = {
 
 const { initEditor, renderEditor } = await import("../src/editor.js");
 const { initRunner } = await import("../src/terminal/runner.js");
+const { chooseBackend } = await import("../src/adapters/index.js");
 const store = await import("../src/store.js");
-initRunner();
+initRunner(chooseBackend(undefined, { getTab: store.getTab }));
 initEditor();
 renderEditor();
 

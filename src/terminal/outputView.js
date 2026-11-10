@@ -8,8 +8,8 @@
 // redraw costs what changed, not the whole 20,000 lines of scrollback.
 
 import { $, el } from "../util.js";
-import { styleCss, styledSegments } from "./styles.js";
-import { promptFor } from "./transcript.js";
+import { styleCss, styledSegments } from "../core/styles.js";
+import { promptFor } from "../core/transcript.js";
 
 const PIN_SLACK = 4; // px from the bottom that still counts as being at the bottom
 const CHUNK_CHARS = 32_768; // how much text one chunk holds, so a long output isn't one huge box

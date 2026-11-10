@@ -35,7 +35,7 @@ installDom({
 
 const { state, addGroup, addTab, activateTab, setGroupMinimized, tabsIn } = await import("../src/store.js");
 const { refreshTabbarRuns, renderTabbar } = await import("../src/tabbar.js");
-const { runs } = await import("../src/terminal/runState.js");
+const { runs } = await import("../src/core/runState.js");
 
 const row = (id) => document.getElementById(id);
 

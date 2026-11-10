@@ -1,12 +1,12 @@
 // The import path for state and actions (core/workspace.js). This adds what core must not know
-// about: where data is kept and what is running. Loading finishes before any importer runs,
+// about: where data is kept, and what is running (written by terminal/session.js). Loading finishes before any importer runs,
 // because reading files is async and the UI modules expect `state` to be ready.
 
 import { addGroup, connect, defaultWorkspace, hydrate, notify, state } from "./core/workspace.js";
 import { readSnapshot } from "./core/saved.js";
 import { createSaver } from "./core/saver.js";
 import { chooseAdapter } from "./adapters/index.js";
-import { runs } from "./terminal/runState.js";
+import { runs } from "./core/runState.js";
 
 export * from "./core/workspace.js";
 
@@ -44,21 +44,7 @@ export const saveNow = () => saver.saveNow(); // no arguments: this is also an e
 export const isRunning = (tabId) => runs.isRunning(tabId);
 export const groupHasRunning = (groupId) => state.ws.tabs.some((t) => t.groupId === groupId && runs.isRunning(t.id));
 
-const runListeners = new Set();
-/** Called when a command starts or ends. Commands don't commit: only what shows them needs to change. */
-export const onRunChange = (fn) => runListeners.add(fn);
-
-export function startRun(tab, block) {
-  const signal = runs.start(tab.id, block);
-  saveWorkspace();
-  runListeners.forEach((fn) => fn());
-  return signal;
-}
-export function finishRun(tab) {
-  runs.finish(tab.id);
-  runListeners.forEach((fn) => fn());
-}
 export const stopRun = (tabId) => runs.stop(tabId);
 
-connect({ save: saver.save, saveNow: saver.saveNow, stopRun });
+connect({ save: saver.save, saveNow: saver.saveNow }); // terminal/runner.js connects endSession
 if (!state.ws.groups.length) addGroup(); // never start on a blank workspace

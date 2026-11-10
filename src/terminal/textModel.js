@@ -10,7 +10,7 @@
 
 import { Terminal } from "../../node_modules/@xterm/headless/lib-headless/xterm-headless.mjs";
 import { LIMITS } from "../constants.js";
-import { NO_STYLE, styleCode } from "./styles.js";
+import { NO_STYLE, styleCode } from "../core/styles.js";
 
 const SCROLLBACK = 20000;
 const COMPACT_AT = 4096; // how many dead entries to let pile up before copying a list to free them

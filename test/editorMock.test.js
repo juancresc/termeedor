@@ -6,8 +6,9 @@ import { nodeFor, noop, textarea } from "./support/editorDom.js";
 
 const { initEditor, renderEditor } = await import("../src/editor.js");
 const { forwardKey, forwardPaste, initRunner } = await import("../src/terminal/runner.js");
+const { chooseBackend } = await import("../src/adapters/index.js");
 const store = await import("../src/store.js");
-initRunner();
+initRunner(chooseBackend(undefined, { getTab: store.getTab }));
 initEditor();
 store.subscribe(renderEditor);
 renderEditor();

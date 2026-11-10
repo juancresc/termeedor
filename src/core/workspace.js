@@ -5,7 +5,7 @@
 import { LIMITS, TAB_COLORS, SIDEBAR, FONT_SIZE } from "../constants.js";
 import { uid } from "./uid.js";
 import { sanitizeSettings } from "./sanitize.js";
-import { copyBlocks, textBlock } from "../terminal/transcript.js";
+import { copyBlocks, textBlock } from "./transcript.js";
 
 // ---------- factories ----------
 const banner = () =>
@@ -54,7 +54,7 @@ export function hydrate({ ws, past, settings }) {
 const outside = {
   save() {},           // (parts) a commit happened: save these parts when convenient
   saveNow: () => true, // saves before returning; false if that failed
-  stopRun() {},        // (tabId) a tab is closing, maybe with a command running
+  endSession() {},     // (tabId) a tab is closing: end its shell and whatever it runs
 };
 
 export const connect = (provided) => { Object.assign(outside, provided); };
@@ -149,7 +149,7 @@ export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id,
 
 /** Closing a tab moves it to Past sessions. A group left with no tabs is minimized, to restore later. */
 export function closeTab(tab) {
-  outside.stopRun(tab.id);
+  outside.endSession(tab.id);
   archiveTab(tab);
   const siblings = tabsIn(tab.groupId);
   const position = siblings.indexOf(tab);
@@ -237,7 +237,7 @@ export const shouldConfirmCloseGroup = (group) => state.settings.confirmCloseGro
 export function closeGroup(group) {
   leaveGroup(group);
   const tabs = state.ws.tabs.filter((t) => t.groupId === group.id);
-  tabs.reverse().forEach((t) => { outside.stopRun(t.id); archiveTab(t); });
+  tabs.reverse().forEach((t) => { outside.endSession(t.id); archiveTab(t); });
   state.ws.tabs = state.ws.tabs.filter((t) => t.groupId !== group.id);
   state.ws.groups = state.ws.groups.filter((g) => g !== group);
   commit("workspace", "past");

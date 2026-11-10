@@ -4,7 +4,7 @@
 // A snapshot is what a persistence adapter loads (see ports/persistence.js). It is untrusted.
 
 import { LIMITS } from "../constants.js";
-import { copyBlocks, trimTranscript } from "../terminal/transcript.js";
+import { copyBlocks, trimTranscript } from "./transcript.js";
 import { sanitizePastEntry, sanitizeSettings, sanitizeWorkspace } from "./sanitize.js";
 
 const isObject = (v) => v !== null && typeof v === "object";

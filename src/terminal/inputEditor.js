@@ -8,7 +8,7 @@ import { isMac } from "../platform.js";
 import { state, activeTab, isRunning, saveSoon, stopRun } from "../store.js";
 import { closeMenu, isMenuOpen, moveSelection, placeMenu, selectedItem, showMenu } from "../completionMenu.js";
 import { forwardKey, forwardPaste, getCompletions } from "./runner.js";
-import { promptFor } from "./transcript.js";
+import { promptFor } from "../core/transcript.js";
 
 const MAX_ROWS = 12; // past this the input scrolls, so it never pushes the output out of view
 const TAB_TEXT = "    ";
@@ -166,7 +166,9 @@ function recallCommand(delta) {
   if (!tab) return;
   const { history } = tab;
   if (recall?.tabId !== tab.id) recall = { tabId: tab.id, index: history.length, draft: editor.value };
-  const index = recall.index + delta;
+  // Only commands that start with what was typed before browsing, as zsh's history-beginning-search.
+  let index = recall.index + delta;
+  while (index >= 0 && index < history.length && !history[index].startsWith(recall.draft)) index += delta;
   if (index < 0 || index > history.length) return;
   recall.index = index;
   setDraft(index === history.length ? recall.draft : history[index]);

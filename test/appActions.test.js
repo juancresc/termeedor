@@ -22,7 +22,7 @@ const { builtinShortcutKeys, findShortcut } = await import("../src/keymap.js");
 const { initShortcuts } = await import("../src/shortcuts.js");
 const { groupMenu, pastMenu, tabMenu } = await import("../src/contextMenus.js");
 const { closeMenu } = await import("../src/menu.js");
-const { runs } = await import("../src/terminal/runState.js");
+const { runs } = await import("../src/core/runState.js");
 
 const { state } = store;
 let settingsOpened = 0;

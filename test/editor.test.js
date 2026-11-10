@@ -23,9 +23,10 @@ let completionsFor = () => [];
 
 const { initEditor, renderEditor, printToTab, focusEditor } = await import("../src/editor.js");
 const { initRunner, forwardKey } = await import("../src/terminal/runner.js");
+const { chooseBackend } = await import("../src/adapters/index.js");
 const { closeMenu, isMenuOpen, selectedItem } = await import("../src/completionMenu.js");
 const store = await import("../src/store.js");
-initRunner();
+initRunner(chooseBackend(undefined, { getTab: store.getTab }));
 initEditor();
 store.subscribe(renderEditor);
 renderEditor();
@@ -161,18 +162,38 @@ test("each tab keeps its own draft", () => {
 
 test("Up and Down recall history through the draft", async () => {
   await run("echo recalled", "recalled\r\n");
-  type("mine");
+  type("ec");
   press("ArrowUp");
   assert.equal(tab().draft, "echo recalled");
   assert.equal(textarea.value, "echo recalled");
   press("ArrowDown");
-  assert.equal(tab().draft, "mine");
+  assert.equal(tab().draft, "ec");
+  eraseDraft();
+});
+
+test("Up and Down only recall past commands that start with what was typed", async () => {
+  store.addTab();
+  await run("bash one");
+  await run("ls");
+  await run("bash two");
+  await run("echo bash");
+  type("bas");
+  press("ArrowUp");
+  assert.equal(tab().draft, "bash two");
+  press("ArrowUp");
+  assert.equal(tab().draft, "bash one");
+  press("ArrowUp"); // no older match: stays put
+  assert.equal(tab().draft, "bash one");
+  press("ArrowDown");
+  assert.equal(tab().draft, "bash two");
+  press("ArrowDown");
+  assert.equal(tab().draft, "bas");
   eraseDraft();
 });
 
 test("Up and Down only browse history from the input's first and last lines", async () => {
   store.addTab();
-  await run("echo old");
+  await run("one\ntwo\nthree; echo old");
   type("one\ntwo\nthree");
 
   let stopped = false;
@@ -194,7 +215,7 @@ test("Up and Down only browse history from the input's first and last lines", as
   assert.equal(stopped, false);
   arrow("ArrowUp");
   assert.equal(stopped, true);
-  assert.equal(tab().draft, "echo old");
+  assert.equal(tab().draft, "one\ntwo\nthree; echo old");
 
   press("ArrowDown");
   assert.equal(tab().draft, "one\ntwo\nthree");
@@ -323,12 +344,12 @@ test("Ctrl+L clears the screen and keeps what is being typed", async () => {
 test("Ctrl+P and Ctrl+N walk through past commands and back to the draft", async () => {
   store.addTab();
   await run("echo one", "one\r\n");
-  type("draft");
+  type("echo");
   caretToEnd();
   ctrl("KeyP");
   assert.equal(tab().draft, "echo one");
   ctrl("KeyN");
-  assert.equal(tab().draft, "draft");
+  assert.equal(tab().draft, "echo");
   eraseDraft();
 });
 

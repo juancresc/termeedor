@@ -13,6 +13,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
+    "test:e2e": "node --test \"test/e2e/*.e2e.js\"",
     "dist": "electron-builder",
     "dist:dir": "electron-builder --dir",
     "postinstall": "node scripts/fix-node-pty.cjs"

@@ -7,10 +7,11 @@
 //   adapters/       files on the desktop, localStorage in the browser
 //                   the real shell on the desktop, a mock in the browser
 //   storage.js      localStorage helpers
-//   terminal/       runner.js     runs commands, shows results   textModel.js  output → styled text
-//                   outputView.js command blocks                 inputEditor.js  the input and completion
-//                   fullscreen.js vim, top and friends           keys.js       key press → bytes
-//   editor.js       the terminal area: connects the output and the input, and runs commands
+//   terminal/       session.js    a tab's commands, start to end runner.js     one session per tab
+//                   textModel.js  output → styled text           outputView.js command blocks
+//                   inputEditor.js the input and completion      fullscreen.js vim, top and friends
+//                   keys.js       key press → bytes
+//   editor.js       the terminal area: connects the output, the input and the sessions
 //   tabbar.js       top tabs        sidebar.js   groups, past sessions
 //   rename.js       inline rename   contextMenus.js / menu.js   right-click menus
 //   settings.js     settings dialog themeImport.js  .css theme files
@@ -26,10 +27,11 @@
 // The desktop app (electron/) loads this same page; platform.js is how it differs.
 
 import { host, isDesktop } from "./platform.js";
-import { initRunner } from "./terminal/runner.js";
+import { initRunner, onRunChange } from "./terminal/runner.js";
+import { chooseBackend } from "./adapters/index.js";
 import { initPlugins } from "./plugins/index.js";
 import { initPluginUi } from "./plugins/ui.js";
-import { onRunChange, subscribe, saveNow } from "./store.js";
+import { getTab, subscribe, saveNow } from "./store.js";
 import { initTooltips } from "./tooltip.js";
 import { initMenu } from "./menu.js";
 import { initEditor, renderEditor } from "./editor.js";
@@ -67,6 +69,7 @@ if (isDesktop) {
   document.documentElement.classList.add("desktop", `platform-${host.platform}`);
 }
 
+initRunner(chooseBackend(undefined, { getTab })); // before anything can run a command
 initTooltips();
 initMenu();
 initEditor();
@@ -75,7 +78,6 @@ initSidebar();
 initSettings();
 initShortcuts();
 initPluginUi();
-initRunner();
 
 subscribe(render);
 onRunChange(() => {

@@ -10,7 +10,7 @@ import {
 } from "./store.js";
 import { runAction } from "./core/actions.js";
 import { keptNode, patchChildren } from "./patch.js";
-import { renderTranscript } from "./terminal/transcript.js";
+import { renderTranscript } from "./core/transcript.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
 import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";

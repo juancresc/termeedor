@@ -12,7 +12,7 @@ const store = await import("../src/store.js");
 const { refreshTabbarRuns, renderTabbar } = await import("../src/tabbar.js");
 const { initSidebar, refreshSidebarRuns, renderSidebar } = await import("../src/sidebar.js");
 const { startRename } = await import("../src/rename.js");
-const { runs } = await import("../src/terminal/runState.js");
+const { runs } = await import("../src/core/runState.js");
 await import("../src/appActions.js");
 
 const { state } = store;

@@ -1,17 +1,17 @@
 // The terminal area: command blocks (terminal/outputView.js) over an input (terminal/inputEditor.js).
-// This connects the two, runs commands, and keeps the status bar. Both only display the tab's
-// transcript (terminal/transcript.js), which is what says what is a command.
+// This connects the two to the tabs' sessions (terminal/session.js), and keeps the status bar and
+// the full-screen terminal. Both only display the tab's transcript (core/transcript.js), which is
+// what says what is a command. The session changes it; this only listens.
 
 import { $ } from "./util.js";
-import { activeTab, getTab, getGroup, onRunChange, saveSoon, saveWorkspace, hasSaveFailed, isRunning, startRun, finishRun } from "./store.js";
-import { emit as emitPluginEvent } from "./plugins/registry.js";
-import { runCommand } from "./terminal/runner.js";
-import { runs } from "./terminal/runState.js";
+import { state, activeTab, getGroup, saveSoon, saveWorkspace, hasSaveFailed, isRunning } from "./store.js";
+import { onRunChange, onSessionEvent, resizeSessions, runCommand } from "./terminal/runner.js";
+import { runs } from "./core/runState.js";
+import { closeFullscreen, openFullscreen, refitFullscreen, showFullscreenFor, writeFullscreen } from "./terminal/fullscreen.js";
+import { textAreaSize } from "./terminal/size.js";
 import { focusInput, initInput, renderInput } from "./terminal/inputEditor.js";
 import { followBottom, initOutput, keepPinned, noteSnapshot, pageOutput, renderOutput, selectAllOutput } from "./terminal/outputView.js";
-import {
-  addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, finishBlock, promptFor, setBlockOutput, trimTranscript,
-} from "./terminal/transcript.js";
+import { addTextBlock, clearTranscript, promptFor } from "./core/transcript.js";
 
 export function initEditor() {
   initOutput({ rerun, focusInput });
@@ -25,6 +25,17 @@ export function initEditor() {
   });
   window.addEventListener("resize", keepPinned);
   onRunChange(renderRunStatus);
+  listenToSessions();
+
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      refitFullscreen();
+      const { cols, rows } = textAreaSize();
+      resizeSessions(cols, rows);
+    }, 100);
+  });
 }
 
 export const focusEditor = focusInput;
@@ -35,6 +46,7 @@ export function renderEditor() {
   $("stTab").textContent = tab ? [getGroup(tab.groupId).name, tab.name].filter(Boolean).join(" › ") : "No open tabs";
   renderRunStatus();
   if (!tab) $("stPos").textContent = "";
+  showFullscreenFor(state.ws.activeTab);
 }
 
 /** The parts of the status bar that a command changes. */
@@ -81,42 +93,43 @@ function rerun(block) {
 function start(tab, text) {
   const command = text.trim();
   if (command) tab.history.push(command);
-  execute(tab, command);
+  runCommand(tab, command, textAreaSize());
 }
 
-async function execute(tab, command) {
-  const block = addCommandBlock(tab, command, tab.cwd);
-  const signal = startRun(tab, block);
-  showContent(tab);
-  if (activeTab() === tab) followBottom();
-  emitPluginEvent("command:start", { tab, command });
-  let result;
-  try {
-    result = await runCommand(command, tab, {
-      setOutput: (snapshot, erased) => setRunningOutput(tab, block, snapshot, erased),
-      signal,
-    });
-  } catch (err) {
-    result = { output: signal.aborted ? "^C" : `error: ${err.message}` };
-  } finally {
-    finishRun(tab);
-  }
-  emitPluginEvent("command:finish", { tab, command, output: result.output ?? "", aborted: signal.aborted });
-  if (!getTab(tab.id)) return; // tab was closed meanwhile
+/** What a session does shows here. A view of raw bytes (xterm for the whole tab) would listen to `data` instead. */
+function listenToSessions() {
+  onSessionEvent("start", ({ tab }) => {
+    saveWorkspace();
+    showContent(tab);
+    if (activeTab() === tab) followBottom();
+  });
+  onSessionEvent("output", ({ tab }, { block, snapshot }) => {
+    noteSnapshot(block, snapshot);
+    showContent(tab);
+  });
+  onSessionEvent("finish", ({ tab }, { closed }) => {
+    if (closed) return; // the tab was closed meanwhile
+    showContent(tab);
+    saveWorkspace();
+  });
 
-  if (result.output && !result.shown) appendOutput(block, result.output);
-  finishBlock(tab, block, result.exit);
-  trimTranscript(tab);
-  showContent(tab);
-  saveWorkspace();
-}
-
-/** Replaces what the running command has shown so far: output can overwrite itself. */
-function setRunningOutput(tab, block, snapshot, erased = false) {
-  if (erased) clearEarlier(tab, block);
-  setBlockOutput(block, snapshot.text, snapshot.styles);
-  noteSnapshot(block, snapshot);
-  showContent(tab);
+  // Full-screen programs (vim, top) get xterm over the terminal area while they run.
+  onSessionEvent("fullscreen", (session, { on, closing }) => {
+    const tabId = session.tab.id;
+    if (on) {
+      openFullscreen(tabId, { onData: session.write, onResize: session.resizePty });
+      showFullscreenFor(state.ws.activeTab);
+      return;
+    }
+    closeFullscreen(tabId);
+    if (closing) return;
+    const { cols, rows } = textAreaSize();
+    session.resizePty(cols, rows);
+    if (state.ws.activeTab === tabId) $("editor").focus();
+  });
+  onSessionEvent("data", (session, { data }) => {
+    if (session.fullscreen) writeFullscreen(session.tab.id, data);
+  });
 }
 
 // ---------- what the input's keys ask for ----------

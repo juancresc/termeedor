@@ -3,7 +3,7 @@
 
 import { TAB_COLORS, LIMITS, SIDEBAR, FONT_SIZE, BUILTIN_THEMES } from "../constants.js";
 import { uid } from "./uid.js";
-import { sanitizeTranscript } from "../terminal/transcript.js";
+import { sanitizeTranscript } from "./transcript.js";
 
 // ---------- primitive validators ----------
 const isObject = (v) => v !== null && typeof v === "object";

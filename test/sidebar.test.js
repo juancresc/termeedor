@@ -36,7 +36,7 @@ test("a closed tab's time changes as soon as the minute is up, with no redraw", 
 
 test("a tab's spinner comes and goes without rebuilding its row", async () => {
   const { refreshSidebarRuns } = await import("../src/sidebar.js");
-  const { runs } = await import("../src/terminal/runState.js");
+  const { runs } = await import("../src/core/runState.js");
   renderSidebar();
   const row = nodeFor("groups").allWithClass("item")[0];
   const id = state.ws.tabs[0].id;

@@ -148,7 +148,10 @@ test("mock: clear erases the scrollback the way the real clear does", async () =
 });
 
 test("mock: build streams each step before it finishes", async () => {
-  const { backend, events } = mock();
+  // The second step is slow, so the moment with only the first step shown lasts long enough
+  // to see even under load. The others are quick.
+  let step = 0;
+  const { backend, events } = mock(undefined, { stepMs: () => (++step === 2 ? 300 : 1) });
   const running = backend.run("t1", "build");
   assert.equal(events.length, 0); // nothing yet: the first step takes time
   await until(() => ofType(events, "output").length === 1);

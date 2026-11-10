@@ -14,14 +14,15 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `electron/completions.cjs` | Tab completion's fallback: PATH commands and paths |
 | `electron/plugins.cjs`, `pluginHosts.cjs` | Plugin discovery, and one process per plugin host file |
 | `electron/dataStore.cjs` | Saved data as files in `~/.termeedor` (`TERMEEDOR_DATA_DIR` overrides it) |
-| `src/core/` | No DOM or storage. `workspace` (state and what changes it), `actions` (the registry of what the app can do, by id), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when) |
-| `src/store.js` | The import path for state and actions. Loads saved data on import, and connects core to the adapter and to running commands |
+| `src/core/` | No DOM or storage. `workspace` (state and what changes it), `actions` (the registry of what the app can do, by id), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when), `transcript` (a tab's blocks and draft), `styles` (styling's saved form, validation, CSS), `runState` (what is running, never saved, written by sessions) |
+| `src/store.js` | The import path for state and actions. Loads saved data on import, and connects core to the adapter |
 | `src/ports/persistence.js`, `src/adapters/` | The persistence interface. `fileStore` on the desktop (also migrates old localStorage), `localStorageStore` in the browser. `adapters/index.js` chooses |
 | `src/ports/backend.js`, `src/adapters/` | The backend interface: `run`, `write`, `resize`, `kill`, `complete`, and `output`, `alt`, `finish`, `exit` events. `electronBackend` is the IPC client, and `mockBackend` is the browser's fake shell, the only place fake commands exist. `adapters/index.js` chooses |
 | `src/platform.js` | Desktop or browser, Mac or not, and the desktop host. The only code that reads `termeedorHost` or `navigator.platform` |
 | `src/storage.js` | localStorage helpers, for the browser build, the migration and plugins' `api.storage` |
-| `src/editor.js` | The terminal area: connects the output and the input, runs commands, status bar |
-| `src/terminal/` | `outputView` (blocks as read-only DOM, scrolling), `inputEditor` (the input: keys, history, completion UI), `transcript` (a tab's blocks and draft), `runState` (what is running), `runner` (runs commands on the backend, turns its events into what the tab shows), `size` (the output area in characters), `textModel` (a terminal with no display, `@xterm/headless`, read back as text and styling), `styles` (styling's saved form, validation, CSS), `fullscreen` (xterm for vim, top), `keys` |
+| `src/main.js` | Wiring: chooses the backend and passes it to `runner` |
+| `src/editor.js` | The terminal area: connects the output, the input and the sessions, status bar, xterm, sizes |
+| `src/terminal/` | `outputView` (blocks as read-only DOM, scrolling), `inputEditor` (the input: keys, history, completion UI), `session` (one tab's commands from block to finish: run state, text model, flushing, fullscreen, input, cwd, plugin events; no DOM), `runner` (one session per tab, routes backend events, ends a closed tab's session), `size` (the output area in characters), `textModel` (a terminal with no display, `@xterm/headless`, read back as text and styling), `fullscreen` (xterm for vim, top), `keys` |
 | `src/plugins/` | Host, scope, registry, public API |
 | `src/appActions.js` | The app's own actions. Shortcuts, menus and most buttons name them by id |
 | `src/patch.js` | Updates the page from freshly built nodes, changing only what differs |
@@ -29,16 +30,19 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 
 ## Command flow
 
-1. Enter: `editor` calls `runner.runCommand`, which calls the backend's `run`. On the desktop that is `electronBackend`, then IPC, then `shellSessions`, then the PTY.
-2. PTY output: `shellParser` emits `output`, `alt`, `finish` events, which `electronBackend` passes on to `runner`.
-3. `output` goes through `textModel` into the block, which `outputView` redraws, or to xterm while a full-screen program runs.
-4. While a command runs, the input is out of sight but keeps focus, and keys and pastes go to the program. The mock's commands read nothing, so in the browser they go nowhere, and Ctrl+C reaches the mock through `write`.
+1. Enter: `editor` calls `runner.runCommand` with the size. The tab's `session` adds the block, starts the run and calls the backend's `run`. On the desktop that is `electronBackend`, then IPC, then `shellSessions`, then the PTY.
+2. PTY output: `shellParser` emits `output`, `alt`, `finish` events, which `electronBackend` passes to `runner`, then to the tab's session.
+3. The session puts `output` through `textModel` into the block, and emits `output`, `data` (raw bytes), `fullscreen`, `start`, `finish`. `editor` only listens: `outputView` redraws, or xterm gets `data` while a full-screen program runs.
+4. Closing a tab calls core's `endSession`: the run ends with 130 and the shell is killed.
+5. While a command runs, the input is out of sight but keeps focus, and keys and pastes go to the program. The mock's commands read nothing, so in the browser they go nowhere, and Ctrl+C reaches the mock through `write`.
 
 A command with a line break, or any other character a line editor would act on, goes to the shell as a bracketed paste followed by Enter, so the editor inserts it as text and runs it as one input. zsh then parses all of it before running anything; bash reads it a line at a time, as with any paste, so an earlier line can have run before a later line's syntax error. A command can't end its own paste. An unterminated quote or heredoc leaves the shell at a continuation prompt: keys are forwarded and Ctrl+C recovers, but until a command starts nothing the shell draws is shown, so what is typed there isn't visible.
 
 Lines that have scrolled off a terminal's screen can't change, so `textModel` reads each of them once, and a flush reads only the screen and what newly scrolled off. It tells `outputView` how much of the text is that stable part, which goes into chunks that are never redrawn, and the rest is compared piece by piece. A resize, a full reset or an erased scrollback starts both over.
 
 In the browser, `mockBackend` takes the place of everything after `run` and sends the same events.
+
+A real-terminal view (xterm for the whole tab) would plug in at `editor.listenToSessions`: listen to `data`, send keys with `session.write` and its size with `session.resizePty`.
 
 ## Saved data
 
@@ -70,21 +74,24 @@ In the browser, `mockBackend` takes the place of everything after `run` and send
 - `src/` must keep working without Electron: the browser build uses the mock.
 - Stored data is untrusted and validated on load.
 
+## Tests
+
+- `npm test`: Node only, with a stub DOM (`test/support`). No layout, CSS, focus or real events.
+- `npm run test:e2e`: the browser build in an Electron window that is never shown (offscreen, in-memory profile), driven over the DevTools protocol (`test/e2e/support`). For layout, focus, selection and real keys and clicks. On macOS it runs an APFS clone of Electron.app marked `LSUIElement`, so no Dock icon shows.
+
+
 ## Known problems
 
 | Problem | Where |
 | --- | --- |
-| Shells are killed by diffing state after a commit | `terminal/runner.js` `initRunner` |
 | Plugins' `api.storage` is still localStorage, and the browser build keeps all scrollback in one value | `plugins/api.js`, `adapters/localStorageStore.js` |
-| `core` still imports the transcript model from `terminal/` | `core/saved.js`, `core/workspace.js` |
 | A desktop shell that ends between commands sends no `exit` event, so the tab's next `run` is what notices | `electron/shellSessions.cjs` |
-| Plugins get live `tab` objects | `plugins/api.js` |
 | On bash, completion doesn't know flags or branches | `completions.cjs` |
 | Completion functions run the programs they complete for (`git`, `npm`), as they do in zsh | `shellCompleter.cjs` |
 | What the shell draws at a continuation prompt isn't shown, so an unterminated quote looks like a silent running command | `electron/shellParser.cjs` |
 | Erased cells with a background color are trimmed with the line's end, so a background that fills a line stops at its last character | `terminal/textModel.js` |
 | A running program's cursor always shows at the end of its output, whatever column it is really in | `styles/base.css` |
-| Only the window's own resize reaches the PTY: dragging the sidebar or changing the font size waits for the next one | `terminal/runner.js` |
+| Only the window's own resize reaches the PTY: dragging the sidebar or changing the font size waits for the next one | `editor.js` |
 
 ## Target
 

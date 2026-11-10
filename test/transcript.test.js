@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { LIMITS, PROMPT } from "../src/constants.js";
-import { createRunState } from "../src/terminal/runState.js";
+import { createRunState } from "../src/core/runState.js";
 import {
   addCommandBlock, addTextBlock, appendOutput, clearEarlier, clearTranscript, copyBlocks, finishBlock,
   migrateLegacyContent, promptFor, renderTranscript, sanitizeTranscript, setBlockOutput, textBlock, trimTranscript,
-} from "../src/terminal/transcript.js";
+} from "../src/core/transcript.js";
 
 const command = (text, output = "") => ({ command: text, output, exit: 0, cwd: null });
 
@@ -399,20 +399,4 @@ test("each tab has its own run", () => {
   assert.equal(a.aborted, true);
   assert.equal(b.aborted, false);
   assert.equal(runs.phase("b"), "running");
-});
-
-test("the shell's part of a run ends before the run does", () => {
-  const runs = createRunState();
-  const shell = { fullscreen: false };
-  runs.attachShell("t", shell); // nothing running: not attached
-  assert.equal(runs.shell("t"), null);
-  runs.start("t");
-  assert.equal(runs.shell("t"), null); // the mock has no shell
-  runs.attachShell("t", shell);
-  assert.equal(runs.shell("t"), shell);
-  runs.detachShell("t");
-  assert.equal(runs.shell("t"), null);
-  assert.equal(runs.isRunning("t"), true);
-  runs.finish("t");
-  assert.equal(runs.block("t"), null);
 });

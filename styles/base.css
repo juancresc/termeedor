@@ -175,7 +175,7 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 /* where a running program's text is going: its keys arrive even though the input is out of sight */
 .output.running .block:last-child .outputTail::after { content: ""; display: inline-block; width: .6em; height: 1.1em; vertical-align: text-bottom; background: var(--accent); opacity: .7; }
 
-/* colors come from --ansi-0 … --ansi-15 or from inline rgb(), set from JS (terminal/styles.js) */
+/* colors come from --ansi-0 … --ansi-15 or from inline rgb(), set from JS (core/styles.js) */
 .ansiBold { font-weight: 700; }
 .ansiDim { opacity: .6; }
 .ansiItalic { font-style: italic; }

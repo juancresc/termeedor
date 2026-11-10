@@ -10,11 +10,11 @@ import {
 } from "../src/core/workspace.js";
 import { readSnapshot, tabFile } from "../src/core/saved.js";
 import { sanitizeSettings } from "../src/core/sanitize.js";
-import { textBlock } from "../src/terminal/transcript.js";
+import { textBlock } from "../src/core/transcript.js";
 
 const saves = [];
 const stops = [];
-connect({ save: (parts) => saves.push(parts), stopRun: (id) => stops.push(id) });
+connect({ save: (parts) => saves.push(parts), endSession: (id) => stops.push(id) });
 
 beforeEach(() => {
   hydrate({ ws: { ...defaultWorkspace(), groups: [], tabs: [], activeTab: null }, past: [], settings: sanitizeSettings(null) });
@@ -27,7 +27,7 @@ test("core imports no UI, no storage and nothing that runs commands", () => {
   for (const name of fs.readdirSync(folder)) {
     const source = fs.readFileSync(new URL(name, folder), "utf8");
     for (const [, target] of source.matchAll(/from "([^"]+)"/g)) {
-      assert.match(target, /^\.\/|^\.\.\/constants\.js$|^\.\.\/terminal\/transcript\.js$/, `${name} imports ${target}`);
+      assert.match(target, /^\.\/|^\.\.\/constants\.js$/, `${name} imports ${target}`);
     }
     assert.doesNotMatch(source, /\b(document|window|localStorage|termeedorHost)\b/, name);
   }
@@ -42,7 +42,7 @@ test("a commit asks for the workspace to be saved by default, and notifies", () 
   assert.equal(renders, 2);
 });
 
-test("closing a tab stops its run, archives it and saves both parts", () => {
+test("closing a tab ends its session, archives it and saves both parts", () => {
   const tab = addTab(addGroup().id);
   saves.length = 0;
   closeTab(tab);
