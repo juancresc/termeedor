@@ -131,8 +131,13 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
     /** Runs a command. Its results arrive through send(); a finish event ends it. */
     run(tabId, command, { cwd, cols, rows } = {}) {
       const size = cols && rows ? { cols, rows } : {};
-      const session = sessions.get(tabId) ?? start(tabId, cwd, size);
+      const existing = sessions.get(tabId);
+      const session = existing ?? start(tabId, cwd, size);
       if (session.running) throw new Error("A command is already running in this tab.");
+      // The view may have changed size since the shell started; its text model is made at this size.
+      if (existing && size.cols && (session.pty.cols !== size.cols || session.pty.rows !== size.rows)) {
+        session.pty.resize(size.cols, size.rows);
+      }
       session.running = true;
       if (session.ready) writeCommand(session, command);
       else session.queued = command;

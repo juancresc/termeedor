@@ -31,10 +31,10 @@ function harness(shell, rc) {
     if (event.type === "finish") waiters.shift()?.(event);
   }, { shell, env });
 
-  const run = async (command, tabId = "t") => {
+  const run = async (command, tabId = "t", size = {}) => {
     const from = events.length;
     const finished = new Promise((resolve) => waiters.push(resolve));
-    sessions.run(tabId, command, { cwd: home });
+    sessions.run(tabId, command, { cwd: home, ...size });
     const finish = await finished;
     const text = strip(events.slice(from).filter((e) => e.type === "output").map((e) => e.data).join(""));
     return { text, finish, events: events.slice(from) };
@@ -214,6 +214,13 @@ for (const [name, file] of shells) {
       await run("cd /tmp", "a");
       assert.equal((await run("pwd", "b")).text.trim(), home);
       assert.equal(fs.realpathSync((await run("pwd", "a")).text.trim()), fs.realpathSync("/tmp"));
+      sessions.killAll();
+    });
+
+    test("each command gets the size it was run at, so line editors wrap where the view does", async () => {
+      const { sessions, run } = harness(file, "");
+      assert.equal((await run("stty size", "t", { cols: 100, rows: 30 })).text.trim(), "30 100");
+      assert.equal((await run("stty size", "t", { cols: 73, rows: 21 })).text.trim(), "21 73");
       sessions.killAll();
     });
 

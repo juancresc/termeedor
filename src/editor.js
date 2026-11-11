@@ -27,15 +27,25 @@ export function initEditor() {
   onRunChange(renderRunStatus);
   listenToSessions();
 
+  // The output area changes size with the window, and also with the sidebar or the input's height.
   let resizeTimer;
-  window.addEventListener("resize", () => {
+  let lastSize = "";
+  const resized = () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       refitFullscreen();
       const { cols, rows } = textAreaSize();
+      if (`${cols}x${rows}` === lastSize) return;
+      lastSize = `${cols}x${rows}`;
       resizeSessions(cols, rows);
     }, 100);
-  });
+  };
+  window.addEventListener("resize", resized);
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(resized);
+    observer.observe($("output"));
+    observer.observe($("termScroll"));
+  }
 }
 
 export const focusEditor = focusInput;
