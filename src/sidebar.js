@@ -11,10 +11,11 @@ import {
 import { runAction } from "./core/actions.js";
 import { keptNode, patchChildren } from "./patch.js";
 import { renderTranscript } from "./core/transcript.js";
-import { nameLabel, startRename, isEditing } from "./rename.js";
+import { nameLabel, groupName, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
 import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";
 import { createRunMarks } from "./runMarks.js";
+import { acceptTabDrops, dragTab } from "./dropTarget.js";
 
 const runMarks = createRunMarks();
 
@@ -62,7 +63,7 @@ function groupNode(group) {
   head.append(
     groupCollapseButton(group),
     colorDot(group.color, "dot"),
-    nameLabel("group", group, "sidebar", "span", "gname"),
+    groupName(group, "sidebar", "gname"),
     // its tabs are hidden while collapsed, so show here that something is running
     runMarks.slot(() => group.collapsed && groupIsBusy(group.id)),
     groupRowButtons(group),
@@ -72,13 +73,10 @@ function groupNode(group) {
   head.oncontextmenu = (e) => groupMenu(group, e);
 
   // drop a tab (from the sidebar or the tab bar) onto a group to move it
-  box.ondragover = (e) => { e.preventDefault(); box.classList.add("dragover"); };
-  box.ondragleave = () => box.classList.remove("dragover");
-  box.ondrop = (e) => {
-    e.preventDefault();
-    const tab = getTab(e.dataTransfer.getData("text/tab"));
+  acceptTabDrops(box, `group-${group.id}`, (id) => {
+    const tab = getTab(id);
     if (tab) moveTab(tab, group.id);
-  };
+  });
 
   const list = el("div", "glist");
   list.append(...tabs.map(tabRow));
@@ -102,7 +100,7 @@ function tabRow(tab) {
   row.ondblclick = () => startRename("tab", tab, "sidebar");
   row.oncontextmenu = (e) => tabMenu(tab, e, "sidebar");
   row.draggable = !isEditing("tab", tab.id, "sidebar");
-  row.ondragstart = (e) => e.dataTransfer.setData("text/tab", tab.id);
+  dragTab(row, tab);
   return row;
 }
 

@@ -130,11 +130,27 @@ test("Cmd+[ and Cmd+] move between groups, going around, back to each group's ta
   assert.equal(store.activeTab(), tabInSecond);
 });
 
+test("Shift+Cmd+1-9 go to a group, skipping minimized ones, back to its tab", () => {
+  const first = store.activeTab();
+  const second = store.addGroup();
+  const third = store.addGroup();
+  const tabInSecond = store.tabsIn(second.id)[0];
+  press("Digit1", { shiftKey: true });
+  assert.equal(store.activeTab(), first);
+  press("Digit2", { shiftKey: true });
+  assert.equal(store.activeTab(), tabInSecond);
+  store.setGroupMinimized(second, true);
+  press("Digit2", { shiftKey: true });
+  assert.equal(state.ws.activeGroup, third.id);
+  press("Digit9", { shiftKey: true });
+  assert.equal(state.ws.activeGroup, third.id);
+});
+
 test("the shortcut list is split into sections, with group keys under Groups", async () => {
   const { shortcutList } = await import("../src/keymap.js");
   const sections = shortcutList();
   assert.deepEqual(sections.map((s) => s.section), ["Tabs", "Groups", "Window", "Input"]);
-  assert.deepEqual(sections[1].rows.map((r) => `${r.keys} ${r.does}`), ["⌘G new group", "⌘[ previous group", "⌘] next group"]);
+  assert.deepEqual(sections[1].rows.map((r) => `${r.keys} ${r.does}`), ["⌘G new group", "⌘[ previous group", "⌘] next group", "⇧⌘1–9 go to group"]);
   assert.match(sections[0].rows.find((r) => r.does === "go to tab").note, /Show all tabs/);
 });
 

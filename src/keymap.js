@@ -6,6 +6,7 @@
 import { isDesktop, isMac } from "./platform.js";
 
 const IN_GROUP = "In the selected group. With Show all tabs on, across every group.";
+const GROUP_NOTE = "Returns to the tab you last used there. Skips minimized groups.";
 
 // Ctrl+[ is Escape in a terminal, so off the Mac the group keys are Ctrl+PageUp/PageDown.
 const GROUP_KEYS = isMac
@@ -27,7 +28,8 @@ const DESKTOP_KEYS = [
   { action: "nextTab", code: "BracketRight", key: "]", shift: true, does: "next tab", section: "Tabs", note: IN_GROUP },
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ action: "goToTab", arg: n, code: `Digit${n}`, key: String(n) })),
   { action: "newGroup", code: "KeyG", key: "G", does: "new group", section: "Groups" },
-  ...GROUP_KEYS.map((k) => ({ ...k, section: "Groups", note: "Returns to the tab you last used there. Skips minimized groups." })),
+  ...GROUP_KEYS.map((k) => ({ ...k, section: "Groups", note: GROUP_NOTE })),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ action: "goToGroup", arg: n, code: `Digit${n}`, key: String(n), shift: true })),
   { action: "toggleSidebar", code: "KeyB", key: "B", does: "sidebar", section: "Window" },
   { action: "openSettings", code: "Comma", key: ",", does: "settings", section: "Window" },
 ];
@@ -76,7 +78,10 @@ export function withShortcut(label, action) {
 /** The documented shortcuts for the settings dialog, by section: [{ section, rows: [{ keys, does, note? }] }]. */
 export function shortcutList() {
   const rows = KEYS.filter((k) => k.does).map((k) => ({ section: k.section, keys: keyLabel(k), does: k.does, note: k.note }));
-  if (isDesktop) rows.splice(rows.findIndex((r) => r.does === "next tab") + 1, 0, { section: "Tabs", keys: keyLabel({ key: "1–9" }), does: "go to tab", note: IN_GROUP });
+  if (isDesktop) {
+    rows.splice(rows.findIndex((r) => r.does === "next tab") + 1, 0, { section: "Tabs", keys: keyLabel({ key: "1–9" }), does: "go to tab", note: IN_GROUP });
+    rows.splice(rows.findIndex((r) => r.does === "next group") + 1, 0, { section: "Groups", keys: keyLabel({ key: "1–9", shift: true }), does: "go to group", note: GROUP_NOTE });
+  }
   rows.push(...OTHER_KEYS.map((k) => ({ section: k.section, keys: k.label, does: k.does })));
   const sections = [];
   for (const { section, ...row } of rows) {

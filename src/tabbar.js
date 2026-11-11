@@ -10,15 +10,17 @@ import {
   activateTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { runAction } from "./core/actions.js";
-import { nameLabel, startRename, isEditing } from "./rename.js";
+import { nameLabel, groupName, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
 import { renderRows, slideNextRender } from "./slide.js";
 import { createRunMarks } from "./runMarks.js";
+import { acceptTabDrops, dragTab, initDropTargets } from "./dropTarget.js";
 
 const runMarks = createRunMarks();
 
 export function initTabbar() {
+  initDropTargets();
   $("newGroupTabBtn").onclick = () => runAction("newGroup");
   $("newTabBtn").onclick = () => runAction("newTab");
   $("allGroupsBtn").onclick = () => {
@@ -85,7 +87,7 @@ function groupSection(group) {
   if (group.color) box.style.setProperty("--group-color", colorVar(group.color));
   box.dataset.slideKey = `box-${group.id}`;
   box.append(...visibleTabsIn(group.id).map((tab) => tabNode(tab, group)), add);
-  acceptTabDrops(box, group);
+  acceptTabDrops(box, `box-${group.id}`, (id) => dropTab(id, group));
   return box;
 }
 
@@ -119,8 +121,7 @@ function groupTab(group) {
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
   node.append(runMarks.slot(() => groupIsBusy(group.id))); // hidden while selected, keeping its room
-  node.append(nameLabel("group", group, "tabbar", "span", "chipName")); // unnamed: empty, shows a "name" hint
-  node.title = group.name ? "" : "Double-click to name this group";
+  node.append(groupName(group, "tabbar", "chipName"));
   if (group.name) node.append(el("span", "chipCount", String(tabs.length)));
   if (minimizedCount) {
     const badge = el("button", "chipCount", `+${minimizedCount}`);
@@ -133,7 +134,7 @@ function groupTab(group) {
   node.onclick = () => { if (group.id !== state.ws.activeGroup) selectGroup(group); };
   node.ondblclick = (e) => { e.stopPropagation(); startRename("group", group, "tabbar"); };
   node.oncontextmenu = (e) => groupMenu(group, e, "tabbar");
-  acceptTabDrops(node, group);
+  acceptTabDrops(node, `chip-${group.id}`, (id) => dropTab(id, group));
   return node;
 }
 
@@ -156,17 +157,11 @@ function tabNode(tab, group) {
   node.ondblclick = () => startRename("tab", tab, "tabbar");
   node.oncontextmenu = (e) => tabMenu(tab, e, "tabbar");
   node.draggable = !isEditing("tab", tab.id, "tabbar");
-  node.ondragstart = (e) => e.dataTransfer.setData("text/tab", tab.id);
+  dragTab(node, tab);
   return node;
 }
 
-function acceptTabDrops(node, group) {
-  node.ondragover = (e) => { e.preventDefault(); node.classList.add("dragover"); };
-  node.ondragleave = () => node.classList.remove("dragover");
-  node.ondrop = (e) => {
-    e.preventDefault();
-    node.classList.remove("dragover");
-    const tab = getTab(e.dataTransfer.getData("text/tab"));
-    if (tab) moveTab(tab, group.id);
-  };
+function dropTab(id, group) {
+  const tab = getTab(id);
+  if (tab) moveTab(tab, group.id);
 }

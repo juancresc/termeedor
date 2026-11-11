@@ -132,9 +132,38 @@ test("an unnamed group's tab is just its buttons; a named one keeps its name and
   assert.equal(heading().querySelector(".chipCount"), null);
   assert.ok(heading().querySelector(".itemBtns"));
 
+  // its empty name is a "✎ Name" hint: one click opens the rename box
+  heading().querySelector(".chipName").onclick({ stopPropagation() {} });
+  renderTabbar();
+  assert.ok(heading().querySelector(".inlineInput"));
+  assert.equal(heading().querySelector(".nameHint"), null);
+  const input = heading().querySelector(".inlineInput");
+  for (const fn of input.listeners.keydown) fn({ key: "Escape", stopPropagation() {}, preventDefault() {} });
+
   group.name = "Work";
   renderTabbar();
   assert.ok(!heading().has("unnamed"));
   assert.equal(heading().querySelector(".chipName").textContent, "Work");
   assert.ok(heading().querySelector(".chipCount"));
+});
+
+test("dragging a tab: the group under it stays highlighted through a render, and clears on leaving", () => {
+  const groups = [addGroup(), addGroup()];
+  renderTabbar();
+  const chip = () => row("groupTabs").children[1];
+  const transfer = { types: ["text/tab"], dropEffect: "" };
+  const event = (extra) => ({ dataTransfer: transfer, currentTarget: chip(), preventDefault() {}, stopPropagation() {}, ...extra });
+
+  chip().ondragover(event());
+  assert.ok(chip().classList.contains("dragover"));
+  assert.equal(transfer.dropEffect, "move");
+
+  renderTabbar();
+  assert.ok(chip().classList.contains("dragover"));
+
+  chip().ondragleave(event({ relatedTarget: chip().children[0] })); // onto its own name: still over it
+  assert.ok(chip().classList.contains("dragover"));
+  chip().ondragleave(event({ relatedTarget: null }));
+  assert.ok(!chip().classList.contains("dragover"));
+  assert.equal(groups.length, 2);
 });

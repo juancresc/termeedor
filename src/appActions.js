@@ -31,6 +31,11 @@ function goToTab(n) {
   if (tab) activateTab(tab.id);
 }
 
+function goToGroup(n) {
+  const group = barGroups()[n - 1];
+  if (group) selectGroup(group);
+}
+
 const isTab = (tab) => !!tab && getTab(tab.id) === tab;
 const isGroup = (group) => !!group && getGroup(group.id) === group;
 const isPast = (entry) => state.past.includes(entry);
@@ -56,6 +61,7 @@ const ACTIONS = [
   { id: "previousGroup", label: "Previous group", run: () => switchGroup(-1) },
   { id: "nextGroup", label: "Next group", run: () => switchGroup(1) },
   { id: "goToTab", label: "Go to tab", run: goToTab },
+  { id: "goToGroup", label: "Go to group", run: goToGroup },
   { id: "clearSessions", label: "Clear all sessions", run: () => confirmClearPast() },
 
   tabAction({ id: "tab.rename", label: "Rename", run: (tab, where) => startRename("tab", tab, where) }),
