@@ -124,6 +124,40 @@ for (const [name, file] of shells) {
       sessions.killAll();
     });
 
+    test("keys typed while the shell starts follow the waiting command, not precede it", { timeout: 15000 }, async () => {
+      const { sessions, waitFinish, events } = harness(file, "sleep 1\n");
+      const finished = waitFinish();
+      sessions.run("t", 'read answer; echo "got [$answer]"', { cwd: home });
+      sessions.write("t", "g"); // the next command's first key, typed before the shell was ready
+      sessions.write("t", "o\r");
+      const finish = await finished;
+      const text = strip(events.filter((e) => e.type === "output").map((e) => e.data).join(""));
+      assert.match(text, /got \[go\]/);
+      assert.equal(finish.exit, 0);
+      sessions.killAll();
+    });
+
+    test("keys a command never read come back with its finish, and the next command runs clean", { timeout: 15000 }, async () => {
+      const { sessions, run, waitFinish } = harness(file, "");
+      const finished = waitFinish();
+      sessions.run("t", "sleep 1", { cwd: home });
+      await new Promise((r) => setTimeout(r, 300));
+      sessions.write("t", "sh pro");
+      const finish = await finished;
+      assert.equal(finish.typeahead, "sh pro");
+      assert.equal((await run("echo clean")).text, "clean\n");
+      sessions.killAll();
+    });
+
+    test("keys written once the command has finished go back as typeahead", async () => {
+      const { sessions, run, events } = harness(file, "");
+      await run("true");
+      sessions.write("t", "g");
+      assert.deepEqual(events.at(-1), { tabId: "t", type: "typeahead", data: "g" });
+      assert.equal((await run("echo clean")).text, "clean\n");
+      sessions.killAll();
+    });
+
     test("a running program can read typed input", async () => {
       const { sessions, waitFinish, events } = harness(file, "");
       const finished = waitFinish();

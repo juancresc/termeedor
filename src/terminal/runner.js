@@ -10,7 +10,7 @@ import { createSession } from "./session.js";
 let backend = null;
 const sessions = new Map(); // tabId -> session
 const listeners = new Map(); // type -> Set of (session, payload)
-const EVENTS = ["start", "output", "data", "fullscreen", "finish"];
+const EVENTS = ["start", "output", "data", "fullscreen", "busy", "finish", "typeahead"];
 
 /** backend: see ports/backend.js. */
 export function initRunner(given) {
@@ -36,9 +36,10 @@ export function onSessionEvent(type, listener) {
   listeners.get(type).add(listener);
 }
 
-/** Called when a command starts or ends. Commands don't commit: only what shows them needs to change. */
+/** Called when a command starts, ends, or turns busy or idle. Commands don't commit: only what shows them needs to change. */
 export function onRunChange(fn) {
   onSessionEvent("start", fn);
+  onSessionEvent("busy", fn);
   onSessionEvent("finish", fn);
 }
 

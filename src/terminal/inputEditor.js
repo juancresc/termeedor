@@ -20,7 +20,7 @@ const row = $("inputRow");
 const lineNumbers = $("inputLines");
 const textMeasure = document.createElement("canvas").getContext("2d");
 let shownTab = null;
-let recall = null; // browsing past commands: { tabId, index, draft }
+let recall = null; // browsing past commands: { tabId, history, index, draft }
 let completionRequest = 0; // only the newest request may show its results
 let actions = null;
 
@@ -47,7 +47,7 @@ export function initInput(provided) {
   document.addEventListener("paste", onPasteElsewhere);
 }
 
-export const focusInput = () => editor.focus();
+export const focusInput = (options) => editor.focus(options);
 
 const runningNow = () => {
   const tab = activeTab();
@@ -161,11 +161,26 @@ function recallOnArrow(event) {
   recallCommand(up ? -1 : 1);
 }
 
+/**
+ * The tab's own commands come last, so Up reaches them first; other open tabs' follow, then closed
+ * tabs' (newest closed first), without repeats.
+ */
+function recallList(tab) {
+  if (!state.settings.sharedHistory) return tab.history;
+  const closed = [...state.past].reverse().flatMap((entry) => entry.tab.history);
+  const others = closed.concat(state.ws.tabs.filter((t) => t !== tab).flatMap((t) => t.history));
+  const own = new Set(tab.history);
+  return [...new Set(others.filter((c) => !own.has(c)).reverse())].reverse().concat(tab.history);
+}
+
 function recallCommand(delta) {
   const tab = activeTab();
   if (!tab) return;
-  const { history } = tab;
-  if (recall?.tabId !== tab.id) recall = { tabId: tab.id, index: history.length, draft: editor.value };
+  if (recall?.tabId !== tab.id) {
+    const history = recallList(tab);
+    recall = { tabId: tab.id, history, index: history.length, draft: editor.value };
+  }
+  const { history } = recall;
   // Only commands that start with what was typed before browsing, as zsh's history-beginning-search.
   let index = recall.index + delta;
   while (index >= 0 && index < history.length && !history[index].startsWith(recall.draft)) index += delta;

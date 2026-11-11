@@ -11,7 +11,9 @@
 // onEvent(listener): returns a function that stops listening. listener({ tabId, event }) gets:
 //   { type: "output", data }        terminal bytes, escape sequences included
 //   { type: "alt", on }             a program took over the screen, or gave it back
-//   { type: "finish", exit?, cwd }  the command ended. No exit means it isn't known.
+//   { type: "finish", exit?, cwd, typeahead? }  the command ended. No exit means it isn't known.
+//                                   typeahead: bytes written for it that it never read
+//   { type: "typeahead", data }     bytes written after the command ended, so they weren't sent on
 //   { type: "exit" }                the shell is gone, and the tab's next run starts a new one.
 //                                   A desktop shell that ends between commands isn't reported.
 // takesInput: true if keys and pastes go to a running command. If false, the editor keeps them.

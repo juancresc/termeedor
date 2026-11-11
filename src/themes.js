@@ -80,10 +80,10 @@ const REFERENCE = `/*
  *   Input      .inputRow .inputRow.running .inputRow.multiline .inputLines .promptMark .editor .editor::selection
  *   Full screen .fullTerm (vim, top and friends)
  *   Completion .completions .completions div
- *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin
+ *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin .zoomBtns #zoomIn #zoomOut
  *   Menus      .menu .menu button .menu hr .menu .lbl .menu .swatches .menu .sw .menu .sw.none .menu .danger
  *   Tooltips   .tooltip .tooltip kbd
- *   Settings   dialog dialog::backdrop .setHead .setSearch ::highlight(settingsMatch) .searchHidden .topicHidden .setMain .setBody .setNav .setTopics .setTopics button .setRow .setText .stepBtn .hint .btn
+ *   Settings   dialog dialog::backdrop .setHead .setSearch ::highlight(settingsMatch) .searchHidden .topicHidden .setMain .setBody .setNav .setTopics .setTopics button .setRow .setText .setSub .shortcutRow .stepBtn .hint .btn
  *              .colorPick .colorPick .sw .colorPick .sw.none .colorPick .sw.groupOpt
  *              .themes .themeActions .themePick .themeCard .themeCard.on .themeCard .pv .themeCard .label
  *              .themeCard .remove .themeLink

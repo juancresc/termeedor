@@ -24,10 +24,14 @@ export function initSettings() {
   $("fontSize").oninput = (e) => updateSettings({ fontSize: Number(e.target.value) });
   $("fontSizeDown").onclick = () => updateSettings({ fontSize: state.settings.fontSize - 1 });
   $("fontSizeUp").onclick = () => updateSettings({ fontSize: state.settings.fontSize + 1 });
+  $("zoomOut").onclick = () => updateSettings({ fontSize: state.settings.fontSize - 1 });
+  $("zoomIn").onclick = () => updateSettings({ fontSize: state.settings.fontSize + 1 });
+  for (const id of ["zoomOut", "zoomIn"]) $(id).onmousedown = (e) => e.preventDefault(); // keep focus in the input
   $("lineNumbers").onchange = (e) => updateSettings({ lineNumbers: e.target.checked });
   $("showAllGroups").onchange = (e) => updateSettings({ showAllGroups: e.target.checked });
   $("showSidebar").onchange = (e) => setSidebarOpen(e.target.checked);
   $("newTabInCurrentPath").onchange = (e) => updateSettings({ newTabInCurrentPath: e.target.checked });
+  $("sharedHistory").onchange = (e) => updateSettings({ sharedHistory: e.target.checked });
   $("confirmCloseGroup").onchange = (e) => updateSettings({ confirmCloseGroup: e.target.checked });
   $("settingsSearch").oninput = applySettingsSearch;
   initSettingsTopics();
@@ -47,6 +51,8 @@ export function openSettings() {
 export function applySettings() {
   applyTheme(state.settings);
   $("app").classList.toggle("nolines", !state.settings.lineNumbers);
+  $("zoomOut").disabled = state.settings.fontSize <= FONT_SIZE.min;
+  $("zoomIn").disabled = state.settings.fontSize >= FONT_SIZE.max;
 }
 
 export function renderSettings() {
@@ -61,6 +67,7 @@ export function renderSettings() {
   $("showSidebar").checked = state.ws.sidebarOpen;
   $("newTabInCurrentPath").checked = state.settings.newTabInCurrentPath;
   $("confirmCloseGroup").checked = state.settings.confirmCloseGroup;
+  $("sharedHistory").checked = state.settings.sharedHistory;
   renderDefaultTabColor();
   renderThemeGrid();
   renderPluginSettings();

@@ -23,6 +23,7 @@ export function cssColor(v) {
 function sanitizeTabBody(t) {
   return {
     color: tabColor(t.color),
+    autoNamed: t.autoNamed === true,
     ...sanitizeTranscript(t), // also migrates tabs saved as one string
     cwd: text(t.cwd, LIMITS.cwd, "~"),
     history: Array.isArray(t.history) ? t.history.filter((h) => typeof h === "string").slice(-LIMITS.history) : [],
@@ -87,6 +88,7 @@ export function sanitizeSettings(raw) {
     fontSize: clamp(s.fontSize, FONT_SIZE.min, FONT_SIZE.max, FONT_SIZE.default),
     lineNumbers: s.lineNumbers !== false,
     showAllGroups: s.showAllGroups === true, // second row: every group's tabs, not just the selected group's
+    sharedHistory: s.sharedHistory !== false, // Up and Down also reach commands run in other tabs
     newTabInCurrentPath: s.newTabInCurrentPath === true, // new tabs start in the active tab's path, not home
     confirmCloseGroup: s.confirmCloseGroup !== false, // ask before closing a group that has tabs
     // color for new tabs: "none", "group" (use the group's color) or one of TAB_COLORS

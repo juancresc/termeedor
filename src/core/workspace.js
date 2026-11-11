@@ -11,8 +11,9 @@ import { copyBlocks, textBlock } from "./transcript.js";
 const banner = () =>
   textBlock(`Termeedor — ${new Date().toLocaleString()}\n`);
 
+/** autoNamed: still on the default name addTab gave it, so the first command it runs becomes its name. */
 export function createTab(groupId, name = "shell") {
-  return { id: uid(), groupId, name, color: null, collapsed: false, minimized: false, blocks: [banner()], draft: "", cwd: "~", history: [] };
+  return { id: uid(), groupId, name, autoNamed: false, color: null, collapsed: false, minimized: false, blocks: [banner()], draft: "", cwd: "~", history: [] };
 }
 
 function defaultTabColorFor(group) {
@@ -139,6 +140,7 @@ export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id,
   }
   showGroup(group);
   const tab = createTab(group.id, `shell ${state.ws.tabs.filter((t) => t.groupId === group.id).length + 1}`);
+  tab.autoNamed = true;
   tab.color = defaultTabColorFor(group);
   if (state.settings.newTabInCurrentPath && activeTab()) tab.cwd = activeTab().cwd;
   state.ws.tabs.splice(after ? state.ws.tabs.indexOf(after) + 1 : state.ws.tabs.length, 0, tab);
@@ -230,8 +232,11 @@ export function selectGroup(group) {
 
 export const moveGroupBy = (group, delta) => moveInBar(state.ws.groups, barGroups(), group, delta);
 
-/** Empty groups always close without asking. */
-export const shouldConfirmCloseGroup = (group) => state.settings.confirmCloseGroup && tabsIn(group.id).length > 0;
+/** A tab nothing was ever typed or run in: just the banner, no history, no draft. */
+const isUntouched = (tab) => tab.history.length === 0 && !tab.draft && tab.blocks.length <= 1;
+
+/** Empty groups (no tabs, or only untouched ones) always close without asking. */
+export const shouldConfirmCloseGroup = (group) => state.settings.confirmCloseGroup && !tabsIn(group.id).every(isUntouched);
 
 /** Closing a group moves all its tabs to Past sessions. */
 export function closeGroup(group) {
@@ -308,7 +313,7 @@ function archiveTab(tab) {
     name: tab.name,
     // Past files have no list to keep their order in, so no two may share a time.
     closedAt: Math.max(Date.now(), (state.past[0]?.closedAt ?? 0) + 1),
-    tab: { color: tab.color, blocks: copyBlocks(tab.blocks), draft: tab.draft, cwd: tab.cwd, history: [...tab.history] },
+    tab: { color: tab.color, autoNamed: tab.autoNamed, blocks: copyBlocks(tab.blocks), draft: tab.draft, cwd: tab.cwd, history: [...tab.history] },
   });
   state.past.length = Math.min(state.past.length, LIMITS.past);
 }
@@ -345,7 +350,18 @@ export function clearPast() {
 /** kind: "tab" | "group" | "past" */
 export function renameItem(kind, item, name) {
   item.name = name.trim().slice(0, LIMITS.name);
+  if (kind === "past") item.tab.autoNamed = false;
+  else item.autoNamed = false;
   commit(kind === "past" ? "past" : "workspace");
+}
+
+/** A tab still on its default name takes the first command it runs as its name. */
+export function nameFromCommand(tab, command) {
+  const name = command.trim().split("\n")[0].trim().slice(0, LIMITS.name);
+  if (!tab.autoNamed || !name) return;
+  tab.name = name;
+  tab.autoNamed = false;
+  commit();
 }
 
 // ---------- layout ----------

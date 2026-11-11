@@ -4,9 +4,9 @@
 
 import { defineAction } from "./core/actions.js";
 import {
-  state, activeTab, barTabs, getGroup, getTab, isRunning, stopRun, tabsIn,
+  state, activeTab, barGroups, barTabs, getGroup, getTab, isRunning, stopRun, tabsIn,
   activateTab, addTab, addGroup, closeActive, closeTab, duplicateTab, moveTabToNewGroup, setTabCollapsed, setTabMinimized,
-  restoreMinimized, setGroupCollapsed, setGroupMinimized, setSidebarOpen, reopenLastClosed, reopenPast, deletePast,
+  restoreMinimized, selectGroup, setGroupCollapsed, setGroupMinimized, setSidebarOpen, reopenLastClosed, reopenPast, deletePast,
 } from "./store.js";
 import { openSettings } from "./settings.js";
 import { startRename } from "./rename.js";
@@ -17,6 +17,13 @@ function switchTab(offset) {
   if (!tabs.length) return;
   const index = tabs.indexOf(activeTab());
   activateTab(tabs[(index + offset + tabs.length) % tabs.length].id);
+}
+
+function switchGroup(offset) {
+  const groups = barGroups();
+  if (groups.length < 2) return;
+  const index = groups.findIndex((g) => g.id === state.ws.activeGroup);
+  selectGroup(groups[(index + offset + groups.length) % groups.length]);
 }
 
 function goToTab(n) {
@@ -46,6 +53,8 @@ const ACTIONS = [
   { id: "openSettings", label: "Settings", run: () => openSettings() },
   { id: "previousTab", label: "Previous tab", run: () => switchTab(-1) },
   { id: "nextTab", label: "Next tab", run: () => switchTab(1) },
+  { id: "previousGroup", label: "Previous group", run: () => switchGroup(-1) },
+  { id: "nextGroup", label: "Next group", run: () => switchGroup(1) },
   { id: "goToTab", label: "Go to tab", run: goToTab },
   { id: "clearSessions", label: "Clear all sessions", run: () => confirmClearPast() },
 

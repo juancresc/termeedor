@@ -56,8 +56,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .groupTab.active .spinner { visibility: hidden; } /* its tabs show their own; hidden, not removed, so selecting moves nothing */
 .groupTab.dragover, .tab.dragover { outline: 2px dashed var(--text); outline-offset: -2px; }
 .groupTab .chipName { overflow: hidden; text-overflow: ellipsis; }
-.groupTab .chipName:empty { display: none; }
-.groupTab.unnamed { padding-left: 6px; }
+.groupTab .chipName:empty::before { content: "name…"; font-style: italic; font-weight: 400; opacity: .5; } /* hint: double-click to rename */
+.groupTab.unnamed:hover .chipName:empty::before { opacity: .8; }
 .groupTab .inlineInput { width: 110px; font-weight: 600; }
 .chipCount { padding: 0 5px; border-radius: 8px; background: color-mix(in srgb, currentColor 18%, transparent); font-size: 10px; color: inherit; line-height: 15px; }
 button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transparent); }
@@ -197,6 +197,10 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 /* ---------- Status bar ---------- */
 .status { grid-column: 1 / 3; display: flex; align-items: center; gap: 16px; padding: 0 12px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); font-size: 11px; }
 .status .sp { flex: 1; }
+.zoomBtns { display: flex; gap: 2px; margin-right: -6px; }
+.zoomBtns button { width: 20px; height: 18px; padding: 0; border-radius: 4px; color: var(--dim); font-size: 14px; line-height: 18px; text-align: center; }
+.zoomBtns button:hover:not(:disabled) { background: var(--sel); color: var(--text); }
+.zoomBtns button:disabled { opacity: .35; }
 
 /* ---------- Context menu ---------- */
 .menu { position: fixed; z-index: 20; min-width: 180px; padding: 4px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--menu-shadow); }
@@ -260,6 +264,9 @@ dialog::backdrop { background: var(--backdrop); }
 .colorPick .sw.none.on { border: 2px solid var(--text); }
 .colorPick .sw.groupOpt { font-size: 9px; font-weight: 700; line-height: 12px; color: var(--dim); border: 1px solid var(--dim); }
 .colorPick .sw.groupOpt.on { border: 2px solid var(--text); color: var(--text); }
+.setSub h5 { margin: 14px 0 2px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+.setSub:first-child h5 { margin-top: 4px; }
+.shortcutRow kbd { flex: none; margin-left: 16px; font-family: var(--mono); font-size: 12px; color: var(--text); white-space: nowrap; }
 .hint { color: var(--dim); font-size: 12px; line-height: 1.5; }
 .hint code { font-family: var(--mono); color: var(--text); }
 .btn { padding: 5px 10px; border-radius: 6px; background: var(--line); font-size: 12px; }
@@ -331,6 +338,10 @@ button.stPlugin:hover { background: var(--panel2); color: var(--text); }
 .runMark { display: contents; }
 /* a running tab's spinner stands in for its dot or letter */
 .runMark:not(:empty) + :is(.tdot, .initial) { display: none; }
+.runMark:has(+ .tdot) .spinner { width: 8px; } /* as wide as the dot it stands in for */
+/* beside a name, in the bar's left padding: coming or going, it moves nothing */
+.groupTab, .tab { position: relative; }
+:is(.groupTab:not(.unnamed), .tab:not(.collapsed)) > .runMark .spinner { position: absolute; left: 0; top: 50%; width: 10px; margin-top: -5px; font-size: 10px; }
 .spinner::before { content: "✻"; animation: spinner-glyph 1.2s steps(1) infinite, spinner-pulse 1.2s ease-in-out infinite; }
 @keyframes spinner-glyph {
   0% { content: "·"; } 16% { content: "✢"; } 33% { content: "✳"; }

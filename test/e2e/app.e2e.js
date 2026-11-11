@@ -188,6 +188,20 @@ test("the light theme applies", async () => {
   assert.ok((r + g + b) / 3 > 180, `the terminal background is ${background}`);
 });
 
+test("the status bar + and − change the text size and keep focus", async () => {
+  const size = () => app.evaluate(() => getComputedStyle(document.querySelector(".output")).fontSize);
+  const before = parseFloat(await size());
+  const plus = await app.center("#zoomIn");
+  await app.click(plus.x, plus.y);
+  await app.waitFor(() => document.documentElement.style.getPropertyValue("--font-size") !== "");
+  assert.equal(parseFloat(await size()), before + 1);
+  const minus = await app.center("#zoomOut");
+  await app.click(minus.x, minus.y);
+  await app.click(minus.x, minus.y);
+  assert.equal(parseFloat(await size()), before - 1);
+  assert.equal(await app.evaluate(() => document.activeElement?.id), "editor");
+});
+
 test("no horizontal scroll at a narrow width", async () => {
   await app.setSize(640, 500);
   await app.waitFor(() => innerWidth === 640);

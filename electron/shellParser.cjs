@@ -3,6 +3,7 @@
 // can't fake one by printing the same bytes unless it knows the token:
 //
 //   C                the command is starting: output begins
+//   T;<hex>          keys typed during the command that it never read, sent just before D
 //   D;<exit>;<cwd>   the command finished: output ends
 //   A;<PATH>         the shell is ready for input
 //
@@ -53,13 +54,14 @@ function complaintAfterEcho(text, lastLine) {
 }
 
 function createShellParser(token) {
-  const marker = new RegExp(`\\x1b\\]133;([ACD]);${token}(?:;([^\\x07]*))?\\x07`);
+  const marker = new RegExp(`\\x1b\\]133;([ACDT]);${token}(?:;([^\\x07]*))?\\x07`);
   let held = "";
   let inOutput = false;
   let inAlt = false;
   let awaitingRejected = false; // a command was sent and hasn't started yet
   let rejected = "";
   let lastLine = null; // a multi-line command's last line; null for a one-line command
+  let typeahead = "";
 
   function answerQueries(text, events) {
     for (const [pattern, reply] of QUERIES) {
@@ -96,7 +98,9 @@ function createShellParser(token) {
   }
 
   function onMarker(kind, payload, events) {
-    if (kind === "C") {
+    if (kind === "T") {
+      if (/^(?:[0-9a-f]{2})*$/.test(payload)) typeahead += Buffer.from(payload, "hex").toString("utf8");
+    } else if (kind === "C") {
       inOutput = true;
       // Without the announcement this is only the echo. With it, whatever follows was really said.
       if (awaitingRejected && rejected.includes(EDITOR_DONE)) reportRejected(events);
@@ -113,7 +117,10 @@ function createShellParser(token) {
       rejected = "";
       inOutput = false;
       const separator = payload.indexOf(";");
-      events.push({ type: "finish", exit: Number.parseInt(payload, 10) || 0, cwd: payload.slice(separator + 1) });
+      const finish = { type: "finish", exit: Number.parseInt(payload, 10) || 0, cwd: payload.slice(separator + 1) };
+      if (typeahead) finish.typeahead = typeahead;
+      typeahead = "";
+      events.push(finish);
     } else {
       events.push({ type: "ready", path: payload });
     }

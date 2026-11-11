@@ -15,9 +15,12 @@ const node = (textContent, keywords) => {
 };
 const group = (title, ...items) => Object.assign(node(title), {
   items,
+  subs: [],
   querySelector: () => ({ textContent: title }),
-  querySelectorAll: () => items,
+  querySelectorAll(selector) { return selector === ".setSub" ? this.subs : items; },
 });
+// A titled block inside a group, like the shortcut sections: it shows while one of its items does.
+const subsection = (...items) => Object.assign(node(""), { querySelector: () => items.find((i) => !i.hidden) ?? null });
 const settings = () => {
   const groups = [
     group("Display", node("Font size"), node("Line numbers")),
@@ -74,4 +77,16 @@ test("an item is found by its keywords", () => {
   const root = settings();
   filterSettings(root, "folder");
   assert.deepEqual(shown(root), [["Open new tabs in the current path"]]);
+});
+
+test("a section inside a group hides when none of its items match", () => {
+  const tabs = [node("next tab", "Tabs"), node("previous tab", "Tabs")];
+  const groups = [node("next group", "Groups")];
+  const g = group("Shortcuts", ...tabs, ...groups);
+  g.subs = [subsection(...tabs), subsection(...groups)];
+  const root = { groups: [g], querySelectorAll: () => [g] };
+  filterSettings(root, "groups");
+  assert.deepEqual(g.subs.map((s) => s.hidden), [true, false]);
+  filterSettings(root, "next");
+  assert.deepEqual(g.subs.map((s) => s.hidden), [false, false]);
 });

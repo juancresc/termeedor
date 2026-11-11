@@ -5,22 +5,43 @@
 
 import { isDesktop, isMac } from "./platform.js";
 
+const IN_GROUP = "In the selected group. With Show all tabs on, across every group.";
+
+// Ctrl+[ is Escape in a terminal, so off the Mac the group keys are Ctrl+PageUp/PageDown.
+const GROUP_KEYS = isMac
+  ? [
+    { action: "previousGroup", code: "BracketLeft", key: "[", does: "previous group" },
+    { action: "nextGroup", code: "BracketRight", key: "]", does: "next group" },
+  ]
+  : [
+    { action: "previousGroup", code: "PageUp", key: "PageUp", does: "previous group" },
+    { action: "nextGroup", code: "PageDown", key: "PageDown", does: "next group" },
+  ];
+
 const DESKTOP_KEYS = [
-  { action: "newTab", code: "KeyT", key: "T", does: "new tab" },
-  { action: "reopenTab", code: "KeyT", key: "T", shift: true, does: "reopen closed tab" },
-  { action: "closeTab", code: "KeyW", key: "W", does: "close tab" },
-  { action: "newGroup", code: "KeyG", key: "G", does: "new group" },
-  { action: "toggleSidebar", code: "KeyB", key: "B", does: "sidebar" },
-  { action: "openSettings", code: "Comma", key: ",", does: "settings" },
+  { action: "newTab", code: "KeyT", key: "T", does: "new tab", section: "Tabs", note: "Opens in the selected group." },
+  { action: "reopenTab", code: "KeyT", key: "T", shift: true, does: "reopen closed tab", section: "Tabs" },
+  { action: "closeTab", code: "KeyW", key: "W", does: "close tab", section: "Tabs" },
   // Cmd+arrows stay with the editor (line start/end)
-  { action: "previousTab", code: "BracketLeft", key: "[", shift: true, does: "previous tab" },
-  { action: "nextTab", code: "BracketRight", key: "]", shift: true, does: "next tab" },
+  { action: "previousTab", code: "BracketLeft", key: "[", shift: true, does: "previous tab", section: "Tabs", note: IN_GROUP },
+  { action: "nextTab", code: "BracketRight", key: "]", shift: true, does: "next tab", section: "Tabs", note: IN_GROUP },
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ action: "goToTab", arg: n, code: `Digit${n}`, key: String(n) })),
+  { action: "newGroup", code: "KeyG", key: "G", does: "new group", section: "Groups" },
+  ...GROUP_KEYS.map((k) => ({ ...k, section: "Groups", note: "Returns to the tab you last used there. Skips minimized groups." })),
+  { action: "toggleSidebar", code: "KeyB", key: "B", does: "sidebar", section: "Window" },
+  { action: "openSettings", code: "Comma", key: ",", does: "settings", section: "Window" },
 ];
 
 const BROWSER_KEYS = [
-  { action: "previousTab", code: "ArrowLeft", key: "←", does: "previous tab" },
-  { action: "nextTab", code: "ArrowRight", key: "→", does: "next tab" },
+  { action: "previousTab", code: "ArrowLeft", key: "←", does: "previous tab", section: "Tabs", note: IN_GROUP },
+  { action: "nextTab", code: "ArrowRight", key: "→", does: "next tab", section: "Tabs", note: IN_GROUP },
+];
+
+// Not app shortcuts, but worth knowing. Listed after the keymap's own.
+const OTHER_KEYS = [
+  { label: "Tab", does: "complete", section: "Input" },
+  { label: "↑ / ↓", does: "browse history", section: "Input" },
+  { label: "Double-click", does: "rename a tab or group", section: "Input" },
 ];
 
 const KEYS = isDesktop ? DESKTOP_KEYS : BROWSER_KEYS;
@@ -52,9 +73,16 @@ export function withShortcut(label, action) {
   return entry ? `${label} (${keyLabel(entry)})` : label;
 }
 
-/** One "key: what it does" string per documented shortcut, for the settings dialog. */
+/** The documented shortcuts for the settings dialog, by section: [{ section, rows: [{ keys, does, note? }] }]. */
 export function shortcutList() {
-  const list = KEYS.filter((k) => k.does).map((k) => `${keyLabel(k)} ${k.does}`);
-  if (isDesktop) list.push(`${keyLabel({ key: "1–9" })} go to tab`);
-  return list;
+  const rows = KEYS.filter((k) => k.does).map((k) => ({ section: k.section, keys: keyLabel(k), does: k.does, note: k.note }));
+  if (isDesktop) rows.splice(rows.findIndex((r) => r.does === "next tab") + 1, 0, { section: "Tabs", keys: keyLabel({ key: "1–9" }), does: "go to tab", note: IN_GROUP });
+  rows.push(...OTHER_KEYS.map((k) => ({ section: k.section, keys: k.label, does: k.does })));
+  const sections = [];
+  for (const { section, ...row } of rows) {
+    const last = sections.at(-1);
+    if (last?.section === section) last.rows.push(row);
+    else sections.push({ section, rows: [row] });
+  }
+  return sections;
 }

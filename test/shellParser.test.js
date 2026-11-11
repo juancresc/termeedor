@@ -28,6 +28,15 @@ test("finish reports the exit code and a cwd that may contain semicolons", () =>
   assert.equal(finish.cwd, "/tmp/a;b");
 });
 
+test("keys the command never read ride on its finish, decoded; malformed ones are ignored", () => {
+  const parser = createShellParser(TOKEN);
+  const hex = Buffer.from("sh pró").toString("hex");
+  const [finish] = feed(parser, `${C}x\x1b]133;T;${TOKEN};${hex}\x07${D(0, "/x")}`).filter((e) => e.type === "finish");
+  assert.equal(finish.typeahead, "sh pró");
+  const [next] = feed(parser, `${C}\x1b]133;T;${TOKEN};zz\x07${D(0, "/x")}`).filter((e) => e.type === "finish");
+  assert.equal(next.typeahead, undefined);
+});
+
 test("a marker split across chunks is still recognized", () => {
   const parser = createShellParser(TOKEN);
   const whole = `${C}hello${D(0, "/x")}${A}`;

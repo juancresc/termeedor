@@ -28,7 +28,7 @@ export function initOutput({ rerun, focusInput }) {
   scroller.addEventListener("scroll", () => { pinned = isAtBottom(); });
   // A click focuses the input, but a drag or double click has selected text to copy.
   scroller.addEventListener("mouseup", (event) => {
-    if (event.button === 0 && getSelection().isCollapsed) focusInput();
+    if (event.button === 0 && getSelection().isCollapsed) focusInput({ preventScroll: true }); // stay where the user scrolled to
   });
 }
 

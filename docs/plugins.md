@@ -82,7 +82,7 @@ What a plugin can do goes in an action, and shortcuts, menus and status items re
 
 | Id | Takes |
 | --- | --- |
-| `newTab`, `reopenTab`, `closeTab`, `newGroup`, `toggleSidebar`, `openSettings`, `previousTab`, `nextTab`, `clearSessions` | nothing |
+| `newTab`, `reopenTab`, `closeTab`, `newGroup`, `toggleSidebar`, `openSettings`, `previousTab`, `nextTab`, `previousGroup`, `nextGroup`, `clearSessions` | nothing |
 | `goToTab` | a number, 1 to 9 |
 | `tab.rename`, `tab.toggleCollapsed`, `tab.toggleMinimized`, `tab.duplicate`, `tab.stop`, `tab.sendToNewGroup`, `tab.close` | a tab |
 | `group.newTab`, `group.rename`, `group.toggleCollapsed`, `group.toggleMinimized`, `group.restoreTabs`, `group.close` | a group |

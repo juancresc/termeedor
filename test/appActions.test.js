@@ -105,6 +105,31 @@ test("the keys for moving between tabs go around, and 1-9 go to a tab", () => {
   assert.equal(store.activeTab(), b);
 });
 
+test("Cmd+[ and Cmd+] move between groups, going around, back to each group's tab", () => {
+  const first = store.activeTab();
+  const second = store.addGroup();
+  const third = store.addGroup();
+  const tabInSecond = store.tabsIn(second.id)[0];
+  store.activateTab(tabInSecond.id);
+  press("BracketRight");
+  assert.equal(state.ws.activeGroup, third.id);
+  press("BracketRight");
+  assert.equal(state.ws.activeGroup, first.groupId);
+  assert.equal(store.activeTab(), first);
+  press("BracketLeft");
+  assert.equal(state.ws.activeGroup, third.id);
+  press("BracketLeft");
+  assert.equal(store.activeTab(), tabInSecond);
+});
+
+test("the shortcut list is split into sections, with group keys under Groups", async () => {
+  const { shortcutList } = await import("../src/keymap.js");
+  const sections = shortcutList();
+  assert.deepEqual(sections.map((s) => s.section), ["Tabs", "Groups", "Window", "Input"]);
+  assert.deepEqual(sections[1].rows.map((r) => `${r.keys} ${r.does}`), ["⌘G new group", "⌘[ previous group", "⌘] next group"]);
+  assert.match(sections[0].rows.find((r) => r.does === "go to tab").note, /Show all tabs/);
+});
+
 test("a key that isn't a shortcut does nothing", () => {
   assert.equal(press("KeyJ").prevented, undefined);
 });

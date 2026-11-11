@@ -15,6 +15,9 @@ export function filterSettings(root, query) {
       item.classList.toggle("searchHidden", !matches);
       if (matches) shownInGroup++;
     }
+    for (const sub of group.querySelectorAll(".setSub")) {
+      sub.classList.toggle("searchHidden", !sub.querySelector(`:is(${ITEMS}):not(.searchHidden)`));
+    }
     group.classList.toggle("searchHidden", shownInGroup === 0);
     shown += shownInGroup;
   }

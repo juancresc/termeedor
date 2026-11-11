@@ -6,7 +6,7 @@
 import { $, el } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
-  state, getGroup, getTab, groupLabel, tabsIn, visibleTabsIn, barGroups, barTabs, isRunning, groupHasRunning, minimizedGroups,
+  state, getGroup, getTab, groupLabel, tabsIn, visibleTabsIn, barGroups, barTabs, isBusy, groupIsBusy, minimizedGroups,
   activateTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { runAction } from "./core/actions.js";
@@ -118,8 +118,9 @@ function groupTab(group) {
   node.dataset.slideKey = group.id;
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
-  node.append(runMarks.slot(() => groupHasRunning(group.id))); // hidden while selected, keeping its room
-  node.append(nameLabel("group", group, "tabbar", "span", "chipName")); // unnamed: empty, and styled away
+  node.append(runMarks.slot(() => groupIsBusy(group.id))); // hidden while selected, keeping its room
+  node.append(nameLabel("group", group, "tabbar", "span", "chipName")); // unnamed: empty, shows a "name" hint
+  node.title = group.name ? "" : "Double-click to name this group";
   if (group.name) node.append(el("span", "chipCount", String(tabs.length)));
   if (minimizedCount) {
     const badge = el("button", "chipCount", `+${minimizedCount}`);
@@ -146,9 +147,9 @@ function tabNode(tab, group) {
   if (tab.collapsed) {
     // small chip: first letter (or spinner) + expand button
     node.title = tab.name;
-    node.append(runMarks.slot(() => isRunning(tab.id)), el("span", "initial", tab.name.slice(0, 1).toUpperCase()), expandTabButton(tab));
+    node.append(runMarks.slot(() => isBusy(tab.id)), el("span", "initial", tab.name.slice(0, 1).toUpperCase()), expandTabButton(tab));
   } else {
-    node.append(runMarks.slot(() => isRunning(tab.id)), nameLabel("tab", tab, "tabbar", "span", "name"), tabBarButtons(tab));
+    node.append(runMarks.slot(() => isBusy(tab.id)), nameLabel("tab", tab, "tabbar", "span", "name"), tabBarButtons(tab));
   }
 
   node.onclick = () => activateTab(tab.id);

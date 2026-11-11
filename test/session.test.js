@@ -4,10 +4,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
 
-import { createSession } from "../src/terminal/session.js";
+import { createSession, pasteBytes, typedText } from "../src/terminal/session.js";
+
+const ECHO_MS = 150; // as in session.js
 import { createRunState } from "../src/core/runState.js";
 
 const FLUSH_MS = 5;
+const IDLE_MS = 40;
 const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 const SIZE = { cols: 80, rows: 24 };
 
@@ -35,13 +38,33 @@ function setup(options) {
   const tab = { id: "t1", cwd: "~", blocks: [], draft: "", history: [] };
   const plugin = [];
   const runs = createRunState();
-  const session = createSession({ tab, backend, runs, flushMs: FLUSH_MS, emitPlugin: (name, data) => plugin.push([name, data]) });
+  const session = createSession({
+    tab, backend, runs, flushMs: FLUSH_MS, idleMs: IDLE_MS, emitPlugin: (name, data) => plugin.push([name, data]),
+  });
   const events = [];
-  for (const type of ["start", "output", "data", "fullscreen", "finish"]) session.on(type, (payload) => events.push([type, payload]));
+  for (const type of ["start", "output", "data", "fullscreen", "busy", "finish", "typeahead"]) session.on(type, (payload) => events.push([type, payload]));
   const send = (event) => session.handle(event);
   const typesOf = () => events.map(([type]) => type);
   return { backend, tab, plugin, runs, session, events, send, typesOf };
 }
+
+test("typed keys become input text: control keys dropped, Backspace honored", () => {
+  assert.equal(typedText("sh pro"), "sh pro");
+  assert.equal(typedText("gi\x1b[Dt\x7fx\r"), "gix");
+  assert.equal(typedText("é\x7f\x1bOAok\x03"), "ok");
+});
+
+test("keys a command never read go to the front of the draft; keys after it ended go to the end", async () => {
+  const { tab, session, send, typesOf } = setup();
+  const done = session.run("git push", SIZE);
+  tab.draft = "d.sh"; // typed once the run looked finished
+  send({ type: "finish", exit: 0, cwd: "~", typeahead: "sh pro" });
+  await done;
+  assert.equal(tab.draft, "sh prod.sh");
+  send({ type: "typeahead", data: " pull" });
+  assert.equal(tab.draft, "sh prod.sh pull");
+  assert.equal(typesOf().at(-1), "typeahead");
+});
 
 test("a command's life: start, output, finish, cwd and the finished block", async () => {
   const { backend, tab, plugin, session, events, send, typesOf } = setup();
@@ -74,6 +97,67 @@ test("a command's life: start, output, finish, cwd and the finished block", asyn
   assert.deepEqual(events.at(-1), ["finish", { block: tab.blocks[0], exit: 0, closed: false }]);
   assert.deepEqual(plugin.at(-1), ["command:finish", { tab, command: "ls", output: "one\ntwo", aborted: false }]);
   assert.equal(events.filter(([type]) => type === "data").length, 2);
+});
+
+test("a plain command is busy for as long as it runs, quiet or not", async () => {
+  const { runs, session, send } = setup();
+  const done = session.run("sleep 10", SIZE);
+  assert.equal(runs.isBusy("t1"), true);
+  await pause(IDLE_MS * 3);
+  assert.equal(runs.isBusy("t1"), true);
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
+  assert.equal(runs.isBusy("t1"), false);
+});
+
+test("an interactive program is busy only while it draws, and a key's echo doesn't count", async () => {
+  const { runs, session, send, events } = setup();
+  const done = session.run("claude", SIZE);
+  send({ type: "output", data: "\x1b[?2004h\x1b[?1004h> " });
+  await pause(IDLE_MS * 3);
+  assert.equal(runs.isBusy("t1"), false); // waiting at its prompt
+  assert.equal(session.running, true);
+
+  session.forwardKey({ key: "a", ctrlKey: false, altKey: false, metaKey: false });
+  send({ type: "output", data: "a" });
+  assert.equal(runs.isBusy("t1"), false);
+
+  await pause(ECHO_MS + 20);
+  send({ type: "output", data: "✻ Thinking…" });
+  assert.equal(runs.isBusy("t1"), true);
+  await pause(IDLE_MS * 3);
+  assert.equal(runs.isBusy("t1"), false);
+  assert.deepEqual(events.filter(([type]) => type === "busy").map(([, p]) => p.on), [false, true, false]);
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
+});
+
+test("a program reporting its progress (OSC 9;4) is believed over its output", async () => {
+  const { runs, session, send } = setup();
+  const done = session.run("claude", SIZE);
+  send({ type: "output", data: "\x1b[?2004h\x1b]9;4;3;\x07working" });
+  await pause(IDLE_MS * 3);
+  assert.equal(runs.isBusy("t1"), true); // quiet, but it said it is working
+  send({ type: "output", data: "\x1b]9;4;0;\x07done" });
+  assert.equal(runs.isBusy("t1"), false);
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
+});
+
+test("a title saying it works or waits (claude's ◐ and ✳) is believed over its output", async () => {
+  const { runs, session, send } = setup();
+  const done = session.run("claude", SIZE);
+  send({ type: "output", data: "\x1b[?2004h\x1b]0;\u2733 Claude Code\x07> " });
+  assert.equal(runs.isBusy("t1"), false);
+  send({ type: "output", data: "redraw" }); // drawing while waiting: still waiting
+  assert.equal(runs.isBusy("t1"), false);
+  send({ type: "output", data: "\x1b]0;\u25d0 Claude Code\x07" });
+  await pause(IDLE_MS * 3);
+  assert.equal(runs.isBusy("t1"), true); // quiet, but its title says it works
+  send({ type: "output", data: "\x1b]2;\u2733 Greeting\x07" });
+  assert.equal(runs.isBusy("t1"), false);
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
 });
 
 test("one command at a time, and an empty one finishes at once without a shell", async () => {
@@ -130,6 +214,23 @@ test("keys and pastes reach the program only while it runs, and only if the back
   mock.session.run("sleep 1", SIZE);
   assert.equal(mock.session.forwardKey(key), false);
   assert.equal(mock.session.forwardPaste("x"), false);
+});
+
+test("a paste sends Enter for line breaks, bracketed once the program asks for it", async () => {
+  assert.equal(pasteBytes("a\nb\r\nc", false), "a\rb\rc");
+  assert.equal(pasteBytes("a\nb", true), "\x1b[200~a\rb\x1b[201~");
+  assert.equal(pasteBytes("x\x1b[201~y", true), "\x1b[200~xy\x1b[201~"); // can't end the paste early
+
+  const { backend, session, send } = setup();
+  const done = session.run("claude", SIZE);
+  session.forwardPaste("one\ntwo");
+  send({ type: "output", data: "\x1b[?2004h" });
+  session.forwardPaste("one\ntwo");
+  send({ type: "output", data: "\x1b[?2004l" });
+  session.forwardPaste("three");
+  assert.deepEqual(backend.writes.map(([, data]) => data), ["one\rtwo", "\x1b[200~one\rtwo\x1b[201~", "three"]);
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
 });
 
 test("fullscreen: bytes go out raw instead of into the block, and the size belongs to that view", async () => {

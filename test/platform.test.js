@@ -40,7 +40,9 @@ test("Mac or not comes from the browser's platform", async () => {
 
 test("the keymap gives the browser build only Alt+arrows", async () => {
   const { shortcutList, findShortcut } = await import("../src/keymap.js");
-  assert.deepEqual(shortcutList(), ["Alt+← previous tab", "Alt+→ next tab"]);
+  const keys = shortcutList().flatMap(({ section, rows }) => rows.map((r) => `${section}: ${r.keys} ${r.does}`));
+  assert.deepEqual(keys.filter((k) => k.startsWith("Tabs")), ["Tabs: Alt+← previous tab", "Tabs: Alt+→ next tab"]);
+  assert.ok(!keys.some((k) => k.startsWith("Groups")));
   assert.equal(findShortcut({ altKey: true, metaKey: false, ctrlKey: false, shiftKey: false, code: "ArrowLeft" }).action, "previousTab");
   assert.equal(findShortcut({ altKey: false, metaKey: true, ctrlKey: false, shiftKey: false, code: "KeyT" }), undefined);
 });

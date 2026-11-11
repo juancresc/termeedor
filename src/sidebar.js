@@ -4,7 +4,7 @@
 import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, timeAgo } from "./util.js";
 import {
-  state, getTab, getGroup, tabsIn, isRunning, groupHasRunning,
+  state, getTab, getGroup, tabsIn, isBusy, groupIsBusy,
   activateTab, moveTab, selectGroup, setGroupMinimized,
   reopenPast, deletePast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
@@ -64,7 +64,7 @@ function groupNode(group) {
     colorDot(group.color, "dot"),
     nameLabel("group", group, "sidebar", "span", "gname"),
     // its tabs are hidden while collapsed, so show here that something is running
-    runMarks.slot(() => group.collapsed && groupHasRunning(group.id)),
+    runMarks.slot(() => group.collapsed && groupIsBusy(group.id)),
     groupRowButtons(group),
   );
   head.onclick = () => (group.minimized ? setGroupMinimized(group, false) : selectGroup(group));
@@ -93,7 +93,7 @@ function tabRow(tab) {
   row.title = tab.minimized ? "Minimized — click to restore" : "";
 
   row.append(
-    runMarks.slot(() => isRunning(tab.id)),
+    runMarks.slot(() => isBusy(tab.id)),
     colorDot(tab.color),
     nameLabel("tab", tab, "sidebar", "span", "iname"),
     tabRowButtons(tab),

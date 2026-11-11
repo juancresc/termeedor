@@ -8,12 +8,22 @@ const os = require("node:os");
 const path = require("node:path");
 
 // Hooks run after the user's rc files, so they still work whatever those files set up.
+// Keys typed while a command ran that it never read would otherwise wait in the terminal and
+// join the front of the next command; before saying it finished, the shell hands them back (T).
+// Each shell reads them its own way into $typed; they go as hex, which no marker can be made of.
+const REPORT_TYPEAHEAD = `[[ -n $typed ]] && printf '\\e]133;T;%s;%s\\a' "$_tm_token" "$(printf %s "$typed" | od -An -tx1 | tr -d ' \\n')"`;
 const ZSH_HOOKS = `
 typeset -g _tm_token="$TERMEEDOR_TOKEN"
 ZDOTDIR="$_tm_user_zdotdir"
 unset TERMEEDOR_TOKEN TERMEEDOR_ZDOTDIR TERMEEDOR_USER_ZDOTDIR _tm_user_zdotdir
+_tm_typeahead() {
+  local key typed=
+  while read -r -s -t 0 -k 1 key 2>/dev/null; do typed+=$key; done
+  ${REPORT_TYPEAHEAD}
+}
 _tm_precmd() {
   local code=$?
+  _tm_typeahead
   printf '\\e]133;D;%s;%s;%s\\a\\e]133;A;%s;%s\\a' "$_tm_token" "$code" "$PWD" "$_tm_token" "$PATH"
 }
 _tm_preexec() { printf '\\e]133;C;%s\\a' "$_tm_token"; }
@@ -40,8 +50,14 @@ elif [ -r ~/.bashrc ]; then . ~/.bashrc
 fi
 _tm_token="$TERMEEDOR_TOKEN"
 unset TERMEEDOR_TOKEN
+_tm_typeahead() {
+  local key typed=
+  while IFS= read -r -s -N 1 -t 0.001 key 2>/dev/null; do typed+=$key; done
+  ${REPORT_TYPEAHEAD}
+}
 _tm_precmd() {
   local code=$?
+  _tm_typeahead
   printf '\\e]133;D;%s;%s;%s\\a\\e]133;A;%s;%s\\a' "$_tm_token" "$code" "$PWD" "$_tm_token" "$PATH"
 }
 PROMPT_COMMAND="_tm_precmd\${PROMPT_COMMAND:+; $PROMPT_COMMAND}"

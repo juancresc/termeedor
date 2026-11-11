@@ -172,6 +172,10 @@ function handleSync(channel, handler) {
 }
 
 // ---------- lifecycle ----------
+// Chromium eases each mouse wheel step into an animation, so scrolling starts slow and lags
+// behind the wheel; a terminal moves the moment the wheel does, as in iTerm.
+app.commandLine.appendSwitch("disable-smooth-scrolling");
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {

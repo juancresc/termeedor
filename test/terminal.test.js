@@ -320,10 +320,32 @@ const key = (key, extra = {}) => ({ key, code: "", metaKey: false, ctrlKey: fals
 test("keys become the bytes a terminal would send", () => {
   assert.equal(keyToBytes(key("a")), "a");
   assert.equal(keyToBytes(key("Enter")), "\r");
+  assert.equal(keyToBytes(key("Enter", { shiftKey: true })), "\x1b\r");
+  assert.equal(keyToBytes(key("Enter", { altKey: true })), "\x1b\r");
   assert.equal(keyToBytes(key("Backspace")), "\x7f");
   assert.equal(keyToBytes(key("ArrowUp")), "\x1b[A");
   assert.equal(keyToBytes(key("c", { ctrlKey: true, code: "KeyC" })), "\x03");
   assert.equal(keyToBytes(key("d", { ctrlKey: true, code: "KeyD" })), "\x04");
+});
+
+test("modified keys send what macOS terminals send", () => {
+  assert.equal(keyToBytes(key("Tab", { shiftKey: true })), "\x1b[Z");
+  assert.equal(keyToBytes(key("Tab")), "\t");
+  assert.equal(keyToBytes(key("Backspace", { altKey: true })), "\x1b\x7f");
+  assert.equal(keyToBytes(key("ArrowLeft", { altKey: true })), "\x1bb");
+  assert.equal(keyToBytes(key("ArrowRight", { altKey: true })), "\x1bf");
+  assert.equal(keyToBytes(key("_", { ctrlKey: true, shiftKey: true, code: "Minus" })), "\x1f");
+  assert.equal(keyToBytes(key("]", { ctrlKey: true, code: "BracketRight" })), "\x1d");
+  assert.equal(keyToBytes(key(" ", { ctrlKey: true, code: "Space" })), "\x00");
+  assert.equal(keyToBytes(key("[", { ctrlKey: true, code: "BracketLeft" })), "\x1b");
+  assert.equal(keyToBytes(key("Delete", { altKey: true })), "\x1bd");
+});
+
+test("Cmd's line-editing keys send what macOS terminals send", () => {
+  assert.equal(keyToBytes(key("ArrowLeft", { metaKey: true })), "\x01");
+  assert.equal(keyToBytes(key("ArrowRight", { metaKey: true })), "\x05");
+  assert.equal(keyToBytes(key("Backspace", { metaKey: true })), "\x15");
+  assert.equal(keyToBytes(key("ArrowLeft", { metaKey: true, shiftKey: true })), null);
 });
 
 test("the app keeps Cmd shortcuts, selection keys and bare modifiers", () => {

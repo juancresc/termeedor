@@ -3,6 +3,7 @@
 // from /vendor, which the Electron main process serves.
 
 import { $, el } from "../util.js";
+import { keyToBytes } from "./keys.js";
 
 const terminals = new Map(); // tabId -> { term, fit, node, queue, ready }
 let modules = null;
@@ -46,8 +47,25 @@ export function openFullscreen(tabId, { onData, onResize }) {
     entry.fit = new FitAddon();
     entry.term.loadAddon(entry.fit);
     entry.term.open(entry.node);
-    // Let the app's own shortcuts (Cmd+T and so on) through.
-    entry.term.attachCustomKeyEventHandler((event) => !event.metaKey);
+    // Cmd's line-editing keys go to the program as in other macOS terminals (xterm drops them);
+    // the app's own shortcuts (Cmd+T and so on) pass through.
+    // Shift+Enter too: xterm sends a plain Enter, which would submit in claude instead of adding a line.
+    entry.term.attachCustomKeyEventHandler((event) => {
+      if (event.key === "Enter" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (event.type === "keydown") {
+          event.preventDefault();
+          onData(keyToBytes(event));
+        }
+        return false;
+      }
+      if (!event.metaKey) return true;
+      const bytes = event.type === "keydown" ? keyToBytes(event) : null;
+      if (bytes) {
+        event.preventDefault();
+        onData(bytes);
+      }
+      return false;
+    });
     entry.term.onData(onData);
     refit(entry);
     entry.queue.forEach((data) => entry.term.write(data));

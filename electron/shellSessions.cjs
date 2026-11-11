@@ -50,7 +50,7 @@ function commandBytes(command) {
   return `${PASTE_START}${withoutPasteMarks(text)}${PASTE_END}\r`;
 }
 
-/** send(tabId, event) receives output, alt, finish and exit events. */
+/** send(tabId, event) receives output, alt, finish, typeahead and exit events. */
 function createShellSessions(send, { shell = chooseShell(), env = process.env, readyTimeoutMs = READY_TIMEOUT_MS } = {}) {
   const sessions = new Map();
 
@@ -65,12 +65,13 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       ...DEFAULT_SIZE,
       ...size,
     });
-    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
+    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
     sessions.set(tabId, session);
 
     session.readyTimer = setTimeout(() => {
       if (!session.queued) return;
       session.queued = null;
+      session.heldKeys = "";
       session.running = false;
       send(tabId, { type: "output", data: "Your shell's startup files didn't finish. Check ~/.zshrc or ~/.bashrc for something waiting on input.\r\n" });
       send(tabId, { type: "finish", exit: 1, cwd: session.cwd });
@@ -98,6 +99,8 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
         const command = session.queued;
         session.queued = null;
         writeCommand(session, command);
+        if (session.heldKeys) session.pty.write(session.heldKeys);
+        session.heldKeys = "";
       }
     } else if (event.type === "finish") {
       session.cwd = displayCwd(event.cwd || resolveCwd(session.cwd));
@@ -126,16 +129,26 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       if (session.ready) writeCommand(session, command);
       else session.queued = command;
     },
+    /**
+     * Keys for the running command. Before the shell is ready they wait for the command, which
+     * they follow; once it has finished they belong to the next one, so they go back as typeahead.
+     */
     write(tabId, data) {
       const session = sessions.get(tabId);
-      if (session?.queued != null && data.includes("\x03")) {
+      if (!session) return;
+      if (session.queued != null && data.includes("\x03")) {
         // Stopped before the shell got it. Sent on, this would only interrupt the rc files.
         session.queued = null;
+        session.heldKeys = "";
         session.running = false;
         send(tabId, { type: "finish", exit: 130, cwd: session.cwd });
-        return;
+      } else if (session.queued != null) {
+        session.heldKeys += data;
+      } else if (!session.running) {
+        send(tabId, { type: "typeahead", data });
+      } else {
+        session.pty.write(data);
       }
-      session?.pty.write(data);
     },
     resize(tabId, cols, rows) {
       const session = sessions.get(tabId);

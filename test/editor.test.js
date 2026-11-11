@@ -191,6 +191,46 @@ test("Up and Down only recall past commands that start with what was typed", asy
   eraseDraft();
 });
 
+test("Up reaches commands run in other tabs, after this tab's own", async () => {
+  store.addTab();
+  await run("npm run build");
+  store.addTab();
+  await run("npm test");
+  type("np");
+  press("ArrowUp");
+  assert.equal(tab().draft, "npm test");
+  press("ArrowUp");
+  assert.equal(tab().draft, "npm run build");
+  press("ArrowDown");
+  assert.equal(tab().draft, "npm test");
+  press("ArrowDown");
+  assert.equal(tab().draft, "np");
+  eraseDraft();
+});
+
+test("Up reaches commands from closed tabs", async () => {
+  store.addTab();
+  await run("make deploy");
+  store.closeTab(tab());
+  store.addTab();
+  type("make");
+  press("ArrowUp");
+  assert.equal(tab().draft, "make deploy");
+  eraseDraft();
+});
+
+test("with shared history off, Up only browses this tab's commands", async () => {
+  store.addTab();
+  await run("yarn build");
+  store.addTab();
+  store.state.settings.sharedHistory = false;
+  type("yarn");
+  press("ArrowUp");
+  assert.equal(tab().draft, "yarn");
+  store.state.settings.sharedHistory = true;
+  eraseDraft();
+});
+
 test("Up and Down only browse history from the input's first and last lines", async () => {
   store.addTab();
   await run("one\ntwo\nthree; echo old");
@@ -676,7 +716,7 @@ test("while a command runs, a paste goes to it and nothing can change the hidden
   let stopped = 0;
   const preventDefault = () => { stopped++; };
   textarea.listeners.beforeinput({ inputType: "insertFromPaste", data: "pasted\ntext", preventDefault });
-  assert.equal(writes.at(-1), "pasted\ntext");
+  assert.equal(writes.at(-1), "pasted\rtext"); // line breaks go out as Enter, like a terminal pastes them
   textarea.listeners.beforeinput({ inputType: "historyUndo", data: null, preventDefault });
   assert.equal(stopped, 2);
 
