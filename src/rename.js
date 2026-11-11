@@ -43,8 +43,9 @@ export function nameLabel(kind, item, where, tag = "span", className = "") {
 
   input.addEventListener("keydown", (e) => {
     e.stopPropagation();
-    if (e.key === "Enter") finish(true);
-    else if (e.key === "Escape") finish(false);
+    if (e.key !== "Enter" && e.key !== "Escape") return;
+    e.preventDefault(); // finishing focuses the terminal input, and the browser would hand it this key's line break
+    finish(e.key === "Enter");
   });
   input.addEventListener("blur", () => finish(true));
   // don't let clicks inside the box trigger the row's own click/drag handlers

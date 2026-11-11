@@ -163,6 +163,17 @@ test("a rename survives its own tab's command starting, which adds a spinner bes
   box.fire("keydown", { key: "Escape" });
 });
 
+test("Enter in a rename stops there: focus moves to the input, which would get the line break", () => {
+  const tab = store.activeTab();
+  for (const key of ["Enter", "Escape"]) {
+    startRename("tab", tab, "tabbar");
+    const box = $("tabs").querySelector(".inlineInput");
+    let prevented = false;
+    box.fire("keydown", { key, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true, key);
+  }
+});
+
 test("a tab closing while it is being renamed takes the box away cleanly", () => {
   const tab = store.activeTab();
   startRename("tab", tab, "sidebar");

@@ -144,7 +144,7 @@ export class MiniElement extends MiniNode {
   }
   contains(node) { return node === this || this.children.some((child) => child.contains(node)); }
   addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); }
-  fire(type, event = {}) { (this.listeners[type] ?? []).forEach((fn) => fn({ target: this, stopPropagation() {}, ...event })); }
+  fire(type, event = {}) { (this.listeners[type] ?? []).forEach((fn) => fn({ target: this, stopPropagation() {}, preventDefault() {}, ...event })); }
   setAttribute(name, value) { this.attributes[name] = value; }
   getBoundingClientRect() { return { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 }; }
   getAnimations() { return []; }
