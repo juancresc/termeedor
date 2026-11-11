@@ -4,6 +4,7 @@
 import { layoutOf, pastFile, pastPrint, samePrint, tabFile, tabPrint } from "./saved.js";
 
 const DEBOUNCE_MS = 300;
+const MAX_WAIT_MS = 2000; // output that never pauses still gets saved this often
 const ALL_PARTS = ["settings", "past", "workspace"];
 
 function diffFiles(items, saved, print, file) {
@@ -21,14 +22,15 @@ function diffFiles(items, saved, print, file) {
 }
 
 /** `read()` returns the current state. `onStatus()` runs when saving starts or stops failing. */
-export function createSaver({ adapter, read, onStatus = () => {} }) {
+export function createSaver({ adapter, read, onStatus = () => {}, debounceMs = DEBOUNCE_MS, maxWaitMs = MAX_WAIT_MS }) {
   const saved = { settings: null, workspace: null, tabs: new Map(), past: new Map() }; // a null print: stored, contents unknown
   const pending = new Set();
   let inFlight = null;
   let seq = 0;
   let newestSync = 0; // a batch older than this was carried by that synchronous save
   let failed = false;
-  let timer;
+  let timer = null;
+  let waitingSince = 0; // when the debounced save was first asked for
 
   function report(ok) {
     if (ok === !failed) return;
@@ -134,13 +136,16 @@ export function createSaver({ adapter, read, onStatus = () => {} }) {
       flush();
     },
 
-    /** Debounced workspace save, used while typing and while output arrives. */
+    /** Debounced workspace save, used while typing and while output arrives. Waits at most maxWaitMs. */
     saveSoon() {
+      if (timer === null) waitingSince = Date.now();
       clearTimeout(timer);
+      const delay = Math.max(0, Math.min(debounceMs, waitingSince + maxWaitMs - Date.now()));
       timer = setTimeout(() => {
+        timer = null;
         pending.add("workspace");
         flush();
-      }, DEBOUNCE_MS);
+      }, delay);
     },
 
     /**
@@ -151,6 +156,7 @@ export function createSaver({ adapter, read, onStatus = () => {} }) {
      */
     saveNow(parts = ["workspace"]) {
       clearTimeout(timer);
+      timer = null;
       const batch = collect(new Set([...pending, ...parts, "workspace", ...(inFlight?.parts ?? [])]));
       pending.clear();
       if (!batch) {

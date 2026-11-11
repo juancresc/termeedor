@@ -128,7 +128,7 @@ export function createSession({
 
   /** Resolves with { output, shown?, exit? }; shown means the output already went out as `output` events. */
   function execute(command, block, size, signal) {
-    if (!command) return { output: "" };
+    if (!command || closed) return { output: "" }; // a command:start listener may have closed the tab
     return new Promise((resolve) => {
       current = {
         block, model: createModel(size), resolve, timer: null, ended: false,

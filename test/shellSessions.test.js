@@ -19,7 +19,7 @@ after(() => {
 
 const strip = (text) => text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/\r/g, "");
 
-function harness(shell, rc) {
+function harness(shell, rc, options = {}) {
   const env = { HOME: home, PATH: process.env.PATH, ZDOTDIR: undefined };
   delete env.ZDOTDIR;
   fs.writeFileSync(path.join(home, ".zshrc"), rc);
@@ -29,7 +29,7 @@ function harness(shell, rc) {
   const sessions = createShellSessions((tabId, event) => {
     events.push({ tabId, ...event });
     if (event.type === "finish") waiters.shift()?.(event);
-  }, { shell, env });
+  }, { shell, env, ...options });
 
   const run = async (command, tabId = "t", size = {}) => {
     const from = events.length;
@@ -65,6 +65,17 @@ for (const candidate of ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", "/usr/
 
 for (const [name, file] of shells) {
   describe(name, () => {
+    test("startup files waiting on input time out every command, not just the first", async () => {
+      const { sessions, run } = harness(file, "read -r answer\n", { readyTimeoutMs: 300 });
+      const first = await run("echo one");
+      assert.equal(first.finish.exit, 1);
+      assert.match(first.text, /startup files didn't finish/);
+      const second = await run("echo two"); // used to wait forever
+      assert.equal(second.finish.exit, 1);
+      assert.match(second.text, /startup files didn't finish/);
+      sessions.killAll();
+    });
+
     test("output is exactly what the command printed, with the exit code", async () => {
       const { sessions, run } = harness(file, "");
       const { text, finish } = await run("echo hello; (exit 7)");

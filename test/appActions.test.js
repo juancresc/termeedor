@@ -59,6 +59,14 @@ beforeEach(() => {
   store.addGroup();
 });
 
+test("a key the running program already took isn't also a shortcut", () => {
+  const before = state.ws.tabs.length;
+  press("KeyT", { defaultPrevented: true }); // e.g. Ctrl+T sent to ssh on Linux
+  assert.equal(state.ws.tabs.length, before);
+  press("KeyT");
+  assert.equal(state.ws.tabs.length, before + 1);
+});
+
 test("every key in the keymap names a real action, and every action has a label", () => {
   for (const key of builtinShortcutKeys()) {
     const entry = findShortcut({ metaKey: true, ctrlKey: false, altKey: false, shiftKey: key.startsWith("Shift+"), code: key.replace("Shift+", "") });

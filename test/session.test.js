@@ -296,6 +296,23 @@ test("closing ends the command with 130, kills the shell, and nothing lands in t
   assert.equal(tab.blocks.length, 1);
 });
 
+test("a tab closed by a command:start listener never starts a shell", async () => {
+  const backend = fakeBackend();
+  const tab = { id: "t1", cwd: "~", blocks: [], draft: "", history: [] };
+  let session;
+  session = createSession({
+    tab, backend, flushMs: FLUSH_MS, idleMs: IDLE_MS,
+    emitPlugin: (name) => { if (name === "command:start") session.close(); },
+  });
+  const finishes = [];
+  session.on("finish", (payload) => finishes.push(payload));
+  await session.run("sleep 100", SIZE);
+  assert.equal(backend.runs.length, 0);
+  assert.equal(session.running, false);
+  assert.equal(finishes.length, 1);
+  assert.equal(finishes[0].closed, true);
+});
+
 test("a tab whose shell already ended, or never started, kills nothing on close", async () => {
   const idle = setup();
   idle.session.close();

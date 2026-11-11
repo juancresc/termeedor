@@ -16,9 +16,19 @@ for (const [platform, isMac] of [["macOS", true], ["Windows and Linux", false]])
 
   test(`${platform}: keeps editing, zoom, full screen and window keys`, () => {
     const roles = rolesIn(menuTemplate(isMac));
-    for (const role of ["editMenu", "windowMenu", "zoomIn", "zoomOut", "resetZoom", "togglefullscreen", "toggleDevTools"]) {
+    for (const role of ["editMenu", isMac ? "windowMenu" : "minimize", "close", "zoomIn", "zoomOut", "resetZoom", "togglefullscreen", "toggleDevTools"]) {
       assert.ok(roles.includes(role), role);
     }
+  });
+}
+
+for (const [platform, isMac] of [["macOS", true], ["Windows and Linux", false]]) {
+  test(`${platform}: closing the window takes Shift, so Cmd/Ctrl+W in a dialog can't end every shell`, () => {
+    const items = (list) => list.flatMap((item) => [item, ...items(item.submenu ?? [])]);
+    const all = items(menuTemplate(isMac));
+    // the built-in menus whose Close has Cmd/Ctrl+W: macOS's File, and the Window menu elsewhere
+    assert.equal(all.some((item) => item.role === (isMac ? "fileMenu" : "windowMenu")), false);
+    for (const item of all.filter((i) => i.role === "close")) assert.match(item.accelerator, /^Shift\+/);
   });
 }
 

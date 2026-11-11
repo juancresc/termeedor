@@ -263,7 +263,7 @@ function onEditingKey(event) {
     editor.select();
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     recallOnArrow(event);
-  } else if (event.key === "PageUp" || event.key === "PageDown") {
+  } else if ((event.key === "PageUp" || event.key === "PageDown") && !event.ctrlKey && !event.metaKey) { // Ctrl+PageUp/Down: groups
     event.preventDefault();
     actions.pageOutput(event.key === "PageUp" ? -1 : 1);
   }

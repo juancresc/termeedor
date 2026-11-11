@@ -68,15 +68,6 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
     const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", lateKeys: null, path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
     sessions.set(tabId, session);
 
-    session.readyTimer = setTimeout(() => {
-      if (!session.queued) return;
-      session.queued = null;
-      session.heldKeys = "";
-      session.running = false;
-      send(tabId, { type: "output", data: "Your shell's startup files didn't finish. Check ~/.zshrc or ~/.bashrc for something waiting on input.\r\n" });
-      send(tabId, { type: "finish", exit: 1, cwd: session.cwd });
-    }, readyTimeoutMs);
-
     process_.onData((chunk) => {
       for (const event of parser.write(chunk)) handleEvent(tabId, session, event);
     });
@@ -121,6 +112,20 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
     }
   }
 
+  /** Each command that waits for the shell to be ready waits at most readyTimeoutMs, not only the first. */
+  function queue(tabId, session, command) {
+    session.queued = command;
+    clearTimeout(session.readyTimer);
+    session.readyTimer = setTimeout(() => {
+      if (session.queued === null) return;
+      session.queued = null;
+      session.heldKeys = "";
+      session.running = false;
+      send(tabId, { type: "output", data: "Your shell's startup files didn't finish. Check ~/.zshrc or ~/.bashrc for something waiting on input.\r\n" });
+      send(tabId, { type: "finish", exit: 1, cwd: session.cwd });
+    }, readyTimeoutMs);
+  }
+
   function writeCommand(session, command) {
     session.sent = true;
     session.parser.commandSent(command);
@@ -140,7 +145,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       }
       session.running = true;
       if (session.ready) writeCommand(session, command);
-      else session.queued = command;
+      else queue(tabId, session, command);
     },
     /**
      * Keys for the running command. Before the shell is ready they wait for the command, which
@@ -151,6 +156,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       if (!session) return;
       if (session.queued != null && data.includes("\x03")) {
         // Stopped before the shell got it. Sent on, this would only interrupt the rc files.
+        clearTimeout(session.readyTimer);
         session.queued = null;
         session.heldKeys = "";
         session.running = false;

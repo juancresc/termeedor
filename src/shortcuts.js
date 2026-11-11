@@ -41,7 +41,8 @@ export function initShortcuts() {
   renderShortcutList();
 
   document.addEventListener("keydown", (e) => {
-    if (document.getElementById("settings").open) return;
+    // Taken already: a running program got it (Ctrl+W to ssh on Linux), or the input used it
+    if (e.defaultPrevented || document.getElementById("settings").open) return;
     const shortcut = findShortcut(e);
     const action = shortcut ? () => runAction(shortcut.action, shortcut.arg) : getShortcut(pluginShortcutKey(e));
     if (!action) return;

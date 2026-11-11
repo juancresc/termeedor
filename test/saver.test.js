@@ -8,7 +8,7 @@ const tab = (id, output = "text") => ({
 });
 const entry = (id) => ({ id, name: id, closedAt: 1, tab: { color: null, ...tab(id) } });
 
-function setup({ onDisk = false } = {}) {
+function setup({ onDisk = false, timing = {} } = {}) {
   const state = {
     ws: { groups: [{ id: "g", name: "G" }], tabs: [tab("a"), tab("b")], activeTab: "a", activeGroup: "g", sidebarOpen: true, sidebarWidth: 240 },
     past: [],
@@ -21,7 +21,7 @@ function setup({ onDisk = false } = {}) {
     writeSync(changes) { writes.push({ ...changes, sync: true }); return adapter.result; },
   };
   let statusChanges = 0;
-  const saver = createSaver({ adapter, read: () => state, onStatus: () => { statusChanges++; } });
+  const saver = createSaver({ adapter, read: () => state, onStatus: () => { statusChanges++; }, ...timing });
   if (onDisk) saver.seed({ files: { settings: true, workspace: true, tabs: ["a", "b"], past: [] } });
   return { state, writes, adapter, saver, statusChanges: () => statusChanges };
 }
@@ -240,6 +240,16 @@ test("saveSoon waits for a pause, then saves", async () => {
   assert.equal(writes.length, 0);
   await new Promise((resolve) => { setTimeout(resolve, 350); });
   assert.deepEqual(ids(writes[0].tabs), ["a"]);
+});
+
+test("saveSoon still saves while it keeps being called, once the longest wait has passed", async () => {
+  const { state, saver, writes } = setup({ onDisk: true, timing: { debounceMs: 100, maxWaitMs: 250 } });
+  for (let i = 0; i < 10; i++) { // output arriving every 50ms, for 500ms
+    state.ws.tabs[0].draft = `x${i}`;
+    saver.saveSoon();
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
+  }
+  assert.ok(writes.length >= 1, "saved during the stream");
 });
 
 test("saveNow reports failure, and what it carried is sent again", () => {
