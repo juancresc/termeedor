@@ -10,7 +10,11 @@ const path = require("node:path");
 // Hooks run after the user's rc files, so they still work whatever those files set up.
 // Keys typed while a command ran that it never read would otherwise wait in the terminal and
 // join the front of the next command; before saying it finished, the shell hands them back (T).
+// A key can still be on its way, so the shell first asks for an ack (K) and reads up to it: the
+// app holds the keys that come after (shellSessions.cjs), so none reach the line editor.
 // Each shell reads them its own way into $typed; they go as hex, which no marker can be made of.
+const ACK = "\x1b]133;K\x07";
+const ASK_ACK = `printf '\\e]133;K;%s\\a' "$_tm_token"`;
 const REPORT_TYPEAHEAD = `[[ -n $typed ]] && printf '\\e]133;T;%s;%s\\a' "$_tm_token" "$(printf %s "$typed" | od -An -tx1 | tr -d ' \\n')"`;
 const ZSH_HOOKS = `
 typeset -g _tm_token="$TERMEEDOR_TOKEN"
@@ -18,7 +22,11 @@ ZDOTDIR="$_tm_user_zdotdir"
 unset TERMEEDOR_TOKEN TERMEEDOR_ZDOTDIR TERMEEDOR_USER_ZDOTDIR _tm_user_zdotdir
 _tm_typeahead() {
   local key typed=
-  while read -r -s -t 0 -k 1 key 2>/dev/null; do typed+=$key; done
+  ${ASK_ACK}
+  while read -r -s -t 1 -k 1 key 2>/dev/null; do
+    typed+=$key
+    [[ $typed == *$'\\e]133;K\\a' ]] && { typed=\${typed%$'\\e]133;K\\a'}; break; }
+  done
   ${REPORT_TYPEAHEAD}
 }
 _tm_precmd() {
@@ -52,7 +60,11 @@ _tm_token="$TERMEEDOR_TOKEN"
 unset TERMEEDOR_TOKEN
 _tm_typeahead() {
   local key typed=
-  while IFS= read -r -s -N 1 -t 0.001 key 2>/dev/null; do typed+=$key; done
+  ${ASK_ACK}
+  while IFS= read -r -s -N 1 -t 1 key 2>/dev/null; do
+    typed+=$key
+    [[ $typed == *$'\\e]133;K\\a' ]] && { typed=\${typed%$'\\e]133;K\\a'}; break; }
+  done
   ${REPORT_TYPEAHEAD}
 }
 _tm_precmd() {
@@ -161,4 +173,4 @@ function shellLaunch(shell, baseEnv = process.env) {
   return { file: shell, args: ["--rcfile", path.join(dir, "bashrc"), "-i"], env, token };
 }
 
-module.exports = { chooseShell, completionLaunch, completionSocketPath, removeIntegrationFiles, shellLaunch };
+module.exports = { ACK, chooseShell, completionLaunch, completionSocketPath, removeIntegrationFiles, shellLaunch };

@@ -133,3 +133,12 @@ test("terminal queries get replies outside the alternate screen, even while draw
   const inAlt = feed(parser, `${C}\x1b[?1049h\x1b[6n`);
   assert.ok(!inAlt.some((e) => e.type === "reply")); // xterm.js answers these
 });
+
+test("asking for an ack is reported, and the ack's echo is dropped from the output", () => {
+  const parser = createShellParser(TOKEN);
+  const K = `\x1b]133;K;${TOKEN}\x07`;
+  const events = feed(parser, `${C}out\r\n${K}`, "^[]133;K^G", D(0, "/home"));
+  assert.equal(events.filter((e) => e.type === "ack").length, 1);
+  assert.equal(output(events), "out\r\n");
+  assert.equal(output(feed(parser, `${C}^[]133;K^G${D(0, "/home")}`)), "^[]133;K^G"); // only after asking
+});

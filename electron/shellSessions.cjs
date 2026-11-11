@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const pty = require("node-pty");
 const { createShellParser } = require("./shellParser.cjs");
-const { chooseShell, shellLaunch } = require("./shellIntegration.cjs");
+const { ACK, chooseShell, shellLaunch } = require("./shellIntegration.cjs");
 
 const READY_TIMEOUT_MS = 20000;
 const PASTE_START = "\x1b[200~";
@@ -65,7 +65,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       ...DEFAULT_SIZE,
       ...size,
     });
-    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
+    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", lateKeys: null, path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
     sessions.set(tabId, session);
 
     session.readyTimer = setTimeout(() => {
@@ -91,6 +91,11 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
   function handleEvent(tabId, session, event) {
     if (event.type === "reply") {
       session.pty.write(event.data);
+    } else if (event.type === "ack") {
+      // The shell reads every key sent before this. Keys after it would reach its line editor
+      // and join the next command, so they wait here for the finish.
+      session.pty.write(ACK);
+      if (session.running && session.sent) session.lateKeys = "";
     } else if (event.type === "ready") {
       session.ready = true;
       session.path = event.path;
@@ -104,10 +109,13 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       }
     } else if (event.type === "finish") {
       session.cwd = displayCwd(event.cwd || resolveCwd(session.cwd));
+      const late = session.lateKeys ?? "";
+      session.lateKeys = null;
       if (!session.sent) return; // the shell's first prompt, not a command
       session.sent = false;
       session.running = false;
-      send(tabId, { ...event, cwd: session.cwd });
+      const typeahead = (event.typeahead ?? "") + late;
+      send(tabId, { ...event, cwd: session.cwd, ...(typeahead ? { typeahead } : {}) });
     } else if (event.type === "output" || event.type === "alt") {
       send(tabId, event);
     }
@@ -144,6 +152,8 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
         send(tabId, { type: "finish", exit: 130, cwd: session.cwd });
       } else if (session.queued != null) {
         session.heldKeys += data;
+      } else if (session.lateKeys != null) {
+        session.lateKeys += data;
       } else if (!session.running) {
         send(tabId, { type: "typeahead", data });
       } else {

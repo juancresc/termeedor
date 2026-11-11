@@ -3,6 +3,8 @@
 // can't fake one by printing the same bytes unless it knows the token:
 //
 //   C                the command is starting: output begins
+//   K                asks for an ack: keys typed before it are the shell's to read back. The
+//                    ack can arrive before the shell turns echo off, so its echo is dropped.
 //   T;<hex>          keys typed during the command that it never read, sent just before D
 //   D;<exit>;<cwd>   the command finished: output ends
 //   A;<PATH>         the shell is ready for input
@@ -19,6 +21,7 @@ const QUERIES = [
   [/\x1b\[0?c/g, "\x1b[?1;2c"], // device attributes
   [/\x1b\[5n/g, "\x1b[0n"], // device status
 ];
+const ACK_ECHOES = ["^[]133;K^G", "\x1b]133;K\x07"]; // with and without echoctl
 const MAX_HELD = 8192; // an unfinished escape sequence longer than this is not one of ours
 const EDITOR_DONE = "\x1b[?2004l"; // zsh and bash turn bracketed paste off as they leave their line editor
 const STYLING = /\x1b\[[0-9;?]*[A-Za-z]/g;
@@ -54,7 +57,7 @@ function complaintAfterEcho(text, lastLine) {
 }
 
 function createShellParser(token) {
-  const marker = new RegExp(`\\x1b\\]133;([ACDT]);${token}(?:;([^\\x07]*))?\\x07`);
+  const marker = new RegExp(`\\x1b\\]133;([ACDKT]);${token}(?:;([^\\x07]*))?\\x07`);
   let held = "";
   let inOutput = false;
   let inAlt = false;
@@ -62,6 +65,7 @@ function createShellParser(token) {
   let rejected = "";
   let lastLine = null; // a multi-line command's last line; null for a one-line command
   let typeahead = "";
+  let ackEcho = false; // an ack was asked for, and its echo may still come
 
   function answerQueries(text, events) {
     for (const [pattern, reply] of QUERIES) {
@@ -71,6 +75,13 @@ function createShellParser(token) {
 
   /** Handles text with no markers in it. */
   function plain(text, events) {
+    if (ackEcho) {
+      const echo = ACK_ECHOES.find((form) => text.includes(form));
+      if (echo) {
+        ackEcho = false;
+        text = text.replace(echo, "");
+      }
+    }
     if (!text) return;
     if (!inOutput) {
       answerQueries(text, events);
@@ -98,7 +109,10 @@ function createShellParser(token) {
   }
 
   function onMarker(kind, payload, events) {
-    if (kind === "T") {
+    if (kind === "K") {
+      ackEcho = true;
+      events.push({ type: "ack" });
+    } else if (kind === "T") {
       if (/^(?:[0-9a-f]{2})*$/.test(payload)) typeahead += Buffer.from(payload, "hex").toString("utf8");
     } else if (kind === "C") {
       inOutput = true;
@@ -108,6 +122,7 @@ function createShellParser(token) {
       rejected = "";
       events.push({ type: "start" });
     } else if (kind === "D") {
+      ackEcho = false;
       if (inAlt) {
         inAlt = false;
         events.push({ type: "alt", on: false });

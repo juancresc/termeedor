@@ -149,6 +149,23 @@ for (const [name, file] of shells) {
       sessions.killAll();
     });
 
+    test("a key landing just as a command ends can't join the front of the next one", { timeout: 20000 }, async () => {
+      const { sessions, run, waitFinish } = harness(file, "");
+      await run("true");
+      for (let i = 0; i < 5; i++) {
+        let finished = false;
+        const done = waitFinish().then(() => { finished = true; });
+        sessions.run("t", "sleep 0.05", { cwd: home });
+        const type = () => { if (!finished) { sessions.write("t", "g"); setTimeout(type, 2); } };
+        type(); // some arrive after the shell collected the unread keys, and before its finish marker
+        await done;
+        const { text, finish } = await run("echo clean");
+        assert.equal(text, "clean\n");
+        assert.equal(finish.exit, 0);
+      }
+      sessions.killAll();
+    });
+
     test("keys written once the command has finished go back as typeahead", async () => {
       const { sessions, run, events } = harness(file, "");
       await run("true");
