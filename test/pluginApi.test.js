@@ -289,7 +289,10 @@ test("the git-branch plugin shows what its host says", async () => {
   activate(withHost);
   await new Promise((resolve) => { setImmediate(resolve); });
   assert.deepEqual(calls, [["branch", store.activeTab().cwd]]);
-  assert.equal(registry.statusItems().at(-1).text, "⎇ main");
+  const [branch, copy] = registry.statusItems().slice(-2);
+  assert.equal(branch.text, "⎇ main");
+  assert.equal(copy.text, "⧉");
+  assert.equal(typeof copy.onClick, "function");
   assert.equal(log.mock.callCount(), 0);
   log.mock.restore();
 });
