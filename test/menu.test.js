@@ -14,11 +14,16 @@ for (const [platform, isMac] of [["macOS", true], ["Windows and Linux", false]])
     assert.equal(roles.includes("viewMenu"), false); // this built-in menu includes both
   });
 
-  test(`${platform}: keeps editing, zoom, full screen and window keys`, () => {
+  test(`${platform}: keeps editing, full screen and window keys`, () => {
     const roles = rolesIn(menuTemplate(isMac));
-    for (const role of ["editMenu", isMac ? "windowMenu" : "minimize", "close", "zoomIn", "zoomOut", "resetZoom", "togglefullscreen", "toggleDevTools"]) {
+    for (const role of ["editMenu", isMac ? "windowMenu" : "minimize", "close", "resetZoom", "togglefullscreen", "toggleDevTools"]) {
       assert.ok(roles.includes(role), role);
     }
+  });
+
+  test(`${platform}: no page zoom, so Cmd/Ctrl +/− change the text size within its limits`, () => {
+    const roles = rolesIn(menuTemplate(isMac));
+    for (const role of ["zoomIn", "zoomOut"]) assert.equal(roles.includes(role), false, role);
   });
 }
 

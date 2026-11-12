@@ -24,8 +24,8 @@ export function initSettings() {
   $("fontSize").oninput = (e) => updateSettings({ fontSize: Number(e.target.value) });
   $("fontSizeDown").onclick = () => updateSettings({ fontSize: state.settings.fontSize - 1 });
   $("fontSizeUp").onclick = () => updateSettings({ fontSize: state.settings.fontSize + 1 });
-  $("zoomOut").onclick = () => updateSettings({ fontSize: state.settings.fontSize - 1 });
-  $("zoomIn").onclick = () => updateSettings({ fontSize: state.settings.fontSize + 1 });
+  $("zoomOut").onclick = () => runAction("textSmaller");
+  $("zoomIn").onclick = () => runAction("textLarger");
   for (const id of ["zoomOut", "zoomIn"]) $(id).onmousedown = (e) => e.preventDefault(); // keep focus in the input
   $("lineNumbers").onchange = (e) => updateSettings({ lineNumbers: e.target.checked });
   $("showAllGroups").onchange = (e) => updateSettings({ showAllGroups: e.target.checked });

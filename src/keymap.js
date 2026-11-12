@@ -32,6 +32,10 @@ const DESKTOP_KEYS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ action: "goToGroup", arg: n, code: `Digit${n}`, key: String(n), shift: true })),
   { action: "toggleSidebar", code: "KeyB", key: "B", does: "sidebar", section: "Window" },
   { action: "openSettings", code: "Comma", key: ",", does: "settings", section: "Window" },
+  // Cmd+= and Cmd++ (Shift+=) both make text larger, as in browsers. Only the first is listed.
+  { action: "textLarger", code: "Equal", key: "+", does: "larger text", section: "Window" },
+  { action: "textLarger", code: "Equal", key: "+", shift: true },
+  { action: "textSmaller", code: "Minus", key: "−", does: "smaller text", section: "Window" },
 ];
 
 const BROWSER_KEYS = [

@@ -6,9 +6,10 @@ import { defineAction } from "./core/actions.js";
 import {
   state, activeTab, barGroups, barTabs, getGroup, getTab, isRunning, stopRun, tabsIn,
   activateTab, addTab, addGroup, closeActive, closeTab, duplicateTab, moveTabToNewGroup, setTabCollapsed, setTabMinimized,
-  restoreMinimized, selectGroup, setGroupCollapsed, setGroupMinimized, setSidebarOpen, reopenLastClosed, reopenPast, deletePast,
+  restoreMinimized, selectGroup, updateSettings, setGroupCollapsed, setGroupMinimized, setSidebarOpen, reopenLastClosed, reopenPast, deletePast,
 } from "./store.js";
 import { openSettings } from "./settings.js";
+import { FONT_SIZE } from "./constants.js";
 import { startRename } from "./rename.js";
 import { confirmClearPast, confirmRemoveGroup, reopenLabel } from "./contextMenus.js";
 
@@ -63,6 +64,9 @@ const ACTIONS = [
   { id: "goToTab", label: "Go to tab", run: goToTab },
   { id: "goToGroup", label: "Go to group", run: goToGroup },
   { id: "clearSessions", label: "Clear all sessions", run: () => confirmClearPast() },
+  // Text size stays within FONT_SIZE.min..max (updateSettings clamps too)
+  { id: "textLarger", label: "Larger text", enabled: () => state.settings.fontSize < FONT_SIZE.max, run: () => updateSettings({ fontSize: state.settings.fontSize + 1 }) },
+  { id: "textSmaller", label: "Smaller text", enabled: () => state.settings.fontSize > FONT_SIZE.min, run: () => updateSettings({ fontSize: state.settings.fontSize - 1 }) },
 
   tabAction({ id: "tab.rename", label: "Rename", run: (tab, where) => startRename("tab", tab, where) }),
   tabAction({ id: "tab.toggleCollapsed", label: (tab) => (tab?.collapsed ? "Expand" : "Collapse to chip"), run: (tab) => setTabCollapsed(tab, !tab.collapsed) }),
