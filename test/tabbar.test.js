@@ -132,11 +132,10 @@ test("an unnamed group's tab is just its buttons; a named one keeps its name and
   assert.equal(heading().querySelector(".chipCount"), null);
   assert.ok(heading().querySelector(".itemBtns"));
 
-  // its empty name is a "✎ Name" hint: one click opens the rename box
-  heading().querySelector(".chipName").onclick({ stopPropagation() {} });
+  // no hint in its empty name; a double-click renames
+  heading().ondblclick({ stopPropagation() {} });
   renderTabbar();
   assert.ok(heading().querySelector(".inlineInput"));
-  assert.equal(heading().querySelector(".nameHint"), null);
   const input = heading().querySelector(".inlineInput");
   for (const fn of input.listeners.keydown) fn({ key: "Escape", stopPropagation() {}, preventDefault() {} });
 
@@ -166,4 +165,29 @@ test("dragging a tab: the group under it stays highlighted through a render, and
   chip().ondragleave(event({ relatedTarget: null }));
   assert.ok(!chip().classList.contains("dragover"));
   assert.equal(groups.length, 2);
+});
+
+test("Cmd+number badges: tabs and groups numbered the way the keys count, and they follow a move", () => {
+  const groups = [addGroup(), addGroup()];
+  addTab(groups[0].id);
+  setGroupMinimized(addGroup(), true); // not in the bar: no number
+  renderTabbar();
+  const hints = (id) => row(id).querySelectorAll(id === "tabs" ? ".tab" : ".groupTab").map((node) => node.dataset.hint);
+  assert.deepEqual(hints("groupTabs"), ["⇧1", "⇧2"]);
+  assert.deepEqual(hints("tabs"), ["1", "2", "3"]); // show all: across every group
+
+  state.settings.showAllGroups = false;
+  activateTab(tabsIn(groups[1].id)[0].id);
+  renderTabbar();
+  assert.deepEqual(hints("tabs"), ["1"]);
+});
+
+test("Cmd+number badges stop at 9", () => {
+  const group = addGroup();
+  for (let i = 0; i < 10; i++) addTab(group.id);
+  renderTabbar();
+  const hints = row("tabs").querySelectorAll(".tab").map((node) => node.dataset.hint);
+  assert.equal(hints.length, 11);
+  assert.equal(hints[8], "9");
+  assert.deepEqual(hints.slice(9), [undefined, undefined]);
 });

@@ -19,16 +19,6 @@ export function startRename(kind, item, where = "sidebar") {
   commit();
 }
 
-/** A group's name; while unnamed, an empty label whose "✎ Name" hint renames it on a single click. */
-export function groupName(group, where, className) {
-  const label = nameLabel("group", group, where, "span", className);
-  if (group.name || isEditing("group", group.id, where)) return label;
-  label.classList.add("nameHint");
-  label.title = "Name this group";
-  label.onclick = (e) => { e.stopPropagation(); startRename("group", group, where); };
-  return label;
-}
-
 /** Returns a label element, or an input if this item is being renamed at this location. */
 export function nameLabel(kind, item, where, tag = "span", className = "") {
   const label = el(tag, className);

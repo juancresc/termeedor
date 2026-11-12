@@ -19,6 +19,7 @@
 //   core/actions.js what the app can do, by id    appActions.js  the app's own
 //   keymap.js       which keys do what (browser vs Electron)
 //   shortcuts.js    runs those actions from the keyboard
+//   keyHints.js     holding Cmd shows the 1–9 badges on tabs and groups
 //   patch.js        updates the page, changing only what differs
 //   tooltip.js      styled tooltips for every `title` attribute
 //   plugins/        registry.js  what plugins added     host.js  plugin lifecycle
@@ -39,6 +40,7 @@ import { initTabbar, refreshTabbarRuns, renderTabbar } from "./tabbar.js";
 import { initSidebar, refreshSidebarRuns, renderSidebar } from "./sidebar.js";
 import { initSettings, applySettings, renderSettings } from "./settings.js";
 import { initShortcuts } from "./shortcuts.js";
+import { initKeyHints } from "./keyHints.js";
 import "./appActions.js";
 
 let rendering = false;
@@ -77,6 +79,7 @@ initTabbar();
 initSidebar();
 initSettings();
 initShortcuts();
+initKeyHints();
 initPluginUi();
 
 subscribe(render);

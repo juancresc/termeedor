@@ -69,6 +69,12 @@ function keyLabel({ key, shift }) {
   return `Ctrl+${shift ? "Shift+" : ""}${key}`;
 }
 
+/** The key that, held alone, shows which number jumps where. Desktop only: the browser has no number keys. */
+export const hintModifier = isDesktop ? (isMac ? "Meta" : "Control") : null;
+
+/** The badge on the nth tab or group (from 1) while hintModifier is held, or null past 9. */
+export const jumpHint = (kind, n) => (n >= 1 && n <= 9 ? `${kind === "group" ? "⇧" : ""}${n}` : null);
+
 /** Tooltip text: adds the key when this action has one here. */
 export function withShortcut(label, action) {
   const entry = KEYS.find((k) => k.action === action);

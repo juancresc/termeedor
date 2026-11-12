@@ -56,10 +56,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* a group a dragged tab would drop into */
 :is(.groupTab, .tab, .tabGroupBox, .group).dragover { outline: 2px solid var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 .groupTab .chipName { overflow: hidden; text-overflow: ellipsis; }
-/* an unnamed group's empty name: a "✎ Name" hint that renames on click */
-.nameHint:empty::before { content: "✎ Name"; padding: 0 6px; border: 1px dashed currentColor; border-radius: 5px; font-weight: 400; opacity: .55; cursor: text; }
-.nameHint:empty:hover::before { opacity: 1; }
-.ghead .gname.nameHint { flex: 1; }
 .groupTab .inlineInput { width: 110px; font-weight: 600; }
 .chipCount { padding: 0 5px; border-radius: 8px; background: color-mix(in srgb, currentColor 18%, transparent); font-size: 10px; color: inherit; line-height: 15px; }
 button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transparent); }
@@ -351,3 +347,10 @@ button.stPlugin:hover { background: var(--panel2); color: var(--text); }
 @keyframes spinner-pulse { 50% { opacity: .55; } }
 #stRunning { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .spinner::before { animation: none; } }
+
+/* Cmd held (keyHints.js): which number jumps to which tab or group. Laid over the tab, so nothing moves. */
+.showHints :is(.tab, .groupTab)[data-hint]::after {
+  content: attr(data-hint); position: absolute; left: 2px; top: 50%; transform: translateY(-50%); z-index: 1;
+  padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--term); color: var(--text);
+  font: 600 10px/15px var(--mono); pointer-events: none;
+}

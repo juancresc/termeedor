@@ -11,7 +11,7 @@ import {
 import { runAction } from "./core/actions.js";
 import { keptNode, patchChildren } from "./patch.js";
 import { renderTranscript } from "./core/transcript.js";
-import { nameLabel, groupName, startRename, isEditing } from "./rename.js";
+import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
 import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";
 import { createRunMarks } from "./runMarks.js";
@@ -63,7 +63,7 @@ function groupNode(group) {
   head.append(
     groupCollapseButton(group),
     colorDot(group.color, "dot"),
-    groupName(group, "sidebar", "gname"),
+    nameLabel("group", group, "sidebar", "span", "gname"),
     // its tabs are hidden while collapsed, so show here that something is running
     runMarks.slot(() => group.collapsed && groupIsBusy(group.id)),
     groupRowButtons(group),

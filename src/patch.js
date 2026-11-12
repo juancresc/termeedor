@@ -58,9 +58,18 @@ function update(old, next) {
   if (old.classList.contains("inlineInput")) return; // the person is typing in it
   for (const prop of PROPS) if (old[prop] !== next[prop]) old[prop] = next[prop];
   if (old.style.cssText !== next.style.cssText) old.style.cssText = next.style.cssText;
+  syncHint(old, next);
   for (const handler of HANDLERS) old[handler] = next[handler];
   sync(old, [...next.childNodes]);
   updateTitle(old, next);
+}
+
+/** data-hint: the Cmd+number badge, which moves to another tab as tabs move. */
+function syncHint(old, next) {
+  const hint = next.dataset.hint;
+  if (old.dataset.hint === hint) return;
+  if (hint === undefined) delete old.dataset.hint;
+  else old.dataset.hint = hint;
 }
 
 /**

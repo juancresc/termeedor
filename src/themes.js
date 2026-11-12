@@ -65,9 +65,10 @@ const REFERENCE = `/*
  * Selectors
  *   Page       body .app .app.nosidebar .app.nolines .app.resizing .desktop .platform-darwin
  *   Title bar  .titlebar .lights .tb-btn
- *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .chipName .nameHint .chipCount
+ *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .chipName .chipCount
  *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab .name
  *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
+ *              .showHints .tab::after  (on <html> while Cmd is held: the 1–9 badge, also on .groupTab)
  *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .secClear .empty

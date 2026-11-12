@@ -10,14 +10,23 @@ import {
   activateTab, moveTab, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { runAction } from "./core/actions.js";
-import { nameLabel, groupName, startRename, isEditing } from "./rename.js";
+import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
 import { renderRows, slideNextRender } from "./slide.js";
 import { createRunMarks } from "./runMarks.js";
 import { acceptTabDrops, dragTab, initDropTargets } from "./dropTarget.js";
+import { jumpHint } from "./keymap.js";
 
 const runMarks = createRunMarks();
+
+/** The badge text Cmd+1–9 shows on a tab, by id: numbered the way goToTab counts. */
+let tabHints = new Map();
+
+/** Shown by keyHints.js while the shortcut key is held. */
+function setHint(node, hint) {
+  if (hint) node.dataset.hint = hint;
+}
 
 export function initTabbar() {
   initDropTargets();
@@ -43,13 +52,14 @@ export function refreshTabbarRuns() {
 
 export function renderTabbar() {
   runMarks.clear();
+  tabHints = new Map(barTabs().map((tab, i) => [tab.id, jumpHint("tab", i + 1)]));
   const showAll = state.settings.showAllGroups;
   const group = getGroup(state.ws.activeGroup);
   $("groupTabs").classList.toggle("showAll", showAll);
   $("tabs").classList.toggle("showAll", showAll);
   const scroll = $("groupTabs").scrollLeft; // read now: the new rows are narrower until they're aligned
   renderRows([
-    { row: $("groupTabs"), nodes: barGroups().map(groupTab) },
+    { row: $("groupTabs"), nodes: barGroups().map((g, i) => groupTab(g, jumpHint("group", i + 1))) },
     { row: $("tabs"), nodes: tabRowNodes(group, showAll), enteringKey: newlyOpenedTab() },
   ], () => alignColumns(scroll));
   $("newTabBtn").hidden = !group || showAll; // in "show all" mode each group has its own
@@ -113,15 +123,16 @@ function alignColumns(scroll = $("groupTabs").scrollLeft) {
   groups.scrollLeft = tabs.scrollLeft = scroll; // measuring above clamped both to the unaligned width
 }
 
-function groupTab(group) {
+function groupTab(group, hint) {
   const tabs = tabsIn(group.id);
   const minimizedCount = tabs.filter((t) => t.minimized).length;
   const node = el("div", `groupTab${group.id === state.ws.activeGroup ? " active" : ""}${group.name ? "" : " unnamed"}`);
   node.dataset.slideKey = group.id;
+  setHint(node, hint);
   if (group.color) node.style.borderTopColor = colorVar(group.color);
 
   node.append(runMarks.slot(() => groupIsBusy(group.id))); // hidden while selected, keeping its room
-  node.append(groupName(group, "tabbar", "chipName"));
+  node.append(nameLabel("group", group, "tabbar", "span", "chipName")); // unnamed: empty
   if (group.name) node.append(el("span", "chipCount", String(tabs.length)));
   if (minimizedCount) {
     const badge = el("button", "chipCount", `+${minimizedCount}`);
@@ -142,6 +153,7 @@ function tabNode(tab, group) {
   const isActive = tab.id === state.ws.activeTab;
   const node = el("div", `tab${isActive ? " active" : ""}${tab.collapsed ? " collapsed" : ""}`);
   node.dataset.slideKey = tab.id;
+  setHint(node, tabHints.get(tab.id));
   if (group.color) node.style.setProperty("--group-color", colorVar(group.color));
   if (tab.color) node.style.borderTopColor = colorVar(tab.color);
 
