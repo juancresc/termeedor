@@ -280,16 +280,20 @@ test("the hello plugin works through actions", async () => {
   assert.equal(background.blocks.length, before);
 });
 
-test("the git-branch plugin shows what its host says", async () => {
+test("the git-branch plugin shows what its host says, with the pull request left of the branch", async () => {
   const { activate } = await import("../plugins/git-branch/plugin.js");
   const log = quietly();
   const plugin = open("git-branch");
   const calls = [];
-  const withHost = { ...plugin, host: { call: async (method, cwd) => { calls.push([method, cwd]); return "main"; } } };
+  const answers = { branch: "main", pullRequest: { number: 42, url: "https://github.com/o/r/pull/42" } };
+  const withHost = { ...plugin, host: { call: async (method, cwd) => { calls.push([method, cwd]); return answers[method]; } } };
   activate(withHost);
-  await new Promise((resolve) => { setImmediate(resolve); });
-  assert.deepEqual(calls, [["branch", store.activeTab().cwd]]);
-  const [branch, copy] = registry.statusItems().slice(-2);
+  for (let i = 0; i < 3; i++) await new Promise((resolve) => { setImmediate(resolve); });
+  const cwd = store.activeTab().cwd;
+  assert.deepEqual(calls, [["branch", cwd], ["pullRequest", cwd]]);
+  const [pr, branch, copy] = registry.statusItems().slice(-3);
+  assert.equal(pr.text, "PR #42");
+  assert.equal(typeof pr.onClick, "function");
   assert.equal(branch.text, "⎇ main");
   assert.equal(copy.text, "⧉");
   assert.equal(typeof copy.onClick, "function");

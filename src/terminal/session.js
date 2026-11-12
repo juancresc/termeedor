@@ -48,9 +48,12 @@ export function typedText(bytes) {
   return text;
 }
 
-/** Pasted text as a terminal sends it: Enter for each line break, wrapped in markers if the program asked for them. */
+/**
+ * Pasted text as a terminal sends it: Enter for each line break, wrapped in markers if the program asked for them.
+ * Line breaks at the very end are dropped, so pasting a copied line doesn't also run it.
+ */
 export function pasteBytes(text, bracketed) {
-  const lines = text.replace(/\r\n?|\n/g, "\r");
+  const lines = text.replace(/(?:\r\n?|\n)+$/, "").replace(/\r\n?|\n/g, "\r");
   if (!bracketed) return lines;
   return `\x1b[200~${lines.replaceAll("\x1b[201~", "")}\x1b[201~`;
 }

@@ -219,6 +219,8 @@ test("keys and pastes reach the program only while it runs, and only if the back
 test("a paste sends Enter for line breaks, bracketed once the program asks for it", async () => {
   assert.equal(pasteBytes("a\nb\r\nc", false), "a\rb\rc");
   assert.equal(pasteBytes("a\nb", true), "\x1b[200~a\rb\x1b[201~");
+  assert.equal(pasteBytes("ls -la\n", false), "ls -la"); // a trailing line break doesn't run it
+  assert.equal(pasteBytes("a\nb\r\n\n", true), "\x1b[200~a\rb\x1b[201~");
   assert.equal(pasteBytes("x\x1b[201~y", true), "\x1b[200~xy\x1b[201~"); // can't end the paste early
 
   const { backend, session, send } = setup();

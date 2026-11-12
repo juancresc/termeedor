@@ -1,7 +1,7 @@
 {
   "name": "Git branch",
   "version": "1.0.0",
-  "description": "Shows the current tab's git branch in the status bar.",
+  "description": "Shows the current tab's git branch in the status bar, with a link to its pull request if it has one.",
   "host": "host.cjs",
   "apiVersion": 2
 }

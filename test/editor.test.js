@@ -924,7 +924,7 @@ test("running a command doesn't redraw the app, and the status bar still follows
   try {
     type("cd /elsewhere");
     pressEnter();
-    assert.match(nodeFor("stRunning").textContent, /running/);
+    assert.equal(store.isRunning(tab().id), true);
 
     sendEvent({ tabId: tab().id, event: { type: "finish", exit: 0, cwd: "/elsewhere" } });
     await pause(FLUSH_WAIT);

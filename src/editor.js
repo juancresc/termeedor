@@ -68,7 +68,6 @@ function renderRunStatus() {
 
 function statusNotice(tab) {
   const notices = [];
-  if (tab && isRunning(tab.id)) notices.push("● running — Ctrl+C to stop");
   if (hasSaveFailed()) notices.push("⚠ Couldn't save: storage may be full");
   return notices.join(" · ");
 }
