@@ -6,7 +6,8 @@ import { getShortcut, reserve } from "./plugins/registry.js";
 import { builtinShortcutKeys, findShortcut, pluginShortcutKey, shortcutList, withShortcut } from "./keymap.js";
 
 // Copy, paste, undo and friends are in the editor, not the keymap, but plugins can't have them either.
-reserve("shortcuts", [...builtinShortcutKeys(), "KeyA", "KeyC", "KeyV", "KeyX", "KeyZ", "Shift+KeyZ", "KeyQ"]);
+// The text size keys go by character, so their US positions are reserved here.
+reserve("shortcuts", [...builtinShortcutKeys(), "Equal", "Shift+Equal", "Minus", "Digit0", "KeyA", "KeyC", "KeyV", "KeyX", "KeyZ", "Shift+KeyZ", "KeyQ"]);
 // Cmd+arrows and Cmd+Backspace edit the line, in the input and in a running program.
 if (isMac) reserve("shortcuts", ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Backspace"]);
 // Where the shortcut modifier is Ctrl, the editor's readline keys use it too.

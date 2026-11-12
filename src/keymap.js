@@ -32,10 +32,11 @@ const DESKTOP_KEYS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ action: "goToGroup", arg: n, code: `Digit${n}`, key: String(n), shift: true })),
   { action: "toggleSidebar", code: "KeyB", key: "B", does: "sidebar", section: "Window" },
   { action: "openSettings", code: "Comma", key: ",", does: "settings", section: "Window" },
-  // Cmd+= and Cmd++ (Shift+=) both make text larger, as in browsers. Only the first is listed.
-  { action: "textLarger", code: "Equal", key: "+", does: "larger text", section: "Window" },
-  { action: "textLarger", code: "Equal", key: "+", shift: true },
-  { action: "textSmaller", code: "Minus", key: "−", does: "smaller text", section: "Window" },
+  // Text size goes by the character, not the key's position: on a Spanish keyboard + is where a US
+  // one has ] and - where it has /. Cmd+= counts as + (no Shift on a US keyboard), as in browsers.
+  { action: "textLarger", chars: ["+", "="], key: "+", does: "larger text", section: "Window" },
+  { action: "textSmaller", chars: ["-"], key: "−", does: "smaller text", section: "Window" },
+  { action: "textReset", chars: ["0"], key: "0", does: "default text size", section: "Window" },
 ];
 
 const BROWSER_KEYS = [
@@ -61,11 +62,13 @@ const modifierHeld = (e) => {
 export const pluginShortcutKey = (e) => (modifierHeld(e) ? `${e.shiftKey ? "Shift+" : ""}${e.code}` : null);
 
 /** Keys plugins can't take: every built-in shortcut, in the form pluginShortcutKey returns. */
-export const builtinShortcutKeys = () => KEYS.map((k) => `${k.shift ? "Shift+" : ""}${k.code}`);
+export const builtinShortcutKeys = () => KEYS.filter((k) => k.code).map((k) => `${k.shift ? "Shift+" : ""}${k.code}`);
 
-/** The entry a keydown event triggers, if any. */
-export const findShortcut = (e) =>
-  modifierHeld(e) ? KEYS.find((k) => k.code === e.code && !!k.shift === e.shiftKey) : undefined;
+/** The entry a keydown event triggers, if any. An entry by character wins over one by key position. */
+export const findShortcut = (e) => {
+  if (!modifierHeld(e)) return undefined;
+  return KEYS.find((k) => k.chars?.includes(e.key)) ?? KEYS.find((k) => k.code && k.code === e.code && !!k.shift === e.shiftKey);
+};
 
 function keyLabel({ key, shift }) {
   if (!isDesktop) return `Alt+${shift ? "Shift+" : ""}${key}`;

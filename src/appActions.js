@@ -67,6 +67,7 @@ const ACTIONS = [
   // Text size stays within FONT_SIZE.min..max (updateSettings clamps too)
   { id: "textLarger", label: "Larger text", enabled: () => state.settings.fontSize < FONT_SIZE.max, run: () => updateSettings({ fontSize: state.settings.fontSize + 1 }) },
   { id: "textSmaller", label: "Smaller text", enabled: () => state.settings.fontSize > FONT_SIZE.min, run: () => updateSettings({ fontSize: state.settings.fontSize - 1 }) },
+  { id: "textReset", label: "Default text size", enabled: () => state.settings.fontSize !== FONT_SIZE.default, run: () => updateSettings({ fontSize: FONT_SIZE.default }) },
 
   tabAction({ id: "tab.rename", label: "Rename", run: (tab, where) => startRename("tab", tab, where) }),
   tabAction({ id: "tab.toggleCollapsed", label: (tab) => (tab?.collapsed ? "Expand" : "Collapse to chip"), run: (tab) => setTabCollapsed(tab, !tab.collapsed) }),

@@ -23,6 +23,7 @@ const { initShortcuts } = await import("../src/shortcuts.js");
 const { groupMenu, pastMenu, tabMenu } = await import("../src/contextMenus.js");
 const { closeMenu } = await import("../src/menu.js");
 const { runs } = await import("../src/core/runState.js");
+const { FONT_SIZE } = await import("../src/constants.js");
 
 const { state } = store;
 let settingsOpened = 0;
@@ -152,6 +153,21 @@ test("the shortcut list is split into sections, with group keys under Groups", a
   assert.deepEqual(sections.map((s) => s.section), ["Tabs", "Groups", "Window", "Input"]);
   assert.deepEqual(sections[1].rows.map((r) => `${r.keys} ${r.does}`), ["⌘G new group", "⌘[ previous group", "⌘] next group", "⇧⌘1–9 go to group"]);
   assert.match(sections[0].rows.find((r) => r.does === "go to tab").note, /Show all tabs/);
+});
+
+test("Cmd + - 0 change the text size by character, whatever the keyboard layout", () => {
+  store.updateSettings({ fontSize: FONT_SIZE.default });
+  press("Equal", { key: "=" }); // US: Cmd+=
+  assert.equal(state.settings.fontSize, FONT_SIZE.default + 1);
+  press("BracketRight", { key: "+" }); // Spanish: the + key, where US has ]
+  assert.equal(state.settings.fontSize, FONT_SIZE.default + 2);
+  press("Slash", { key: "-" }); // Spanish: the - key, where US has /
+  assert.equal(state.settings.fontSize, FONT_SIZE.default + 1);
+  press("Digit0", { key: "0" });
+  assert.equal(state.settings.fontSize, FONT_SIZE.default);
+  for (let i = 0; i < 30; i++) press("Minus", { key: "-" });
+  assert.equal(state.settings.fontSize, FONT_SIZE.min);
+  store.updateSettings({ fontSize: FONT_SIZE.default });
 });
 
 test("a key that isn't a shortcut does nothing", () => {
