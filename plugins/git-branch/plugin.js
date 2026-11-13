@@ -11,6 +11,7 @@ export function activate(api) {
   let copyButton = null;
   let resetTimer = null;
   let refreshes = 0;
+  const prCache = new Map(); // "folder\nbranch" -> last pull request seen there, or null
 
   api.actions.register({
     id: "copyBranch",
@@ -48,10 +49,13 @@ export function activate(api) {
     const nextBranch = tab ? await api.host.call("branch", tab.cwd).catch(() => null) : null;
     if (ticket !== refreshes) return; // another tab or command took over meanwhile
     branch = nextBranch;
-    if (!branch) pr = null;
+    // Asking GitHub takes a second or two, so show the last known answer right away and correct it after.
+    const key = branch ? `${tab.cwd}\n${branch}` : null;
+    pr = key ? prCache.get(key) ?? null : null;
     layout();
     if (!branch) return;
     const nextPr = await api.host.call("pullRequest", tab.cwd).catch(() => null);
+    prCache.set(key, nextPr);
     if (ticket !== refreshes || nextPr?.url === pr?.url) return;
     pr = nextPr;
     layout();

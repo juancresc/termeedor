@@ -6,7 +6,7 @@ import { beforeEach, test } from "node:test";
 import { LIMITS } from "../src/constants.js";
 import {
   addGroup, addTab, clearPast, closeGroup, closeTab, commit, connect, defaultWorkspace, deletePast, hydrate, reopenLastClosed,
-  nameFromCommand, renameItem, shouldConfirmCloseGroup, state, subscribe, tabsIn,
+  renameItem, shouldConfirmCloseGroup, state, subscribe, tabsIn,
 } from "../src/core/workspace.js";
 import { readSnapshot, tabFile } from "../src/core/saved.js";
 import { sanitizeSettings } from "../src/core/sanitize.js";
@@ -200,29 +200,4 @@ test("a new tab in another group takes the path of the tab that was active", () 
   addGroup();
   state.ws.tabs[1].cwd = "~/current";
   assert.equal(addTab(other.id).cwd, "~/current");
-});
-
-test("a new tab takes its first command as its name, once", () => {
-  const tab = addTab(addGroup().id);
-  nameFromCommand(tab, "  ");
-  assert.match(tab.name, /^shell \d+$/);
-  nameFromCommand(tab, "  npm run dev\nmore");
-  assert.equal(tab.name, "npm run dev");
-  nameFromCommand(tab, "ls");
-  assert.equal(tab.name, "npm run dev");
-});
-
-test("a renamed tab keeps its name when it runs a command", () => {
-  const tab = addTab(addGroup().id);
-  renameItem("tab", tab, "mine");
-  nameFromCommand(tab, "ls");
-  assert.equal(tab.name, "mine");
-});
-
-test("an unused tab reopened from past sessions still takes its first command as its name", () => {
-  closeTab(addTab(addGroup().id));
-  reopenLastClosed();
-  const tab = state.ws.tabs.at(-1);
-  nameFromCommand(tab, "htop");
-  assert.equal(tab.name, "htop");
 });

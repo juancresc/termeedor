@@ -4,7 +4,7 @@
 // what says what is a command. The session changes it; this only listens.
 
 import { $ } from "./util.js";
-import { state, activeTab, getGroup, nameFromCommand, saveSoon, saveWorkspace, hasSaveFailed, isRunning } from "./store.js";
+import { state, activeTab, getGroup, saveSoon, saveWorkspace, hasSaveFailed, isRunning } from "./store.js";
 import { onRunChange, onSessionEvent, prepareShell, resizeSessions, runCommand } from "./terminal/runner.js";
 import { runs } from "./core/runState.js";
 import { closeFullscreen, openFullscreen, refitFullscreen, showFullscreenFor, writeFullscreen } from "./terminal/fullscreen.js";
@@ -103,7 +103,6 @@ function rerun(block) {
 function start(tab, text) {
   const command = text.trim();
   if (command) tab.history.push(command);
-  nameFromCommand(tab, command);
   runCommand(tab, command, textAreaSize());
 }
 

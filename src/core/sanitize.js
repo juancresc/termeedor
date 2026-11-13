@@ -23,7 +23,6 @@ export function cssColor(v) {
 function sanitizeTabBody(t) {
   return {
     color: tabColor(t.color),
-    autoNamed: t.autoNamed === true,
     ...sanitizeTranscript(t), // also migrates tabs saved as one string
     cwd: text(t.cwd, LIMITS.cwd, "~"),
     history: Array.isArray(t.history) ? t.history.filter((h) => typeof h === "string").slice(-LIMITS.history) : [],
