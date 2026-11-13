@@ -201,6 +201,23 @@ describe("tabs and sidebar", () => {
     await app.waitFor(() => document.querySelector("#tabs .tab.active .name")?.textContent === "renamed");
     assert.equal(await focusedId(), "editor");
   });
+
+  test("a long new name shows from its start", async () => {
+    const tab = await app.center("#tabs .tab.active .name");
+    await app.click(tab.x, tab.y, 2);
+    await app.waitFor(() => document.activeElement?.classList.contains("inlineInput"));
+    await app.type("docker something");
+    const box = await app.evaluate(() => {
+      const input = document.activeElement.getBoundingClientRect();
+      const label = document.activeElement.parentNode.getBoundingClientRect();
+      return { overflow: input.right - label.right, scroll: document.activeElement.parentNode.scrollLeft };
+    });
+    assert.ok(box.overflow <= 0, "the text box fits in the name's room");
+    assert.equal(box.scroll, 0);
+    await app.press("Enter");
+    await app.waitFor(() => document.querySelector("#tabs .tab.active .name")?.textContent === "docker something");
+    assert.equal(await app.evaluate(() => document.querySelector("#tabs .tab.active .name").scrollLeft), 0, "not scrolled past its first letters");
+  });
 });
 
 test("the light theme applies", async () => {

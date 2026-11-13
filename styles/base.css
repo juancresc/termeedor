@@ -151,7 +151,9 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 
 /* inline rename input */
 .inlineInput { flex: 1; min-width: 0; width: 100%; font: inherit; color: var(--text); background: var(--term); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 5px; outline: 0; margin: -2px 0; }
-.tab .inlineInput { width: auto; }
+/* in a tab the box takes the whole name's room and no more: a wider one is cut off, and typing past the cut
+   scrolls the name sideways, where it stays after the rename. The buttons step aside to leave it more room. */
+.tab:has(.inlineInput) .itemBtns { display: none; }
 
 /* ---------- Terminal / editor ---------- */
 .main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--term); } /* min-height: 0 so the text scrolls inside instead of stretching the page */
