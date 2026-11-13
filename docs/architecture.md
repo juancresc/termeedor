@@ -8,7 +8,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | --- | --- |
 | `electron/main.cjs` | Window, `termeedor://` protocol, IPC |
 | `electron/menu.cjs` | App menu, with no reload items |
-| `electron/shellSessions.cjs` | One PTY per tab (node-pty) |
+| `electron/shellSessions.cjs` | One PTY per tab (node-pty), started when the tab is first shown so its first command doesn't wait for the shell's startup files |
 | `electron/shellParser.cjs`, `shellIntegration.cjs` | Shell hooks and OSC 133 markers: command start, finish, cwd |
 | `electron/shellCompleter.cjs`, `zshCompletion.zsh` | Tab completion from a hidden zsh |
 | `electron/completions.cjs` | Tab completion's fallback: PATH commands and paths |
@@ -17,7 +17,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | `src/core/` | No DOM or storage. `workspace` (state and what changes it), `actions` (the registry of what the app can do, by id), `sanitize` (stored data is untrusted), `saved` (state to files and back), `saver` (what to save, and when), `transcript` (a tab's blocks and draft), `styles` (styling's saved form, validation, CSS), `runState` (what is running, never saved, written by sessions) |
 | `src/store.js` | The import path for state and actions. Loads saved data on import, and connects core to the adapter |
 | `src/ports/persistence.js`, `src/adapters/` | The persistence interface. `fileStore` on the desktop (also migrates old localStorage), `localStorageStore` in the browser. `adapters/index.js` chooses |
-| `src/ports/backend.js`, `src/adapters/` | The backend interface: `run`, `write`, `resize`, `kill`, `complete`, and `output`, `alt`, `finish`, `exit` events. `electronBackend` is the IPC client, and `mockBackend` is the browser's fake shell, the only place fake commands exist. `adapters/index.js` chooses |
+| `src/ports/backend.js`, `src/adapters/` | The backend interface: `prepare`, `run`, `write`, `resize`, `kill`, `complete`, and `output`, `alt`, `finish`, `exit` events. `electronBackend` is the IPC client, and `mockBackend` is the browser's fake shell, the only place fake commands exist. `adapters/index.js` chooses |
 | `src/platform.js` | Desktop or browser, Mac or not, and the desktop host. The only code that reads `termeedorHost` or `navigator.platform` |
 | `src/storage.js` | localStorage helpers, for the browser build, the migration and plugins' `api.storage` |
 | `src/main.js` | Wiring: chooses the backend and passes it to `runner` |
@@ -90,7 +90,7 @@ A real-terminal view (xterm for the whole tab) would plug in at `editor.listenTo
 | Completion functions run the programs they complete for (`git`, `npm`), as they do in zsh | `shellCompleter.cjs` |
 | What the shell draws at a continuation prompt isn't shown, so an unterminated quote looks like a silent running command | `electron/shellParser.cjs` |
 | Erased cells with a background color are trimmed with the line's end, so a background that fills a line stops at its last character | `terminal/textModel.js` |
-| A running program's cursor always shows at the end of its output, whatever column it is really in | `styles/base.css` |
+| A running program's cursor past the end of a line's text, or on a blank line after all of it, shows at the end of the text | `terminal/textModel.js` |
 | Only the window's own resize reaches the PTY: dragging the sidebar or changing the font size waits for the next one | `editor.js` |
 
 ## Target

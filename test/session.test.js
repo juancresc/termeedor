@@ -18,7 +18,8 @@ function fakeBackend({ takesInput = true, fail = null } = {}) {
   let listener = () => {};
   const backend = {
     takesInput,
-    runs: [], writes: [], resizes: [], kills: [],
+    runs: [], writes: [], resizes: [], kills: [], prepares: [],
+    prepare: (tabId, options) => backend.prepares.push([tabId, options]),
     async run(tabId, command, options) {
       backend.runs.push({ tabId, command, options });
       if (fail) throw new Error(fail);
@@ -313,6 +314,32 @@ test("a tab closed by a command:start listener never starts a shell", async () =
   assert.equal(session.running, false);
   assert.equal(finishes.length, 1);
   assert.equal(finishes[0].closed, true);
+});
+
+test("preparing starts the shell once, at the tab's folder and size, and closing then kills it", () => {
+  const { backend, session } = setup();
+  assert.equal(session.hasShell, false);
+  session.prepare(SIZE);
+  session.prepare(SIZE);
+  assert.equal(session.hasShell, true);
+  assert.deepEqual(backend.prepares, [["t1", { cwd: "~", ...SIZE }]]);
+  session.resize(100, 40); // the shell is there to be resized
+  assert.deepEqual(backend.resizes, [["t1", 100, 40]]);
+  session.close();
+  assert.deepEqual(backend.kills, ["t1"]);
+  session.prepare(SIZE); // a closed tab starts nothing
+  assert.equal(backend.prepares.length, 1);
+});
+
+test("a shell that ended can be prepared again", async () => {
+  const { backend, session, send } = setup();
+  const done = session.run("exit", SIZE);
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
+  send({ type: "exit" });
+  assert.equal(session.hasShell, false);
+  session.prepare(SIZE);
+  assert.equal(backend.prepares.length, 1);
 });
 
 test("a tab whose shell already ended, or never started, kills nothing on close", async () => {

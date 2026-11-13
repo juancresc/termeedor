@@ -171,6 +171,7 @@ export function createMockBackend({ getTab, stepMs = BUILD_STEP_MS } = {}) {
       if (data.includes("\x03")) running.get(tabId)?.abort();
     },
 
+    prepare() {}, // nothing to start
     resize() {}, // nothing formats its output to fit
 
     kill(tabId) {

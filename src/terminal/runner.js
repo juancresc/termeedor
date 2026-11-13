@@ -43,6 +43,12 @@ export function onRunChange(fn) {
   onSessionEvent("finish", fn);
 }
 
+/** Starts the tab's shell if it has none, so its first command is as quick as the rest. sizeOf() is only called if so. */
+export function prepareShell(tab, sizeOf) {
+  const session = sessionFor(tab);
+  if (!session.hasShell) session.prepare(sizeOf());
+}
+
 export const runCommand = (tab, command, size) => sessionFor(tab).run(command, size);
 
 export function endSession(tabId) {

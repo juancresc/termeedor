@@ -41,12 +41,18 @@ function addRange(ranges, start, end, code) {
   else ranges.push([start, end, code]);
 }
 
-/** Appends one row to `into` ({ text, ranges }). Cells nothing was written to only count if text follows them. */
-function readRow(row, keepBlanks, cell, into) {
+/**
+ * Appends one row to `into` ({ text, ranges }). Cells nothing was written to only count if text follows them.
+ * With the cursor in the row, at column `cursorX`, `into.cursor` becomes where in the text that is:
+ * the end of the row's text if the cursor is past it.
+ */
+function readRow(row, keepBlanks, cell, into, cursorX = -1) {
   const start = into.text.length;
   let text = "";
   let written = 0;
+  let cursorAt = -1;
   for (let x = 0; x < row.length;) {
+    if (cursorAt === -1 && cursorX !== -1 && x >= cursorX) cursorAt = text.length;
     row.getCell(x, cell);
     const chars = cell.getChars();
     const piece = chars || " ";
@@ -59,6 +65,7 @@ function readRow(row, keepBlanks, cell, into) {
   const kept = keepBlanks ? text.length : written;
   into.text += text.slice(0, kept);
   clipRanges(into.ranges, start + kept);
+  if (cursorX !== -1) into.cursor = start + Math.min(cursorAt === -1 ? kept : cursorAt, kept);
 }
 
 function clipRanges(ranges, end) {
@@ -66,14 +73,17 @@ function clipRanges(ranges, end) {
   if (ranges.length && ranges.at(-1)[1] > end) ranges.at(-1)[1] = end;
 }
 
-/** Reads whole lines from the rows in [from, to): a long line is one line however many rows it wrapped onto. */
-function readLines(buffer, from, to, cell) {
+/**
+ * Reads whole lines from the rows in [from, to): a long line is one line however many rows it wrapped onto.
+ * The line holding `cursor` ({ row, x }) gets a `cursor`, counted from the start of its text.
+ */
+function readLines(buffer, from, to, cell, cursor = null) {
   const lines = [];
   for (let at = from; at < to;) {
     const line = { text: "", ranges: [], rows: 0 };
     do {
       const continues = at + 1 < buffer.length && buffer.getLine(at + 1).isWrapped; // a long line's spaces at the wrap are real
-      readRow(buffer.getLine(at), continues, cell, line);
+      readRow(buffer.getLine(at), continues, cell, line, cursor?.row === at ? cursor.x : -1);
       at++;
       line.rows++;
     } while (at < to && buffer.getLine(at).isWrapped);
@@ -162,6 +172,7 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
   const term = new Terminal({ cols, rows, scrollback, allowProposedApi: true });
   const cell = term.buffer.normal.getNullCell();
   let erasedScrollback = false; // ESC[3J, which `clear` sends: everything above goes too
+  let cursorHidden = false; // ESC[?25l: the program draws its own cursor, or wants none
   let kept = createKeptLines();
   let marker = null; // on the last kept row: how the terminal shows how many rows it dropped
   let keptEnd = 0; // the row after the last kept one
@@ -186,8 +197,15 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
   });
   term.parser.registerEscHandler({ final: "c" }, () => { // a full reset wipes the scrollback too
     forget();
+    cursorHidden = false;
     return false;
   });
+  for (const [final, hidden] of [["l", true], ["h", false]]) {
+    term.parser.registerCsiHandler({ prefix: "?", final }, (params) => {
+      if (params.includes(25)) cursorHidden = hidden;
+      return false;
+    });
+  }
 
   function followTrim(buffer) {
     if (!marker) return;
@@ -220,17 +238,18 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
     followTrim(buffer);
     const firmEnd = lineStart(buffer, buffer.baseY);
     keepScrolledOff(buffer, firmEnd);
-    const screen = readLines(buffer, keptEnd, buffer.length, cell);
+    const screen = readLines(buffer, keptEnd, buffer.length, cell, { row: buffer.baseY + buffer.cursorY, x: buffer.cursorX });
     rowsRead += buffer.length - keptEnd;
     while (screen.length && !screen.at(-1).text) screen.pop();
     return screen;
   }
 
   function joinScreen(screen) {
-    const joined = { text: "", ranges: [] };
+    const joined = { text: "", ranges: [], cursor: null };
     screen.forEach((line, i) => {
       if (i) joined.text += "\n";
       const start = joined.text.length;
+      if (line.cursor !== undefined) joined.cursor = start + line.cursor;
       for (const [from, to, code] of line.ranges) joined.ranges.push([start + from, start + to, code]);
       joined.text += line.text;
     });
@@ -242,7 +261,9 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
     const lines = read();
     const screen = joinScreen(lines);
     const start = kept.text.length;
-    return { screen, start, hasScreen: lines.length > 0, text: lines.length ? kept.text + screen.text : withoutBlankEnd(kept.text) };
+    const text = lines.length ? kept.text + screen.text : withoutBlankEnd(kept.text);
+    // On a blank line after all the text, the cursor counts as at the text's end.
+    return { screen, start, hasScreen: lines.length > 0, text, cursor: screen.cursor === null ? text.length : start + screen.cursor };
   }
 
   return {
@@ -266,12 +287,13 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
     },
     text: () => compose().text,
     /**
-     * { text, styles, stable, cut, since }. The first `stable` characters won't change. `since`
-     * is the text of the snapshot before this one, null if this one has no relation to it, and
-     * `cut` is how many characters have gone from the front of it.
+     * { text, styles, stable, cut, since, cursor }. The first `stable` characters won't change.
+     * `since` is the text of the snapshot before this one, null if this one has no relation to
+     * it, and `cut` is how many characters have gone from the front of it. `cursor` is where in
+     * the text the program's cursor is, never before `stable`, or null if the program hid it.
      */
     styled() {
-      const { screen, start, hasScreen, text } = compose();
+      const { screen, start, hasScreen, text, cursor } = compose();
       const ownRanges = screen.ranges.slice(-LIMITS.styleRanges).map(([from, to, code]) => [start + from, start + to, code]);
       const snapshot = {
         text,
@@ -279,6 +301,7 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
         stable: hasScreen ? start : text.lastIndexOf("\n") + 1,
         cut: kept.cut,
         since: published,
+        cursor: cursorHidden ? null : cursor,
       };
       kept.cut = 0;
       published = text;

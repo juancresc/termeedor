@@ -5,7 +5,7 @@
 
 import { $ } from "./util.js";
 import { state, activeTab, getGroup, nameFromCommand, saveSoon, saveWorkspace, hasSaveFailed, isRunning } from "./store.js";
-import { onRunChange, onSessionEvent, resizeSessions, runCommand } from "./terminal/runner.js";
+import { onRunChange, onSessionEvent, prepareShell, resizeSessions, runCommand } from "./terminal/runner.js";
 import { runs } from "./core/runState.js";
 import { closeFullscreen, openFullscreen, refitFullscreen, showFullscreenFor, writeFullscreen } from "./terminal/fullscreen.js";
 import { textAreaSize } from "./terminal/size.js";
@@ -53,6 +53,7 @@ export const focusEditor = focusInput;
 export function renderEditor() {
   const tab = activeTab() ?? null;
   showBoth(tab);
+  if (tab) prepareShell(tab, textAreaSize); // a tab's shell starts when the tab is first shown
   $("stTab").textContent = tab ? [getGroup(tab.groupId).name, tab.name].filter(Boolean).join(" › ") : "No open tabs";
   renderRunStatus();
   if (!tab) $("stPos").textContent = "";

@@ -1,6 +1,8 @@
 // What the terminal needs from whatever runs commands. See adapters/ for the two there are.
-// Every tab has its own shell, which starts on the tab's first command.
+// Every tab has its own shell, which starts on the tab's first command, or before it with prepare.
 //
+// prepare(tabId, { cwd, cols, rows }): starts the tab's shell now, so its first command doesn't
+//   wait for the shell's startup files. Only a head start: it reports nothing, and may do nothing.
 // run(tabId, command, { cwd, cols, rows }): Promise, settled once the command was handed over.
 //   It rejects if it couldn't be, with a message fit to show. Results only arrive as events.
 // write(tabId, data): bytes for what is running. "\x03" is Ctrl+C, and the command ends with a finish event.
@@ -18,7 +20,7 @@
 //                                   A desktop shell that ends between commands isn't reported.
 // takesInput: true if keys and pastes go to a running command. If false, the editor keeps them.
 
-const METHODS = ["run", "write", "resize", "kill", "complete", "onEvent"];
+const METHODS = ["run", "prepare", "write", "resize", "kill", "complete", "onEvent"];
 
 export function assertBackend(adapter) {
   for (const method of METHODS) {

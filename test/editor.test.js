@@ -13,6 +13,7 @@ globalThis.termeedorHost = {
   shell: {
     run: async (tabId, command) => { hostRuns.push(command); },
     write: (tabId, data) => writes.push(data),
+    prepare: async () => {},
     resize: noop,
     kill: noop,
     onEvent: (fn) => { sendEvent = fn; },

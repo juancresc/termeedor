@@ -6,7 +6,8 @@
 // Events, each listener(payload):
 //   start      { block, command }    a block was added and its command is running
 //   output     { block, snapshot, erased }  the block now holds what the command shows so far
-//              (snapshot: see textModel.js); erased: the tab's earlier content went too
+//              (snapshot: see textModel.js; no cursor once the command has ended); erased: the
+//              tab's earlier content went too
 //   data       { data }              raw terminal bytes, for a view that draws them itself (xterm)
 //   fullscreen { on, closing }       a program took over the screen, or gave it back
 //   busy       { on }                the command started or stopped working (see below)
@@ -71,10 +72,11 @@ export function createSession({
   let closed = false;
 
   /** Output can overwrite itself, so the block gets all of it again. */
-  function flush(run) {
+  function flush(run, ended = false) {
     clearTimeout(run.timer);
     run.timer = null;
     const snapshot = run.model.styled();
+    if (ended) snapshot.cursor = null;
     const erased = run.model.takeErasedScrollback();
     if (erased) clearEarlier(tab, run.block);
     setBlockOutput(run.block, snapshot.text, snapshot.styles);
@@ -117,7 +119,7 @@ export function createSession({
   /** The terminal may still be parsing the command's last output. */
   async function finishRun(run, exit) {
     await run.model.settled();
-    flush(run);
+    flush(run, true);
     const output = run.model.text();
     endRun(run);
     run.resolve({ output, shown: true, exit });
@@ -160,6 +162,16 @@ export function createSession({
       if (!listeners.has(type)) listeners.set(type, new Set());
       listeners.get(type).add(listener);
       return () => listeners.get(type).delete(listener);
+    },
+
+    /** True once the tab's shell was started, or asked to be, until it ends. */
+    get hasShell() { return hasShell; },
+
+    /** Starts the shell ahead of the first command, sized { cols, rows }, so that command doesn't wait for it. */
+    prepare(size) {
+      if (closed || hasShell) return;
+      hasShell = true;
+      backend.prepare(tab.id, { cwd: tab.cwd, ...size });
     },
 
     /** Runs a command in a new block, sized { cols, rows }. Resolves once it has finished. */

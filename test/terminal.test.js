@@ -353,3 +353,48 @@ test("the app keeps Cmd shortcuts, selection keys and bare modifiers", () => {
   assert.equal(keyToBytes(key("ArrowLeft", { shiftKey: true })), null);
   assert.equal(keyToBytes(key("Shift", { shiftKey: true })), null);
 });
+
+// ---------- the cursor ----------
+async function cursorAfter(data, size = { cols: 10, rows: 5 }) {
+  const model = createTextModel(size);
+  model.write(data);
+  await model.settled();
+  const { text, cursor } = model.styled();
+  return cursor === null ? null : `${text.slice(0, cursor)}|${text.slice(cursor)}`;
+}
+
+test("the cursor is where the program left it, as when a shell's line is edited over ssh", async () => {
+  assert.equal(await cursorAfter("$ echo hi"), "$ echo hi|");
+  assert.equal(await cursorAfter("$ echo hi\b\b\b"), "$ echo| hi");
+  assert.equal(await cursorAfter("one\r\ntwo\r\n$ abc\x1b[2D"), "one\ntwo\n$ a|bc");
+});
+
+test("the cursor is found in a line that wrapped, on any of its rows", async () => {
+  const typed = "$ echo one two three four"; // 25 characters over 3 rows of 10
+  assert.equal(await cursorAfter(typed), `${typed}|`);
+  assert.equal(await cursorAfter(`${typed}\x1b[A\x1b[3G`), "$ echo one t|wo three four");
+  assert.equal(await cursorAfter(`${typed}\x1b[2A\r`), `|${typed}`);
+  assert.equal(await cursorAfter("0123456789"), "0123456789|", "at the edge, before the next character wraps");
+});
+
+test("the cursor counts in the text's characters, not in columns", async () => {
+  assert.equal(await cursorAfter("日本語\b\b"), "日本|語");
+  assert.equal(await cursorAfter("a😀b\b"), "a😀|b");
+});
+
+test("a cursor past the text shows at the end of its line, or of all the text", async () => {
+  assert.equal(await cursorAfter("ab\x1b[5C"), "ab|");
+  assert.equal(await cursorAfter("ab\r\ncd\x1b[A\x1b[5C"), "ab|\ncd");
+  assert.equal(await cursorAfter("ab\r\n\r\n"), "ab|");
+  assert.equal(await cursorAfter("ab\r\n\r\ncd\x1b[A"), "ab\n|\ncd");
+});
+
+test("the cursor stays right once lines have scrolled off", async () => {
+  assert.equal(await cursorAfter("1\r\n2\r\n3\r\n4\r\n$ abc\b", { cols: 10, rows: 2 }), "1\n2\n3\n4\n$ ab|c");
+});
+
+test("a program can hide the cursor and show it again", async () => {
+  assert.equal(await cursorAfter("ab\x1b[?25l"), null);
+  assert.equal(await cursorAfter("ab\x1b[?25l\x1b[?25h"), "ab|");
+  assert.equal(await cursorAfter("ab\x1b[?25l\x1bccd"), "cd|", "a reset shows it");
+});

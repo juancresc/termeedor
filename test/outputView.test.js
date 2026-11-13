@@ -166,3 +166,50 @@ test("colors reach the page only as theme variables or checked numbers", () => {
     assert.equal(parseStyleCode(bad), null, bad);
   }
 });
+
+// ---------- the cursor ----------
+const tailNode = () => bodyNode().allWithClass("outputTail")[0];
+/** The tail's text with | where the cursor's piece is. */
+const tailWithCursor = () => tailNode().children.map((node) => (node.className === "cursor" ? "|" : node.textContent)).join("");
+
+test("the cursor is drawn where the program has it, and moving it changes no text", async () => {
+  const tab = newTab();
+  const model = createTextModel({ cols: 10, rows: 4 });
+  show(tab, await write(model, "$ echo one two"));
+  assert.equal(tailWithCursor(), "$ echo one two", "at the end, CSS draws it");
+  assert.ok(!tailNode().classList.contains("cursorPlaced"));
+
+  show(tab, await write(model, "\x1b[A\x1b[5G")); // Left, across the wrap
+  assert.equal(tailWithCursor(), "$ ec|ho one two");
+  assert.ok(tailNode().classList.contains("cursorPlaced"));
+  assertReads(tab);
+
+  show(tab, await write(model, "\x1b[C"));
+  assert.equal(tailWithCursor(), "$ ech|o one two");
+  show(tab, await write(model, "X"));
+  assert.equal(tailWithCursor(), "$ echX| one two");
+  assertReads(tab);
+
+  show(tab, await write(model, "\x1b[B\x1b[5G")); // End
+  assert.equal(tailWithCursor(), "$ echX one two");
+  assert.ok(!tailNode().classList.contains("cursorPlaced"));
+});
+
+test("the cursor splits styled text without changing how it reads", async () => {
+  const tab = newTab();
+  const model = createTextModel({ cols: 20, rows: 3 });
+  show(tab, await write(model, "\x1b[31mred\x1b[0m plain\x1b[2G"));
+  assert.equal(tailWithCursor(), "r|ed plain");
+  assertReads(tab);
+});
+
+test("a hidden cursor, or a finished command's, isn't drawn at all", async () => {
+  const tab = newTab();
+  const model = createTextModel({ cols: 20, rows: 3 });
+  show(tab, await write(model, "working\x1b[?25l"));
+  assert.ok(tailNode().classList.contains("cursorPlaced"), "nor at the end");
+  assert.equal(tailWithCursor(), "working");
+
+  show(tab, { ...(await write(model, "\x1b[?25h\b\b")), cursor: null });
+  assert.equal(tailWithCursor(), "working");
+});

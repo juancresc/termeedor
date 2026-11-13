@@ -77,6 +77,7 @@ const REFERENCE = `/*
  *   History    .pastSearch .session .session .sname
  *   Output     .main .termScroll .output .output.running .output ::selection .block .block.isCommand
  *              .commandLine .commandPrompt .commandText .blockOutput .outputChunk .outputTail .rerun
+ *              .cursor (a running program's cursor inside its text) .outputTail.cursorPlaced
  *              .ansiBold .ansiDim .ansiItalic .ansiUnderline
  *   Input      .inputRow .inputRow.running .inputRow.multiline .inputLines .promptMark .editor .editor::selection
  *   Full screen .fullTerm (vim, top and friends)

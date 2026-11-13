@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("termeedorHost", {
     writeSync: (changes) => ipcRenderer.sendSync("data:write-sync", changes),
   },
   shell: {
+    prepare: (tabId, options) => ipcRenderer.invoke("shell:prepare", tabId, options),
     run: (tabId, command, options) => ipcRenderer.invoke("shell:run", tabId, command, options),
     write: (tabId, data) => ipcRenderer.invoke("shell:write", tabId, data),
     resize: (tabId, cols, rows) => ipcRenderer.invoke("shell:resize", tabId, cols, rows),

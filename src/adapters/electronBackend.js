@@ -31,6 +31,7 @@ export function createElectronBackend(shell) {
   return {
     takesInput: true,
     onEvent: stream.onEvent,
+    prepare: (tabId, options) => { shell.prepare(tabId, options).catch(() => {}); }, // run reports what is wrong
     async run(tabId, command, options) {
       try {
         await shell.run(tabId, command, options);

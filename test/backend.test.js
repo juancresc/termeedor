@@ -32,6 +32,7 @@ function fakeShell(overrides = {}) {
   const calls = [];
   let send;
   const shell = {
+    prepare: async (...args) => { calls.push(["prepare", ...args]); },
     run: async (...args) => { calls.push(["run", ...args]); },
     write: (...args) => { calls.push(["write", ...args]); return "wrote"; },
     resize: (...args) => { calls.push(["resize", ...args]); },
@@ -244,11 +245,13 @@ test("electron: calls reach the host as they came, and input goes to the program
   const { shell, calls } = fakeShell();
   const backend = createElectronBackend(shell);
   assert.equal(backend.takesInput, true);
+  backend.prepare("t1", { cwd: "/a", cols: 80, rows: 24 });
   await backend.run("t1", "ls -la", { cwd: "/a", cols: 80, rows: 24 });
   assert.equal(backend.write("t1", "\x03"), "wrote");
   backend.resize("t1", 100, 40);
   backend.kill("t1");
   assert.deepEqual(calls, [
+    ["prepare", "t1", { cwd: "/a", cols: 80, rows: 24 }],
     ["run", "t1", "ls -la", { cwd: "/a", cols: 80, rows: 24 }],
     ["write", "t1", "\x03"],
     ["resize", "t1", 100, 40],

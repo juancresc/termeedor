@@ -220,6 +220,36 @@ for (const [name, file] of shells) {
       sessions.killAll();
     });
 
+    test("a prepared shell runs its startup files once, before the first command, in the tab's folder", async () => {
+      const marks = path.join(home, "starts");
+      const folder = path.join(home, "prepared");
+      fs.rmSync(marks, { force: true });
+      fs.mkdirSync(folder, { recursive: true });
+      const { sessions, run, events } = harness(file, `echo started >> ${marks}\n`);
+      try {
+        sessions.prepare("t", { cwd: folder, cols: 90, rows: 25 });
+        sessions.prepare("t", { cwd: home }); // it has one already
+        assert.deepEqual(sessions.info("t"), { cwd: folder, path: null });
+        for (let i = 0; i < 400 && !sessions.info("t").path; i++) await new Promise((r) => setTimeout(r, 25));
+        assert.ok(sessions.info("t").path, "the shell never became ready");
+        assert.deepEqual(events, []); // its first prompt is not a command's finish
+        const { text, finish } = await run("pwd; stty size", "t", { cols: 90, rows: 25 });
+        assert.equal(text, `${folder}\n25 90\n`);
+        assert.equal(finish.exit, 0);
+        assert.equal(fs.readFileSync(marks, "utf8"), "started\n");
+      } finally {
+        sessions.killAll();
+      }
+    });
+
+    test("a command sent while a prepared shell is still starting runs once it is ready", async () => {
+      const { sessions, run } = harness(file, "sleep 0.5\n");
+      sessions.prepare("t", { cwd: home });
+      assert.equal((await run("echo early")).text, "early\n");
+      sessions.kill("t");
+      assert.equal(sessions.info("t"), null);
+    });
+
     test("tabs have separate shells, and a tab's folder is used at start", async () => {
       const { sessions, run } = harness(file, "");
       await run("cd /tmp", "a");

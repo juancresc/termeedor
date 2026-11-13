@@ -89,7 +89,10 @@ function drawCommand(view, block) {
 }
 
 // ---------- text ----------
+const CURSOR = Symbol("cursor"); // the code of the piece that marks the cursor, which has no text
+
 function pieceNode({ text, code }) {
+  if (code === CURSOR) return { text, code, node: el("span", "cursor"), textNode: null };
   const textNode = document.createTextNode(text);
   const css = code === null ? null : styleCss(code);
   if (!css) return { text, code, node: textNode, textNode };
@@ -148,15 +151,39 @@ function startOver(view) {
   view.pieces.splice(0).forEach((piece) => piece.node.remove());
 }
 
-/** Keeps every piece that is still the same, so a selection in it survives. Most output only adds to the end. */
-function drawTail(view, text, styles) {
-  const next = styledSegments(text, styles, view.frozen);
+/** Puts the cursor's piece where the cursor is, splitting the segment it is inside of. */
+function withCursor(segments, offset) {
+  const placed = [];
+  let left = offset;
+  for (const segment of segments) {
+    if (left !== null && left < segment.text.length) {
+      if (left > 0) placed.push({ text: segment.text.slice(0, left), code: segment.code });
+      placed.push({ text: "", code: CURSOR }, { text: segment.text.slice(left), code: segment.code });
+      left = null;
+    } else {
+      placed.push(segment);
+      if (left !== null) left -= segment.text.length;
+    }
+  }
+  return placed;
+}
+
+/**
+ * Keeps every piece that is still the same, so a selection in it survives. Most output only adds to the end.
+ * `cursor` is where in the text the program's cursor is, null for none, and undefined if nothing
+ * says. At the text's end, or with nothing said, CSS draws it after the tail.
+ */
+function drawTail(view, text, styles, cursor) {
+  const inText = typeof cursor === "number" && cursor >= view.frozen && cursor < text.length;
+  view.tail.classList.toggle("cursorPlaced", inText || cursor === null);
+  const segments = styledSegments(text, styles, view.frozen);
+  const next = inText ? withCursor(segments, cursor - view.frozen) : segments;
   const drawn = view.pieces;
   let same = 0;
   while (same < drawn.length && same < next.length && drawn[same].text === next[same].text && drawn[same].code === next[same].code) same++;
 
   const last = drawn[same];
-  if (same === drawn.length - 1 && next[same]?.code === last.code && next[same].text.startsWith(last.text)) {
+  if (same === drawn.length - 1 && last.textNode && next[same]?.code === last.code && next[same].text.startsWith(last.text)) {
     last.textNode.appendData(next[same].text.slice(last.text.length));
     last.text = next[same].text;
     same++;
@@ -173,21 +200,22 @@ function drawTail(view, text, styles) {
 /** How far the block's output can be frozen, and whether what is drawn is a start on it. Without a snapshot, the text is taken as final. */
 function readChange(view, block) {
   const snapshot = changes.get(block);
-  if (snapshot?.text !== block.output) return { stable: block.output.length, follows: false, cut: 0 };
+  if (snapshot?.text !== block.output) return { stable: block.output.length, follows: false, cut: 0, cursor: undefined };
   const follows = snapshot.since !== null && snapshot.since === view.output && snapshot.stable >= view.frozen - snapshot.cut && snapshot.cut <= view.frozen;
-  return { stable: snapshot.stable, follows, cut: snapshot.cut };
+  return { stable: snapshot.stable, follows, cut: snapshot.cut, cursor: snapshot.cursor };
 }
 
 function drawOutput(view, block) {
-  if (view.output === block.output && view.styles === block.styles) return;
-  const { stable, follows, cut } = readChange(view, block);
+  const { stable, follows, cut, cursor } = readChange(view, block);
+  if (view.output === block.output && view.styles === block.styles && view.cursor === cursor) return;
   if (follows) dropFromFront(view, cut, block.output, block.styles);
   else startOver(view);
   view.output = block.output;
   view.styles = block.styles;
+  view.cursor = cursor;
 
   freezeUpTo(view, stable, block.output, block.styles);
-  drawTail(view, block.output, block.styles);
+  drawTail(view, block.output, block.styles, cursor);
 }
 
 function createView() {
@@ -196,7 +224,7 @@ function createView() {
   const tail = el("div", "outputTail");
   body.append(tail);
   node.append(body);
-  return { node, body, tail, commandLine: null, command: undefined, output: "", styles: undefined, chunks: [], frozen: 0, pieces: [] };
+  return { node, body, tail, commandLine: null, command: undefined, output: "", styles: undefined, cursor: undefined, chunks: [], frozen: 0, pieces: [] };
 }
 
 // ---------- rendering ----------

@@ -198,6 +198,7 @@ if (!app.requestSingleInstanceLock()) {
     handle("plugins:open-folder", () => shell.openPath(userPluginsDir()));
     handle("plugins:host-call", callPluginHost);
     handle("plugins:host-stop", pluginHosts.stop);
+    handle("shell:prepare", (tabId, options) => shells.prepare(tabId, options));
     handle("shell:run", (tabId, command, options) => shells.run(tabId, String(command), options));
     handle("shell:write", (tabId, data) => shells.write(tabId, String(data)));
     handle("shell:resize", (tabId, cols, rows) => shells.resize(tabId, cols, rows));

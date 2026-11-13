@@ -1,5 +1,6 @@
 // One long-lived shell per tab, so `cd`, `export` and aliases carry over between commands.
-// A session starts on its tab's first command. No Electron imports, so tests can use real shells.
+// A session starts when its tab is first shown (prepare), so the startup files have usually run by
+// the first command; otherwise on that command. No Electron imports, so tests can use real shells.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -133,6 +134,14 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
   }
 
   return {
+    /**
+     * Starts the tab's shell ahead of its first command, which would otherwise wait for the
+     * startup files. Does nothing if it has one, or if there is no shell to start: run() reports that.
+     */
+    prepare(tabId, { cwd, cols, rows } = {}) {
+      if (!shell || sessions.has(tabId)) return;
+      start(tabId, cwd, cols && rows ? { cols, rows } : {});
+    },
     /** Runs a command. Its results arrive through send(); a finish event ends it. */
     run(tabId, command, { cwd, cols, rows } = {}) {
       const size = cols && rows ? { cols, rows } : {};
@@ -185,7 +194,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
     killAll() {
       [...sessions.keys()].forEach((id) => this.kill(id));
     },
-    /** The session's cwd and PATH, for completions. Null before its first command. */
+    /** The session's cwd and PATH, for completions. Null before its shell starts; no PATH until it is ready. */
     info(tabId) {
       const session = sessions.get(tabId);
       return session ? { cwd: session.cwd, path: session.path } : null;
