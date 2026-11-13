@@ -1,11 +1,11 @@
 // Left sidebar: groups with their tabs, past sessions,
-// plus show/hide and drag-to-resize.
+// plus show/hide and drag-to-resize. Tabs and groups are dragged to reorder them, a tab onto a group to send it there.
 
 import { SIDEBAR } from "./constants.js";
 import { $, el, colorDot, timeAgo } from "./util.js";
 import {
   state, getTab, getGroup, tabsIn, isBusy, groupIsBusy,
-  activateTab, moveTab, selectGroup, setGroupMinimized,
+  activateTab, moveTab, placeTab, placeGroup, selectGroup, setGroupMinimized,
   reopenPast, deletePast, setSidebarOpen, setSidebarWidth,
 } from "./store.js";
 import { runAction } from "./core/actions.js";
@@ -15,7 +15,7 @@ import { nameLabel, startRename, isEditing } from "./rename.js";
 import { tabMenu, groupMenu, pastMenu, reopenLabel } from "./contextMenus.js";
 import { tabRowButtons, groupRowButtons, groupCollapseButton } from "./controls.js";
 import { createRunMarks } from "./runMarks.js";
-import { acceptTabDrops, dragTab } from "./dropTarget.js";
+import { acceptDrops, dragItem } from "./dropTarget.js";
 
 const runMarks = createRunMarks();
 
@@ -72,10 +72,13 @@ function groupNode(group) {
   head.ondblclick = (e) => { e.stopPropagation(); startRename("group", group); };
   head.oncontextmenu = (e) => groupMenu(group, e);
 
-  // drop a tab (from the sidebar or the tab bar) onto a group to move it
-  acceptTabDrops(box, `group-${group.id}`, (id) => {
-    const tab = getTab(id);
-    if (tab) moveTab(tab, group.id);
+  head.draggable = !isEditing("group", group.id, "sidebar");
+  dragItem(head, "group", group);
+
+  // drop a tab (from the sidebar or the tab bar) onto a group to move it there, or a group to put it before or after
+  acceptDrops(box, `group-${group.id}`, {
+    tab: { drop: (id) => { const tab = getTab(id); if (tab) moveTab(tab, group.id); } },
+    group: { axis: "y", self: group.id, drop: (id, after) => { const moved = getGroup(id); if (moved) placeGroup(moved, group, after); } },
   });
 
   const list = el("div", "glist");
@@ -100,7 +103,8 @@ function tabRow(tab) {
   row.ondblclick = () => startRename("tab", tab, "sidebar");
   row.oncontextmenu = (e) => tabMenu(tab, e, "sidebar");
   row.draggable = !isEditing("tab", tab.id, "sidebar");
-  dragTab(row, tab);
+  dragItem(row, "tab", tab);
+  acceptDrops(row, `row-${tab.id}`, { tab: { axis: "y", self: tab.id, drop: (id, after) => { const moved = getTab(id); if (moved) placeTab(moved, tab, after); } } });
   return row;
 }
 

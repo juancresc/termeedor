@@ -1,5 +1,5 @@
 // Holding the shortcut key (Cmd on a Mac, Ctrl elsewhere) a moment shows which number jumps where:
-// "1"–"9" on tabs, "⇧1"–"⇧9" on groups. tabbar.js puts the text in data-hint; CSS shows it while
+// "1"–"9" on tabs, "⌥1"–"⌥9" on groups ("⇧1"–"⇧9" off the Mac). tabbar.js puts the text in data-hint; CSS shows it while
 // <html> has the class "showHints". A quick shortcut like Cmd+C starts and ends before the delay,
 // so nothing flashes. Letting go, or the window losing focus (Cmd+Tab never sends the key-up), hides them.
 
@@ -23,7 +23,7 @@ export function initKeyHints({ target = globalThis.window, root = globalThis.doc
         clearTimeout(timer);
         timer = setTimeout(() => root.classList.add("showHints"), delay);
       }
-    } else if (e.key !== "Shift") {
+    } else if (e.key !== "Shift" && e.key !== "Alt") {
       clearTimeout(timer); // a shortcut is under way: no badges for it. Ones already shown stay.
       timer = null;
     }

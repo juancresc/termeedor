@@ -133,7 +133,7 @@ globalThis.document = {
   head: stubNode("HEAD"),
   activeElement: textarea,
 };
-globalThis.window = { addEventListener: noop };
+globalThis.window = { addEventListener: noop, removeEventListener: noop };
 globalThis.innerWidth = 1000;
 globalThis.innerHeight = 800;
 globalThis.getSelection = () => selection;

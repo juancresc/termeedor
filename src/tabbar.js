@@ -1,13 +1,13 @@
 // The two top bars. First row: groups, like tabs of tabs. Second row: the selected group's tabs.
 // Minimized groups leave the bars and stay in the sidebar; a group's tab counts its minimized tabs.
-// Drag a tab onto a group to send it there.
+// Drag a tab or a group along its row to move it, or a tab onto a group to send it there.
 // In "show all" mode each group's tab sits right above where its tabs start.
 
 import { $, el } from "./util.js";
 import { colorVar } from "./constants.js";
 import {
   state, getGroup, getTab, groupLabel, tabsIn, visibleTabsIn, barGroups, barTabs, isBusy, groupIsBusy, minimizedGroups,
-  activateTab, moveTab, selectGroup, restoreMinimized, updateSettings,
+  activateTab, moveTab, placeTab, placeGroup, selectGroup, restoreMinimized, updateSettings,
 } from "./store.js";
 import { runAction } from "./core/actions.js";
 import { nameLabel, startRename, isEditing } from "./rename.js";
@@ -15,7 +15,7 @@ import { tabMenu, groupMenu } from "./contextMenus.js";
 import { tabBarButtons, groupBarButtons, expandTabButton } from "./controls.js";
 import { renderRows, slideNextRender } from "./slide.js";
 import { createRunMarks } from "./runMarks.js";
-import { acceptTabDrops, dragTab, initDropTargets } from "./dropTarget.js";
+import { acceptDrops, dragItem, initDropTargets } from "./dropTarget.js";
 import { jumpHint } from "./keymap.js";
 
 const runMarks = createRunMarks();
@@ -97,7 +97,7 @@ function groupSection(group) {
   if (group.color) box.style.setProperty("--group-color", colorVar(group.color));
   box.dataset.slideKey = `box-${group.id}`;
   box.append(...visibleTabsIn(group.id).map((tab) => tabNode(tab, group)), add);
-  acceptTabDrops(box, `box-${group.id}`, (id) => dropTab(id, group));
+  acceptDrops(box, `box-${group.id}`, { tab: { drop: (id) => dropTab(id, group) } });
   return box;
 }
 
@@ -145,7 +145,12 @@ function groupTab(group, hint) {
   node.onclick = () => { if (group.id !== state.ws.activeGroup) selectGroup(group); };
   node.ondblclick = (e) => { e.stopPropagation(); startRename("group", group, "tabbar"); };
   node.oncontextmenu = (e) => groupMenu(group, e, "tabbar");
-  acceptTabDrops(node, `chip-${group.id}`, (id) => dropTab(id, group));
+  node.draggable = !isEditing("group", group.id, "tabbar");
+  dragItem(node, "group", group);
+  acceptDrops(node, `chip-${group.id}`, {
+    tab: { drop: (id) => dropTab(id, group) },
+    group: { axis: "x", self: group.id, drop: (id, after) => placeHere(getGroup(id), group, after, placeGroup) },
+  });
   return node;
 }
 
@@ -169,8 +174,16 @@ function tabNode(tab, group) {
   node.ondblclick = () => startRename("tab", tab, "tabbar");
   node.oncontextmenu = (e) => tabMenu(tab, e, "tabbar");
   node.draggable = !isEditing("tab", tab.id, "tabbar");
-  dragTab(node, tab);
+  dragItem(node, "tab", tab);
+  acceptDrops(node, `tab-${tab.id}`, { tab: { axis: "x", self: tab.id, drop: (id, after) => placeHere(getTab(id), tab, after, placeTab) } });
   return node;
+}
+
+/** A tab or group dropped on another takes the place before or after it, and the rest slide over. */
+function placeHere(item, target, after, place) {
+  if (!item) return;
+  slideNextRender();
+  place(item, target, after);
 }
 
 function dropTab(id, group) {

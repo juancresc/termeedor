@@ -287,8 +287,9 @@ test("the git-branch plugin shows what its host says, with the pull request left
   const calls = [];
   const answers = { branch: "main", pullRequest: { number: 42, url: "https://github.com/o/r/pull/42" } };
   const withHost = { ...plugin, host: { call: async (method, cwd) => { calls.push([method, cwd]); return answers[method]; } } };
-  activate(withHost);
+  const stop = activate(withHost);
   for (let i = 0; i < 3; i++) await new Promise((resolve) => { setImmediate(resolve); });
+  stop(); // it polls for new pull requests until turned off
   const cwd = store.activeTab().cwd;
   assert.deepEqual(calls, [["branch", cwd], ["pullRequest", cwd]]);
   const [pr, branch, copy] = registry.statusItems().slice(-3);

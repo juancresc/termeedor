@@ -53,6 +53,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .groupTab:hover { background: color-mix(in srgb, var(--panel2) 60%, transparent); color: var(--text); }
 .groupTab.active { background: var(--panel2); color: var(--text); }
 .groupTab.active .spinner { visibility: hidden; } /* its tabs show their own; hidden, not removed, so selecting moves nothing */
+/* where a dragged tab or group would land: a line on the side it goes to */
+:is(.groupTab, .tab).dropBefore { box-shadow: inset 3px 0 0 var(--accent), inset 0 -2px 0 var(--group-color, transparent); }
+:is(.groupTab, .tab).dropAfter { box-shadow: inset -3px 0 0 var(--accent), inset 0 -2px 0 var(--group-color, transparent); }
+:is(.item, .group).dropBefore { box-shadow: inset 0 2px 0 var(--accent); }
+:is(.item, .group).dropAfter { box-shadow: inset 0 -2px 0 var(--accent); }
 /* a group a dragged tab would drop into */
 :is(.groupTab, .tab, .tabGroupBox, .group).dragover { outline: 2px solid var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 .groupTab .chipName { overflow: hidden; text-overflow: ellipsis; }

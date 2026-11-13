@@ -352,8 +352,9 @@ test("on a multi-line input, Ctrl+U only deletes back to the start of the line",
 test("Ctrl+C with nothing running drops the typed line, unless text is selected to copy", () => {
   store.addTab();
   const blocks = tab().blocks.length;
-  ctrl("KeyC"); // nothing typed: nothing happens
-  assert.equal(tab().blocks.length, blocks);
+  ctrl("KeyC"); // nothing typed: still a fresh line
+  assert.equal(tab().blocks.length, blocks + 1);
+  assert.equal(tab().blocks.at(-1).output, "~ ❯ ^C");
 
   type("oops");
   textarea.setSelectionRange(0, 3);

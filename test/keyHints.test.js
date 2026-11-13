@@ -24,7 +24,7 @@ test("holding the key a moment shows the badges; letting go hides them", (t) => 
   assert.equal(shown(), false);
   mock.timers.tick(1);
   assert.equal(shown(), true);
-  fire("keydown", "Shift"); // for the group keys
+  fire("keydown", "Alt"); // for the group keys (Shift off the Mac)
   fire("keydown", "1"); // jumping while they show keeps them up
   assert.equal(shown(), true);
   fire("keyup", "Meta");

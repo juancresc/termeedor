@@ -171,6 +171,24 @@ export function duplicateTab(tab) {
 
 export const moveTabBy = (tab, delta) => moveInBar(state.ws.tabs, visibleTabsIn(tab.groupId), tab, delta);
 
+/** Takes `item` out of the list and puts it right before or after `target`. */
+function placeNextTo(list, item, target, after) {
+  list.splice(list.indexOf(item), 1);
+  list.splice(list.indexOf(target) + (after ? 1 : 0), 0, item);
+}
+
+/** Puts a tab right before or after another, in that tab's group. */
+export function placeTab(tab, target, after) {
+  if (tab === target) return;
+  placeNextTo(state.ws.tabs, tab, target, after);
+  if (tab.groupId !== target.groupId) {
+    tab.groupId = target.groupId;
+    showGroup(getGroup(tab.groupId));
+    state.ws.activeTab = tab.id;
+  }
+  commit();
+}
+
 /** Send one tab to another group (moves it to the end of that group). */
 export function moveTab(tab, groupId) {
   if (tab.groupId === groupId) return;
@@ -229,6 +247,13 @@ export function selectGroup(group) {
 }
 
 export const moveGroupBy = (group, delta) => moveInBar(state.ws.groups, barGroups(), group, delta);
+
+/** Puts a group right before or after another. */
+export function placeGroup(group, target, after) {
+  if (group === target) return;
+  placeNextTo(state.ws.groups, group, target, after);
+  commit();
+}
 
 /** A tab nothing was ever typed or run in: just the banner, no history, no draft. */
 const isUntouched = (tab) => tab.history.length === 0 && !tab.draft && tab.blocks.length <= 1;

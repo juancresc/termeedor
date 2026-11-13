@@ -32,6 +32,7 @@ export function initSettings() {
   $("showSidebar").onchange = (e) => setSidebarOpen(e.target.checked);
   $("newTabInCurrentPath").onchange = (e) => updateSettings({ newTabInCurrentPath: e.target.checked });
   $("sharedHistory").onchange = (e) => updateSettings({ sharedHistory: e.target.checked });
+  $("moveButtons").onchange = (e) => updateSettings({ moveButtons: e.target.checked });
   $("confirmCloseGroup").onchange = (e) => updateSettings({ confirmCloseGroup: e.target.checked });
   $("settingsSearch").oninput = applySettingsSearch;
   initSettingsTopics();
@@ -66,6 +67,7 @@ export function renderSettings() {
   $("showAllGroups").checked = state.settings.showAllGroups;
   $("showSidebar").checked = state.ws.sidebarOpen;
   $("newTabInCurrentPath").checked = state.settings.newTabInCurrentPath;
+  $("moveButtons").checked = state.settings.moveButtons;
   $("confirmCloseGroup").checked = state.settings.confirmCloseGroup;
   $("sharedHistory").checked = state.settings.sharedHistory;
   renderDefaultTabColor();

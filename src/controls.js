@@ -1,10 +1,11 @@
 // Quick buttons on tabs and groups, in the same order everywhere:
 //   new tab (groups only), minimize, close
-// The top bars put move left and move right before them. The sidebar adds more actions after them.
+// The top bars put move left and move right before them, unless turned off in Settings.
+// The sidebar adds more actions after them.
 
 import { el } from "./util.js";
 import { runAction } from "./core/actions.js";
-import { moveTabBy, moveGroupBy, visibleTabsIn, barGroups } from "./store.js";
+import { state, moveTabBy, moveGroupBy, visibleTabsIn, barGroups } from "./store.js";
 import { tabMenu, groupMenu } from "./contextMenus.js";
 import { slideNextRender } from "./slide.js";
 
@@ -12,6 +13,7 @@ function button(className, text, title, run) {
   const node = el("button", className, text);
   node.title = title;
   node.onclick = (e) => { e.stopPropagation(); run(e); };
+  node.ondblclick = (e) => e.stopPropagation(); // a quick second click must not start a rename
   return node;
 }
 
@@ -49,6 +51,7 @@ function buttonBox(...buttons) {
 
 /** `bar` is the list the item sits in, which decides whether it can move left or right. */
 function moveButtons(noun, item, bar, move) {
+  if (!state.settings.moveButtons) return [];
   const index = bar.indexOf(item);
   const moveBy = (delta) => { slideNextRender(); move(item, delta); };
   const left = button("x", "‹", `Move ${noun} left`, () => moveBy(-1));
@@ -71,12 +74,8 @@ export const groupBarButtons = (group) => buttonBox(
 export const tabRowButtons = (tab) => buttonBox(...tabActions(tab, "icon-btn"), moreButton((e) => tabMenu(tab, e, "sidebar")));
 export const groupRowButtons = (group) => buttonBox(...groupActions(group, "icon-btn"), moreButton((e) => groupMenu(group, e, "sidebar")));
 
-/** Always visible at the start of a sidebar group. A quick second click must not start a rename. */
-export function groupCollapseButton(group) {
-  const node = button("gchevron", "›", `${group.collapsed ? "Expand" : "Collapse"} group`, () => runAction("group.toggleCollapsed", group));
-  node.ondblclick = (e) => e.stopPropagation();
-  return node;
-}
+/** Always visible at the start of a sidebar group. */
+export const groupCollapseButton = (group) => button("gchevron", "›", `${group.collapsed ? "Expand" : "Collapse"} group`, () => runAction("group.toggleCollapsed", group));
 
 /** On a tab collapsed to a small chip (see the tab's right-click menu). */
 export const expandTabButton = (tab) => button("x", "›", "Expand tab", () => runAction("tab.toggleCollapsed", tab));

@@ -205,10 +205,10 @@ const CTRL_KEYS = {
   ...(isMac ? { KeyW: deleteWordBack } : {}),
 };
 
-/** Ctrl+C with nothing running: the typed line is abandoned, as in a shell. A selection is left for copying. */
+/** Ctrl+C with nothing running: the line is abandoned for a fresh one, as in a shell, typed on or not. A selection is left for copying. */
 function dropDraft() {
   const tab = activeTab();
-  if (!tab || !tab.draft || editor.selectionStart !== editor.selectionEnd) return false;
+  if (!tab || editor.selectionStart !== editor.selectionEnd) return false;
   actions.dropDraft(tab);
   recall = null;
   return true;

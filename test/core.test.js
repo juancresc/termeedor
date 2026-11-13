@@ -163,6 +163,11 @@ test("the ask-before-closing-groups setting survives a reload and defaults to on
   assert.equal(sanitizeSettings(null).confirmCloseGroup, true);
 });
 
+test("the move arrows setting survives a reload and defaults to on", () => {
+  assert.equal(sanitizeSettings({ moveButtons: false }).moveButtons, false);
+  assert.equal(sanitizeSettings(null).moveButtons, true);
+});
+
 test("closing a group asks only when the setting is on and a tab was used", () => {
   const group = addGroup(); // comes with an untouched tab
   assert.equal(shouldConfirmCloseGroup(group), false);

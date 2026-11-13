@@ -167,13 +167,56 @@ test("dragging a tab: the group under it stays highlighted through a render, and
   assert.equal(groups.length, 2);
 });
 
+test("dragging a tab onto another puts it on the side the pointer is over; a group likewise", () => {
+  state.settings.showAllGroups = false;
+  const groups = [addGroup(), addGroup()];
+  const [first] = tabsIn(groups[0].id);
+  const second = addTab(groups[0].id);
+  renderTabbar();
+  const ids = (id) => row(id).children.map((node) => node.dataset.slideKey);
+  // FakeNode is 100px wide from 0, so 80 is its right half and 20 its left
+  const drag = (kind, id, node, clientX) => {
+    const transfer = { types: [`text/${kind}`], dropEffect: "", getData: () => id };
+    const event = { dataTransfer: transfer, currentTarget: node, clientX, preventDefault() {}, stopPropagation() {} };
+    node.ondragover(event);
+    const marks = ["dropBefore", "dropAfter"].filter((mark) => node.classList.contains(mark));
+    node.ondrop(event);
+    return marks;
+  };
+
+  assert.deepEqual(drag("tab", first.id, row("tabs").children[1], 80), ["dropAfter"]);
+  renderTabbar();
+  assert.deepEqual(ids("tabs"), [second.id, first.id]);
+  assert.deepEqual(drag("tab", first.id, row("tabs").children[0], 20), ["dropBefore"]);
+  renderTabbar();
+  assert.deepEqual(ids("tabs"), [first.id, second.id]);
+  assert.ok(!row("tabs").children[0].classList.contains("dropBefore")); // the mark goes with the drop
+
+  assert.deepEqual(drag("group", groups[1].id, row("groupTabs").children[0], 20), ["dropBefore"]);
+  renderTabbar();
+  assert.deepEqual(ids("groupTabs"), [groups[1].id, groups[0].id]);
+});
+
+test("the move arrows can be turned off, leaving the other buttons", () => {
+  addGroup();
+  const titles = () => { renderTabbar(); return row("tabs").querySelectorAll(".x").map((node) => node.title); };
+  assert.deepEqual(titles().slice(0, 2), ["Move tab left", "Move tab right"]);
+  state.settings.moveButtons = false;
+  try {
+    assert.deepEqual(titles().filter((title) => title.startsWith("Move")), []);
+    assert.ok(titles().length > 0);
+  } finally {
+    state.settings.moveButtons = true;
+  }
+});
+
 test("Cmd+number badges: tabs and groups numbered the way the keys count, and they follow a move", () => {
   const groups = [addGroup(), addGroup()];
   addTab(groups[0].id);
   setGroupMinimized(addGroup(), true); // not in the bar: no number
   renderTabbar();
   const hints = (id) => row(id).querySelectorAll(id === "tabs" ? ".tab" : ".groupTab").map((node) => node.dataset.hint);
-  assert.deepEqual(hints("groupTabs"), ["⇧1", "⇧2"]);
+  assert.deepEqual(hints("groupTabs"), ["⌥1", "⌥2"]);
   assert.deepEqual(hints("tabs"), ["1", "2", "3"]); // show all: across every group
 
   state.settings.showAllGroups = false;

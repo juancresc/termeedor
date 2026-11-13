@@ -89,6 +89,7 @@ export function sanitizeSettings(raw) {
     showAllGroups: s.showAllGroups === true, // second row: every group's tabs, not just the selected group's
     sharedHistory: s.sharedHistory !== false, // Up and Down also reach commands run in other tabs
     newTabInCurrentPath: s.newTabInCurrentPath === true, // new tabs start in the active tab's path, not home
+    moveButtons: s.moveButtons !== false, // ‹ › on the top bars' tabs and groups; dragging moves them either way
     confirmCloseGroup: s.confirmCloseGroup !== false, // ask before closing a group that has tabs
     // color for new tabs: "none", "group" (use the group's color) or one of TAB_COLORS
     defaultTabColor: s.defaultTabColor === "group" || TAB_COLORS.includes(s.defaultTabColor) ? s.defaultTabColor : "none",

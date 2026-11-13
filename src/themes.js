@@ -65,15 +65,15 @@ const REFERENCE = `/*
  * Selectors
  *   Page       body .app .app.nosidebar .app.nolines .app.resizing .desktop .platform-darwin
  *   Title bar  .titlebar .lights .tb-btn
- *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.unnamed .chipName .chipCount
- *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab .name
+ *   Groups     .groupTabs .groupTab .groupTab.active .groupTab.dragover .groupTab.dropBefore .groupTab.dropAfter .groupTab.unnamed .chipName .chipCount
+ *   Tabs       .tabStrip .tabs .tabs.showAll .tab .tab.active .tab.dragover .tab.dropBefore .tab.dropAfter .tab .name
  *              .tab.collapsed .tab.collapsed .initial .tabsEmpty
  *              .showHints .tab::after  (on <html> while Cmd is held: the 1–9 badge, also on .groupTab)
  *              .tabGroupBox .tabGroupBox.active .tabGroupBox.dragover .groupAdd
  *   Buttons    .itemBtns .x .x.closeBtn
  *   Sidebar    .sidebar .rail .rail .arrow .rail .vlabel .resizer .sec .secBtns .secClear .empty
- *              .group .group.collapsed .group.minimized .group.dragover .ghead .ghead.unnamed .gchevron .ghead .dot .ghead .gname .glist
- *              .item .item.active .item.minimized .item .iname .tdot .icon-btn .icon-btn.shown
+ *              .group .group.collapsed .group.minimized .group.dragover .group.dropBefore .group.dropAfter .ghead .ghead.unnamed .gchevron .ghead .dot .ghead .gname .glist
+ *              .item .item.active .item.minimized .item.dropBefore .item.dropAfter .item .iname .tdot .icon-btn .icon-btn.shown
  *   History    .pastSearch .session .session .sname
  *   Output     .main .termScroll .output .output.running .output ::selection .block .block.isCommand
  *              .commandLine .commandPrompt .commandText .blockOutput .outputChunk .outputTail .rerun

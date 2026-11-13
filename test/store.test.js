@@ -5,7 +5,7 @@ import { beforeEach, test } from "node:test";
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 
 const { STORAGE_KEYS } = await import("../src/constants.js");
-const { state, activateTab, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, groupLabel, moveTabToNewGroup, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
+const { state, activateTab, activeTab, addGroup, addTab, closeActive, closeGroup, closeTab, groupLabel, moveTabToNewGroup, placeGroup, placeTab, reopenPast, setGroupCollapsed, setGroupMinimized, setTabMinimized, tabsIn } = await import("../src/store.js");
 
 beforeEach(() => {
   state.ws.groups = [];
@@ -235,4 +235,33 @@ test("the sidebar hides a group's tabs when collapsed, not when minimized", () =
   const css = readFileSync(new URL("../styles/base.css", import.meta.url), "utf8");
   assert.match(css, /\.group\.collapsed \.glist \{ display: none; \}/);
   assert.doesNotMatch(css, /\.group\.minimized \.glist/);
+});
+
+test("a tab is placed before or after another, joining that tab's group", () => {
+  const [work, other] = [addGroup(), addGroup()];
+  const [a] = tabsIn(work.id);
+  const [b, c] = [addTab(work.id), addTab(work.id)];
+  const [x] = tabsIn(other.id);
+  const names = (group) => tabsIn(group.id);
+
+  placeTab(c, a, false);
+  assert.deepEqual(names(work), [c, a, b]);
+  placeTab(c, b, true);
+  assert.deepEqual(names(work), [a, b, c]);
+  placeTab(a, a, true); // onto itself: nothing
+  assert.deepEqual(names(work), [a, b, c]);
+  assert.equal(activeTab(), c); // reordering selects nothing
+
+  placeTab(x, b, false);
+  assert.deepEqual(names(work), [a, x, b, c]);
+  assert.equal(activeTab(), x); // sent to another group: shown there
+  assert.equal(state.ws.activeGroup, work.id);
+});
+
+test("a group is placed before or after another", () => {
+  const [a, b, c] = [addGroup(), addGroup(), addGroup()];
+  placeGroup(c, a, false);
+  assert.deepEqual(state.ws.groups, [c, a, b]);
+  placeGroup(c, a, true);
+  assert.deepEqual(state.ws.groups, [a, c, b]);
 });

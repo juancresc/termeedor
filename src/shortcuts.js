@@ -10,6 +10,8 @@ import { builtinShortcutKeys, findShortcut, pluginShortcutKey, shortcutList, wit
 reserve("shortcuts", [...builtinShortcutKeys(), "Equal", "Shift+Equal", "Minus", "Digit0", "KeyA", "KeyC", "KeyV", "KeyX", "KeyZ", "Shift+KeyZ", "KeyQ"]);
 // Cmd+arrows and Cmd+Backspace edit the line, in the input and in a running program.
 if (isMac) reserve("shortcuts", ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Backspace"]);
+// Shift+Cmd+3, 4 and 5 are the system's screenshot keys.
+if (isMac) reserve("shortcuts", ["Shift+Digit3", "Shift+Digit4", "Shift+Digit5"]);
 // Where the shortcut modifier is Ctrl, the editor's readline keys use it too.
 if (!isMac) reserve("shortcuts", ["KeyU", "KeyL", "KeyP", "KeyN"]);
 

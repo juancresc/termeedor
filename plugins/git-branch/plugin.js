@@ -2,6 +2,8 @@
 // and host.cjs runs in its own process with full Node.js access.
 
 const COPY_ICON = "⧉";
+// A program that stays open in the tab (an agent, say) can open a pull request without any command finishing.
+const POLL_MS = 10_000;
 
 export function activate(api) {
   let status = api.statusBar.add({ text: "", title: "Git branch of this tab's folder" });
@@ -12,6 +14,7 @@ export function activate(api) {
   let resetTimer = null;
   let refreshes = 0;
   const prCache = new Map(); // "folder\nbranch" -> last pull request seen there, or null
+  let shown = null; // what the status bar shows now, so a refresh that changes nothing doesn't redraw it
 
   api.actions.register({
     id: "copyBranch",
@@ -35,6 +38,9 @@ export function activate(api) {
 
   /** Status items show in the order they were added, so the pull request goes in first to sit left of the branch. */
   function layout() {
+    const next = `${branch}\n${pr?.url}`;
+    if (next === shown) return;
+    shown = next;
     status.dispose();
     prButton?.dispose();
     copyButton?.dispose();
@@ -63,7 +69,14 @@ export function activate(api) {
 
   api.events.on("tab:activate", refresh);
   api.events.on("command:finish", refresh);
+  const refreshIfVisible = () => { if (!document.hidden) refresh(); };
+  const poll = setInterval(refreshIfVisible, POLL_MS);
+  window.addEventListener("focus", refreshIfVisible);
   refresh();
 
-  return () => clearTimeout(resetTimer);
+  return () => {
+    clearTimeout(resetTimer);
+    clearInterval(poll);
+    window.removeEventListener("focus", refreshIfVisible);
+  };
 }

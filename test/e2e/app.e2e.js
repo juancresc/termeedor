@@ -156,6 +156,39 @@ describe("tabs and sidebar", () => {
     assert.ok(!(await tabNames()).includes(added));
   });
 
+  test("dragging reorders tabs and groups, and the move arrows can be turned off for wider names", async () => {
+    await newTab();
+    const groupNames = () => app.evaluate(() => [...document.querySelectorAll("#groupTabs .chipName")].map((n) => n.textContent));
+    /** Drags `from` to the point `at` (0 to 1) along `to`. */
+    const dragOnto = (from, to, at) => app.evaluate((from, to, at) => {
+      const box = document.querySelector(to).getBoundingClientRect();
+      const init = { bubbles: true, cancelable: true, dataTransfer: new DataTransfer(), clientX: box.left + box.width * at, clientY: box.top + 5 };
+      document.querySelector(from).dispatchEvent(new DragEvent("dragstart", init));
+      document.querySelector(to).dispatchEvent(new DragEvent("dragover", init));
+      document.querySelector(to).dispatchEvent(new DragEvent("drop", init));
+      document.body.dispatchEvent(new DragEvent("dragend", init));
+    }, from, to, at);
+
+    const [first, second, third] = await tabNames();
+    await dragOnto("#tabs .tab:nth-child(1)", "#tabs .tab:nth-child(3)", 0.9);
+    assert.deepEqual(await tabNames(), [second, third, first]);
+    await dragOnto("#tabs .tab:nth-child(3)", "#tabs .tab:nth-child(2)", 0.1);
+    assert.deepEqual(await tabNames(), [second, first, third]);
+
+    const groups = await groupNames();
+    await dragOnto("#groupTabs .groupTab:nth-child(2)", "#groupTabs .groupTab:nth-child(1)", 0.1);
+    assert.deepEqual(await groupNames(), [groups[1], groups[0]]);
+
+    const nameWidth = () => app.evaluate(() => document.querySelector("#tabs .tab.active .name").getBoundingClientRect().width);
+    const before = await nameWidth();
+    await app.click(...Object.values(await app.center("#settingsBtn")));
+    await app.waitFor(() => document.querySelector("#settings").open);
+    await app.evaluate(() => { [...document.querySelectorAll("#settingsTopics button")].find((b) => b.textContent === "Tabs").click(); });
+    await app.click(...Object.values(await app.center("#moveButtons")));
+    assert.equal(await app.evaluate(() => document.querySelectorAll('#tabs [aria-label^="Move"], #groupTabs [aria-label^="Move"]').length), 0);
+    assert.ok(await nameWidth() > before + 30, "the name got the arrows' room");
+  });
+
   test("a rename keeps what was typed across a re-render", async () => {
     const tab = await app.center("#tabs .tab.active .name");
     await app.click(tab.x, tab.y, 2);

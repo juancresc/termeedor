@@ -200,7 +200,7 @@ export function installDom({ element = MiniElement, byId = () => new element() }
     querySelectorAll: (selector) => body.querySelectorAll(selector),
     addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); },
   };
-  globalThis.window = { addEventListener() {} };
+  globalThis.window = { addEventListener() {}, removeEventListener() {} };
   globalThis.innerWidth = 1000;
   globalThis.innerHeight = 800;
   globalThis.localStorage = { getItem: () => null, setItem() {} };

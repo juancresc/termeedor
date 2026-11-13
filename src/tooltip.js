@@ -9,7 +9,7 @@ const DELAY_MS = 500;
 const GAP = 6;  // between tooltip and element
 const EDGE = 6; // between tooltip and window edge
 const TALL = 60; // elements taller than this (rail, resizer) get the tooltip at their side
-const SHORTCUT = /^(.*) \(((?:Alt|Ctrl)\+\S+|⇧?⌘\S+|Esc)\)$/; // "New tab (⌘T)" → label + key
+const SHORTCUT = /^(.*) \(((?:Alt|Ctrl)\+\S+|⌥?⇧?⌘\S+|Esc)\)$/; // "New tab (⌘T)" → label + key
 
 let tooltip = null;
 let anchor = null; // element under the pointer that has a tooltip
