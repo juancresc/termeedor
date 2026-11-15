@@ -10,7 +10,9 @@
 //   A;<PATH>         the shell is ready for input
 //
 // Everything outside C..D is the shell drawing its prompt and echoing what it was sent, and is
-// dropped. The exception is a command the shell rejects before running it (a syntax error):
+// dropped. What comes before the first marker is the startup files' own output, reported apart
+// (startup) so it can be shown if they turn out to be asking something.
+// The other exception is a command the shell rejects before running it (a syntax error):
 // no C is sent, so the error has to be recovered from the text between sending and D. Bash reads
 // a multi-line command one line at a time, so there the error can also come before a C.
 
@@ -66,6 +68,7 @@ function createShellParser(token) {
   let lastLine = null; // a multi-line command's last line; null for a one-line command
   let typeahead = "";
   let ackEcho = false; // an ack was asked for, and its echo may still come
+  let starting = true; // no marker yet: the startup files are still running
 
   function answerQueries(text, events) {
     for (const [pattern, reply] of QUERIES) {
@@ -85,6 +88,7 @@ function createShellParser(token) {
     if (!text) return;
     if (!inOutput) {
       answerQueries(text, events);
+      if (starting) events.push({ type: "startup", data: text });
       if (awaitingRejected) rejected += text;
       return;
     }
@@ -109,6 +113,7 @@ function createShellParser(token) {
   }
 
   function onMarker(kind, payload, events) {
+    starting = false;
     if (kind === "K") {
       ackEcho = true;
       events.push({ type: "ack" });

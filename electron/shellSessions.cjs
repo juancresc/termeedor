@@ -1,6 +1,9 @@
 // One long-lived shell per tab, so `cd`, `export` and aliases carry over between commands.
 // A session starts when its tab is first shown (prepare), so the startup files have usually run by
-// the first command; otherwise on that command. No Electron imports, so tests can use real shells.
+// the first command; otherwise on that command. Startup files that are still running some time
+// after the shell started may be asking something (Oh My Zsh asks whether to update), so a command
+// that waits on them shows what they print and passes them the keys.
+// No Electron imports, so tests can use real shells.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -9,7 +12,9 @@ const pty = require("node-pty");
 const { createShellParser } = require("./shellParser.cjs");
 const { ACK, chooseShell, shellLaunch } = require("./shellIntegration.cjs");
 
-const READY_TIMEOUT_MS = 20000;
+const STARTUP_SHOWN_AFTER_MS = 2000; // most startup files are done by then, and stay unseen
+const MAX_STARTUP_TEXT = 65536;
+const STARTUP_NOTICE = "Your shell's startup files are still running. What they print shows here, and what you type goes to them.\r\n";
 const PASTE_START = "\x1b[200~";
 const PASTE_END = "\x1b[201~";
 const DEFAULT_SIZE = { cols: 120, rows: 30 };
@@ -52,7 +57,7 @@ function commandBytes(command) {
 }
 
 /** send(tabId, event) receives output, alt, finish, typeahead and exit events. */
-function createShellSessions(send, { shell = chooseShell(), env = process.env, readyTimeoutMs = READY_TIMEOUT_MS } = {}) {
+function createShellSessions(send, { shell = chooseShell(), env = process.env, startupShownAfterMs = STARTUP_SHOWN_AFTER_MS } = {}) {
   const sessions = new Map();
 
   function start(tabId, cwd, size) {
@@ -66,14 +71,14 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       ...DEFAULT_SIZE,
       ...size,
     });
-    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", lateKeys: null, path: null, cwd: displayCwd(resolveCwd(cwd)), readyTimer: null };
+    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", heldAtAck: 0, lateKeys: null, path: null, cwd: displayCwd(resolveCwd(cwd)), startedAt: Date.now(), startupText: "", showing: false, showTimer: null };
     sessions.set(tabId, session);
 
     process_.onData((chunk) => {
       for (const event of parser.write(chunk)) handleEvent(tabId, session, event);
     });
     process_.onExit(() => {
-      clearTimeout(session.readyTimer);
+      clearTimeout(session.showTimer);
       if (sessions.get(tabId) === session) sessions.delete(tabId);
       if (session.running) send(tabId, { type: "finish", exit: 0, cwd: session.cwd, shellExited: true });
     });
@@ -83,15 +88,25 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
   function handleEvent(tabId, session, event) {
     if (event.type === "reply") {
       session.pty.write(event.data);
+    } else if (event.type === "startup") {
+      session.startupText = (session.startupText + event.data).slice(-MAX_STARTUP_TEXT);
+      if (session.showing) send(tabId, { type: "output", data: event.data });
     } else if (event.type === "ack") {
       // The shell reads every key sent before this. Keys after it would reach its line editor
       // and join the next command, so they wait here for the finish.
       session.pty.write(ACK);
       if (session.running && session.sent) session.lateKeys = "";
+      if (!session.ready) {
+        // The startup files are done. Keys they were passed and never read come back next.
+        session.showing = false;
+        session.heldAtAck = session.heldKeys.length;
+      }
     } else if (event.type === "ready") {
       session.ready = true;
       session.path = event.path;
-      clearTimeout(session.readyTimer);
+      clearTimeout(session.showTimer);
+      session.showing = false;
+      session.startupText = "";
       if (session.queued !== null) {
         const command = session.queued;
         session.queued = null;
@@ -103,7 +118,14 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       session.cwd = displayCwd(event.cwd || resolveCwd(session.cwd));
       const late = session.lateKeys ?? "";
       session.lateKeys = null;
-      if (!session.sent) return; // the shell's first prompt, not a command
+      if (!session.sent) {
+        // The shell's first prompt, not a command. Keys the startup files left unread were typed
+        // after the ones held before they showed, and before the ones held since the ack.
+        const unread = event.typeahead ?? "";
+        if (session.queued !== null) session.heldKeys = session.heldKeys.slice(0, session.heldAtAck) + unread + session.heldKeys.slice(session.heldAtAck);
+        else if (unread) send(tabId, { type: "typeahead", data: unread });
+        return;
+      }
       session.sent = false;
       session.running = false;
       const typeahead = (event.typeahead ?? "") + late;
@@ -113,18 +135,18 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
     }
   }
 
-  /** Each command that waits for the shell to be ready waits at most readyTimeoutMs, not only the first. */
+  /**
+   * The command runs once the shell is ready. Startup files still running startupShownAfterMs
+   * after the shell started show from then on, for this command and any later one that waits.
+   */
   function queue(tabId, session, command) {
     session.queued = command;
-    clearTimeout(session.readyTimer);
-    session.readyTimer = setTimeout(() => {
-      if (session.queued === null) return;
-      session.queued = null;
-      session.heldKeys = "";
-      session.running = false;
-      send(tabId, { type: "output", data: "Your shell's startup files didn't finish. Check ~/.zshrc or ~/.bashrc for something waiting on input.\r\n" });
-      send(tabId, { type: "finish", exit: 1, cwd: session.cwd });
-    }, readyTimeoutMs);
+    clearTimeout(session.showTimer);
+    session.showTimer = setTimeout(() => {
+      if (session.queued === null || session.ready) return;
+      session.showing = true;
+      send(tabId, { type: "output", data: STARTUP_NOTICE + session.startupText });
+    }, Math.max(0, session.startedAt + startupShownAfterMs - Date.now()));
   }
 
   function writeCommand(session, command) {
@@ -158,18 +180,23 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
     },
     /**
      * Keys for the running command. Before the shell is ready they wait for the command, which
-     * they follow; once it has finished they belong to the next one, so they go back as typeahead.
+     * they follow, unless the startup files are showing: then they go to those, and the ones left
+     * unread follow the command. Once it has finished they belong to the next one, so they go
+     * back as typeahead.
      */
     write(tabId, data) {
       const session = sessions.get(tabId);
       if (!session) return;
       if (session.queued != null && data.includes("\x03")) {
         // Stopped before the shell got it. Sent on, this would only interrupt the rc files.
-        clearTimeout(session.readyTimer);
+        clearTimeout(session.showTimer);
+        session.showing = false;
         session.queued = null;
         session.heldKeys = "";
         session.running = false;
         send(tabId, { type: "finish", exit: 130, cwd: session.cwd });
+      } else if (session.queued != null && session.showing) {
+        session.pty.write(data); // an answer to what the startup files asked
       } else if (session.queued != null) {
         session.heldKeys += data;
       } else if (session.lateKeys != null) {
@@ -188,7 +215,7 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, r
       const session = sessions.get(tabId);
       if (!session) return;
       sessions.delete(tabId);
-      clearTimeout(session.readyTimer);
+      clearTimeout(session.showTimer);
       session.pty.kill();
     },
     killAll() {

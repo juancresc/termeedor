@@ -55,6 +55,14 @@ test("a command can't end its own paste, even by leaving pieces that join up", (
   assert.equal(commandBytes("a\n\x1b[200~b"), "\x1b[200~a\nb\x1b[201~\r");
 });
 
+async function harnessRun(sessions, events, waitFinish, command) {
+  const from = events.length;
+  const finished = waitFinish();
+  sessions.run("t", command, { cwd: home });
+  await finished;
+  return strip(events.slice(from).filter((e) => e.type === "output").map((e) => e.data).join(""));
+}
+
 const shells = fs.existsSync("/bin/zsh") ? [["zsh", "/bin/zsh"]] : [];
 for (const candidate of ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", "/usr/bin/bash", "/bin/bash"]) {
   if (!fs.existsSync(candidate)) continue;
@@ -65,14 +73,52 @@ for (const candidate of ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", "/usr/
 
 for (const [name, file] of shells) {
   describe(name, () => {
-    test("startup files waiting on input time out every command, not just the first", async () => {
-      const { sessions, run } = harness(file, "read -r answer\n", { readyTimeoutMs: 300 });
-      const first = await run("echo one");
-      assert.equal(first.finish.exit, 1);
-      assert.match(first.text, /startup files didn't finish/);
-      const second = await run("echo two"); // used to wait forever
-      assert.equal(second.finish.exit, 1);
-      assert.match(second.text, /startup files didn't finish/);
+    test("startup files that ask something show the question, take the answer, and then the command runs", { timeout: 15000 }, async () => {
+      const { sessions, waitFinish, events } = harness(file, "printf 'continue? '; read -r answer\nexport TM_ANSWER=$answer\n", { startupShownAfterMs: 200 });
+      const shown = () => strip(events.filter((e) => e.type === "output").map((e) => e.data).join(""));
+      const finished = waitFinish();
+      sessions.run("t", 'echo "got [$TM_ANSWER]"', { cwd: home });
+      sessions.write("t", "x"); // typed before the question showed: it follows the command instead
+      for (let i = 0; i < 200 && !shown().includes("continue? "); i++) await new Promise((r) => setTimeout(r, 25));
+      assert.match(shown(), /startup files are still running.*\ncontinue\? $/);
+      sessions.write("t", "yes\r");
+      const finish = await finished;
+      assert.equal(finish.exit, 0);
+      assert.match(shown(), /continue\? yes\ngot \[yes\]\nx?$/); // the terminal may echo the held key before the shell takes it back
+      assert.equal(finish.typeahead, "x");
+      assert.equal((await harnessRun(sessions, events, waitFinish, "echo clean")), "clean\n");
+      sessions.killAll();
+    });
+
+    test("startup files left waiting show again for the next command; Ctrl+C only cancels the command", { timeout: 15000 }, async () => {
+      const { sessions, run, waitFinish, events } = harness(file, "printf 'continue? '; read -r answer\nexport TM_ANSWER=$answer\n", { startupShownAfterMs: 200 });
+      const shownFrom = (from) => strip(events.slice(from).filter((e) => e.type === "output").map((e) => e.data).join(""));
+      let finished = waitFinish();
+      sessions.run("t", "echo should-not-run", { cwd: home });
+      for (let i = 0; i < 200 && !shownFrom(0).includes("continue? "); i++) await new Promise((r) => setTimeout(r, 25));
+      sessions.write("t", "\x03");
+      assert.equal((await finished).exit, 130);
+      const from = events.length;
+      finished = waitFinish();
+      sessions.run("t", 'echo "got [$TM_ANSWER]"', { cwd: home });
+      for (let i = 0; i < 200 && !shownFrom(from).includes("continue? "); i++) await new Promise((r) => setTimeout(r, 25));
+      sessions.write("t", "no\r");
+      assert.equal((await finished).exit, 0);
+      assert.match(shownFrom(from), /got \[no\]\n$/);
+      assert.ok(!shownFrom(0).includes("should-not-run\n"));
+      assert.equal((await run("echo clean")).text, "clean\n");
+      sessions.killAll();
+    });
+
+    test("keys the showing startup files never read follow the waiting command", { timeout: 15000 }, async () => {
+      const { sessions, waitFinish, events } = harness(file, "sleep 1.5\n", { startupShownAfterMs: 100 });
+      const finished = waitFinish();
+      sessions.run("t", 'read answer; echo "got [$answer]"', { cwd: home });
+      await new Promise((r) => setTimeout(r, 500));
+      sessions.write("t", "go\r");
+      const finish = await finished;
+      assert.match(strip(events.filter((e) => e.type === "output").map((e) => e.data).join("")), /got \[go\]/);
+      assert.equal(finish.exit, 0);
       sessions.killAll();
     });
 
