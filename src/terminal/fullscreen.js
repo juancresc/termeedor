@@ -28,13 +28,17 @@ function themeFromPage() {
   return { background: value("--term"), foreground: value("--text"), cursor: value("--accent"), selectionBackground: value("--sel") };
 }
 
-/** The program entered full-screen. onData gets keystrokes; onResize gets (cols, rows). */
-export function openFullscreen(tabId, { onData, onResize }) {
+/**
+ * The program entered full-screen. onData gets keystrokes; onResize gets (cols, rows).
+ * modes: resolves with the bytes turning on what it asked of the terminal before that, such as
+ * bracketed paste. This terminal is new and never saw it ask.
+ */
+export function openFullscreen(tabId, { onData, onResize, modes = "" }) {
   const entry = { term: null, fit: null, node: el("div", "fullTerm"), queue: [], onResize };
   terminals.set(tabId, entry);
   $("fullTerms").append(entry.node);
 
-  loadModules().then(([{ Terminal }, { FitAddon }]) => {
+  Promise.all([loadModules(), Promise.resolve(modes).catch(() => "")]).then(([[{ Terminal }, { FitAddon }], asked]) => {
     if (terminals.get(tabId) !== entry) return; // the program already quit
     const style = getComputedStyle($("editor"));
     entry.term = new Terminal({
@@ -68,6 +72,7 @@ export function openFullscreen(tabId, { onData, onResize }) {
     });
     entry.term.onData(onData);
     refit(entry);
+    if (asked) entry.term.write(asked);
     entry.queue.forEach((data) => entry.term.write(data));
     entry.queue = [];
     entry.term.focus();

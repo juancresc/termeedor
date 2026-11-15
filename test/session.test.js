@@ -228,12 +228,35 @@ test("a paste sends Enter for line breaks, bracketed once the program asks for i
   const done = session.run("claude", SIZE);
   session.forwardPaste("one\ntwo");
   send({ type: "output", data: "\x1b[?2004h" });
+  await session.modes(); // a terminal reads what it is sent a moment later
   session.forwardPaste("one\ntwo");
   send({ type: "output", data: "\x1b[?2004l" });
+  await session.modes();
   session.forwardPaste("three");
   assert.deepEqual(backend.writes.map(([, data]) => data), ["one\rtwo", "\x1b[200~one\rtwo\x1b[201~", "three"]);
   send({ type: "finish", exit: 0, cwd: "~" });
   await done;
+});
+
+test("what a program asked for before going fullscreen is there for the fullscreen view", async () => {
+  const { backend, tab, session, send } = setup();
+  const done = session.run("claude", SIZE);
+  assert.equal(await session.modes(), "");
+  send({ type: "output", data: "before\x1b[?2004h\x1b[?2031h\x1b[?1004h" });
+  send({ type: "alt", on: true });
+  assert.equal(await session.modes(), "\x1b[?1004h\x1b[?2004h");
+
+  // What it asks for while fullscreen still counts once it is back, and what it drew there is gone.
+  send({ type: "output", data: "\x1b[?1004l\x1b[2J\x1b[3J\x1b[Hdrawn over the screen" });
+  send({ type: "alt", on: false });
+  assert.equal(await session.modes(), "\x1b[?2004h");
+  session.forwardPaste("a\nb");
+  assert.equal(backend.writes.at(-1)[1], "\x1b[200~a\rb\x1b[201~");
+  send({ type: "output", data: " after" });
+  send({ type: "finish", exit: 0, cwd: "~" });
+  await done;
+  assert.equal(tab.blocks.at(-1).output, "before after");
+  assert.equal(await session.modes(), "");
 });
 
 test("fullscreen: bytes go out raw instead of into the block, and the size belongs to that view", async () => {

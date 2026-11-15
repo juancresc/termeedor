@@ -34,7 +34,6 @@ const PROGRESS = /\x1b\]9;4;(\d)/g;
 const TITLE = /\x1b\][02];([^\x07\x1b]*)/g;
 const TITLE_BUSY = /^[\u25d0-\u25d3\u2801-\u28ff]/;
 const TITLE_IDLE = /^\u2733/;
-const BRACKETED_PASTE = /\x1b\[\?2004([hl])/g;
 
 /**
  * The text of keys a command never read, for the input: escape sequences (arrows and the like)
@@ -90,7 +89,6 @@ export function createSession({
   /** What the output says about the program being busy. */
   function noteActivity(run, data) {
     if (INTERACTIVE.test(data)) run.interactive = true;
-    for (const [, mode] of data.matchAll(BRACKETED_PASTE)) run.bracketedPaste = mode === "h";
     for (const [, state] of data.matchAll(PROGRESS)) run.reported = state !== "0";
     for (const [, title] of data.matchAll(TITLE)) {
       if (TITLE_BUSY.test(title)) run.reported = true;
@@ -137,7 +135,7 @@ export function createSession({
     return new Promise((resolve) => {
       current = {
         block, model: createModel(size), resolve, timer: null, ended: false,
-        interactive: false, bracketedPaste: false, reported: null, idleTimer: null, keyAt: 0,
+        interactive: false, reported: null, idleTimer: null, keyAt: 0,
       };
       hasShell = true;
       signal.addEventListener("abort", () => backend.write(tab.id, "\x03"), { once: true });
@@ -155,6 +153,17 @@ export function createSession({
     get phase() { return runs.phase(tab.id); },
     get running() { return runs.isRunning(tab.id); },
     get fullscreen() { return fullscreen; },
+    /**
+     * Resolves with the bytes that turn on what the program has asked of the terminal so far
+     * (bracketed paste, mouse reports, ...), for a view that is a terminal itself and starts fresh:
+     * claude asks before it takes over the screen. "" if nothing runs.
+     */
+    async modes() {
+      const run = current;
+      if (!run) return "";
+      await run.model.settled();
+      return run.ended ? "" : run.model.modes();
+    },
     get block() { return runs.block(tab.id); },
 
     /** listener(payload) for one of the events above. Returns a function that stops listening. */
@@ -217,11 +226,15 @@ export function createSession({
       if (!run) return;
       if (event.type === "output") {
         noteActivity(run, event.data);
-        if (fullscreen) return; // the fullscreen view draws the bytes
+        if (fullscreen) { // the fullscreen view draws the bytes; the model only follows what they ask for
+          run.model.write(event.data);
+          return;
+        }
         run.model.write(event.data, () => {
           if (!run.ended) run.timer ??= setTimeout(() => flush(run), flushMs);
         });
       } else if (event.type === "alt") {
+        if (event.on !== fullscreen) run.model.setAlt(event.on);
         setFullscreen(event.on);
       } else if (event.type === "finish") {
         setFullscreen(false);
@@ -245,7 +258,7 @@ export function createSession({
     forwardPaste(text) {
       if (!backend.takesInput || !current) return false;
       current.keyAt = Date.now();
-      backend.write(tab.id, pasteBytes(text, current.bracketedPaste));
+      backend.write(tab.id, pasteBytes(text, current.model.bracketedPaste()));
       return true;
     },
 

@@ -128,7 +128,7 @@ function listenToSessions() {
   onSessionEvent("fullscreen", (session, { on, closing }) => {
     const tabId = session.tab.id;
     if (on) {
-      openFullscreen(tabId, { onData: session.write, onResize: session.resizePty });
+      openFullscreen(tabId, { onData: session.write, onResize: session.resizePty, modes: session.modes() });
       showFullscreenFor(state.ws.activeTab);
       return;
     }

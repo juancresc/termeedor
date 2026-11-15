@@ -1,8 +1,10 @@
 // Turns a program's terminal output into text and styling for its block. A real terminal
 // (xterm's, with no display) keeps the screen: whatever the program does with the cursor, the
 // result is what you would see, scrollback included. Styling is read back from the terminal's
-// cells, so nothing here parses escape sequences. Full-screen programs don't come through here;
-// they get a terminal you can see (fullscreen.js).
+// cells, so nothing here parses escape sequences. Full-screen programs are drawn by a terminal
+// you can see (fullscreen.js), but their output still comes through here, onto the alternate
+// screen: this terminal is the one that knows what the program has asked for (bracketed paste,
+// mouse reports, ...) from start to end, and the block's text is as the program left it.
 //
 // A program can only change what is on the screen, so lines that scrolled off it are read once
 // and kept. Each snapshot reads only the screen and whatever newly scrolled off, and its `stable`
@@ -14,6 +16,8 @@ import { NO_STYLE, styleCode } from "../core/styles.js";
 
 const SCROLLBACK = 20000;
 const COMPACT_AT = 4096; // how many dead entries to let pile up before copying a list to free them
+const MOUSE_TRACKING = { x10: 9, vt200: 1000, drag: 1002, any: 1003 };
+const MOUSE_ENCODINGS = [1005, 1006, 1015, 1016];
 
 // ---------- reading cells ----------
 const color = (isDefault, isRgb, value) => {
@@ -173,6 +177,8 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
   const cell = term.buffer.normal.getNullCell();
   let erasedScrollback = false; // ESC[3J, which `clear` sends: everything above goes too
   let cursorHidden = false; // ESC[?25l: the program draws its own cursor, or wants none
+  let mouseEncoding = null; // how it wants mouse reports written, which the terminal doesn't tell
+  const inAlt = () => term.buffer.active.type === "alternate";
   let kept = createKeptLines();
   let marker = null; // on the last kept row: how the terminal shows how many rows it dropped
   let keptEnd = 0; // the row after the last kept one
@@ -189,7 +195,7 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
   }
 
   term.parser.registerCsiHandler({ final: "J" }, (params) => {
-    if (params[0] === 3) {
+    if (params[0] === 3 && !inAlt()) { // the alternate screen has no scrollback to erase
       erasedScrollback = true;
       forget();
     }
@@ -203,6 +209,11 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
   for (const [final, hidden] of [["l", true], ["h", false]]) {
     term.parser.registerCsiHandler({ prefix: "?", final }, (params) => {
       if (params.includes(25)) cursorHidden = hidden;
+      for (const mode of MOUSE_ENCODINGS) {
+        if (!params.includes(mode)) continue;
+        if (final === "h") mouseEncoding = mode;
+        else if (mouseEncoding === mode) mouseEncoding = null;
+      }
       return false;
     });
   }
@@ -235,9 +246,10 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
   /** The kept lines, brought up to date, and the lines still on the screen. */
   function read() {
     const buffer = term.buffer.normal;
-    followTrim(buffer);
-    const firmEnd = lineStart(buffer, buffer.baseY);
-    keepScrolledOff(buffer, firmEnd);
+    if (!inAlt()) { // nothing scrolls off while the other screen shows, and a marker would land on that one
+      followTrim(buffer);
+      keepScrolledOff(buffer, lineStart(buffer, buffer.baseY));
+    }
     const screen = readLines(buffer, keptEnd, buffer.length, cell, { row: buffer.baseY + buffer.cursorY, x: buffer.cursorX });
     rowsRead += buffer.length - keptEnd;
     while (screen.length && !screen.at(-1).text) screen.pop();
@@ -271,6 +283,26 @@ export function createTextModel({ cols = 80, rows = 24, scrollback = SCROLLBACK 
     write: (chunk, parsed) => term.write(chunk, parsed),
     /** Resolves once everything written so far shows in text(). */
     settled: () => new Promise((resolve) => { term.write("", resolve); }),
+    /** The program took over the screen, or gave it back. What it draws meanwhile stays out of the text. */
+    setAlt: (on) => term.write(`\x1b[?1049${on ? "h" : "l"}`),
+    /** True if the program wants pastes wrapped in markers. */
+    bracketedPaste: () => term.modes.bracketedPasteMode,
+    /**
+     * The bytes that put another terminal in the modes the program has asked for: what changes
+     * the bytes a terminal sends, and what holds for both screens. Not the screen it is on.
+     */
+    modes() {
+      const modes = term.modes;
+      const on = [
+        modes.applicationCursorKeysMode && 1, modes.reverseWraparoundMode && 45,
+        MOUSE_TRACKING[modes.mouseTrackingMode], mouseEncoding,
+        modes.sendFocusMode && 1004, modes.bracketedPasteMode && 2004,
+      ].filter(Boolean).map((mode) => `\x1b[?${mode}h`);
+      if (!modes.wraparoundMode) on.push("\x1b[?7l");
+      if (cursorHidden) on.push("\x1b[?25l");
+      if (modes.applicationKeypadMode) on.push("\x1b=");
+      return on.join("");
+    },
     resize(newCols, newRows) {
       term.resize(newCols, newRows);
       forget(); // long lines wrap differently now

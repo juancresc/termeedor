@@ -398,3 +398,20 @@ test("a program can hide the cursor and show it again", async () => {
   assert.equal(await cursorAfter("ab\x1b[?25l\x1b[?25h"), "ab|");
   assert.equal(await cursorAfter("ab\x1b[?25l\x1bccd"), "cd|", "a reset shows it");
 });
+
+test("the modes a program asked for can be given to another terminal, whichever screen it asked on", async () => {
+  const model = createTextModel();
+  assert.equal(model.modes(), "");
+  model.write("\x1b[?2004h\x1b[?1004;1h\x1b[?2031h");
+  model.setAlt(true);
+  model.write("\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[?25l\x1b=\x1b[?7l");
+  await model.settled();
+  assert.equal(model.bracketedPaste(), true);
+  assert.equal(model.modes(), "\x1b[?1h\x1b[?1002h\x1b[?1006h\x1b[?1004h\x1b[?2004h\x1b[?7l\x1b[?25l\x1b=");
+  model.write("\x1b[?1002l\x1b[?1006l\x1b[?25h\x1b>\x1b[?7h\x1b[?2004l");
+  model.setAlt(false);
+  await model.settled();
+  assert.equal(model.bracketedPaste(), false);
+  assert.equal(model.modes(), "\x1b[?1h\x1b[?1004h");
+  model.dispose();
+});
