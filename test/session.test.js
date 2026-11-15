@@ -442,3 +442,67 @@ test("closing a tab ends its session through the store, and its reopened copy ge
   store.closeGroup(group);
   assert.ok(backend.kills.includes(inGroup.id));
 });
+
+// ---------- startup files that take long ----------
+test("startup files that show get a text block of their own, the tab's run and the keys, until they are done", async () => {
+  const { backend, tab, runs, session, events, send, typesOf } = setup();
+  session.prepare(SIZE);
+  send({ type: "startup", data: "update? [Y/n] " });
+  assert.equal(tab.blocks.length, 1);
+  assert.equal(tab.blocks[0].command, null);
+  assert.equal(runs.isRunning("t1"), true);
+  assert.deepEqual(events[0], ["start", { block: tab.blocks[0], command: null }]);
+  await session.run("ls", SIZE); // nothing else starts meanwhile
+  assert.deepEqual(backend.runs, []);
+  assert.equal(session.forwardKey({ key: "n" }), true);
+  assert.deepEqual(backend.writes, [["t1", "n"]]);
+  send({ type: "startup", data: "n\r\nskipped\r\n" });
+  await pause(FLUSH_MS * 4);
+  assert.equal(tab.blocks[0].output, "update? [Y/n] n\nskipped");
+  send({ type: "started", cwd: "~/there", typeahead: "gi" });
+  await pause(FLUSH_MS * 4);
+  assert.equal(runs.isRunning("t1"), false);
+  assert.equal(typesOf().at(-1), "finish");
+  assert.equal(tab.cwd, "~/there");
+  assert.equal(tab.draft, "gi");
+  assert.equal(tab.blocks.length, 1); // what they said stays
+  assert.equal(session.forwardKey({ key: "x" }), false);
+});
+
+test("Ctrl+C reaches startup files that show, and ones that printed nothing leave no block", async () => {
+  const { backend, tab, runs, session, send } = setup();
+  session.prepare(SIZE);
+  send({ type: "startup", data: "" });
+  assert.equal(session.stop(), true);
+  assert.deepEqual(backend.writes, [["t1", "\x03"]]);
+  send({ type: "started", cwd: "~" });
+  await pause(FLUSH_MS * 4);
+  assert.equal(runs.isRunning("t1"), false);
+  assert.deepEqual(tab.blocks, []);
+});
+
+test("startup files a command waits on show above it; if the command ends first they take the run", async () => {
+  const { backend, tab, runs, session, send } = setup();
+  const done = session.run("pwd", SIZE);
+  send({ type: "startup", data: "update? [Y/n] " });
+  assert.deepEqual(tab.blocks.map((b) => b.command), [null, "pwd"]);
+  session.forwardKey({ key: "y" });
+  assert.deepEqual(backend.writes, [["t1", "y"]]);
+  send({ type: "finish", exit: 130, cwd: "~" }); // the command was cancelled
+  await done;
+  assert.equal(runs.isRunning("t1"), true);
+  assert.equal(session.block, tab.blocks[0]);
+  send({ type: "started", cwd: "~" });
+  await pause(FLUSH_MS * 4);
+  assert.equal(runs.isRunning("t1"), false);
+  assert.deepEqual(tab.blocks.map((b) => [b.command, b.output]), [[null, "update? [Y/n] "], ["pwd", ""]]);
+});
+
+test("closing the tab while startup files show ends their run", () => {
+  const { backend, runs, session, send } = setup();
+  session.prepare(SIZE);
+  send({ type: "startup", data: "wait" });
+  session.close();
+  assert.equal(runs.isRunning("t1"), false);
+  assert.deepEqual(backend.kills, ["t1"]);
+});

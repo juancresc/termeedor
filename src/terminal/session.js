@@ -1,10 +1,13 @@
 // One tab's terminal session: its commands on the backend (ports/backend.js), one at a time, from
 // the block being added to it being finished. It owns the run state, the text model, flushing,
 // fullscreen on or off, input for the program, cwd, and plugins' command events.
+// Startup files that take long (the backend's startup events) show in a text block of their own
+// and get the keys; with no command waiting on them, that block holds the tab's run until they end.
 // No DOM and no store: views listen with on() and pass sizes in.
 //
 // Events, each listener(payload):
-//   start      { block, command }    a block was added and its command is running
+//   start      { block, command }    a block was added and its command is running; command is null
+//              for the startup files
 //   output     { block, snapshot, erased }  the block now holds what the command shows so far
 //              (snapshot: see textModel.js; no cursor once the command has ended); erased: the
 //              tab's earlier content went too
@@ -14,7 +17,7 @@
 //   finish     { block, exit, closed }  the command ended; unless closed, its block is finished
 //   typeahead  {}                    keys typed as the command ended went into the draft instead
 
-import { addCommandBlock, appendOutput, clearEarlier, finishBlock, setBlockOutput, trimTranscript } from "../core/transcript.js";
+import { addCommandBlock, addTextBlock, appendOutput, clearEarlier, finishBlock, setBlockOutput, trimTranscript } from "../core/transcript.js";
 import { createRunState } from "../core/runState.js";
 import { keyToBytes } from "./keys.js";
 import { createTextModel } from "./textModel.js";
@@ -66,6 +69,9 @@ export function createSession({
   const emit = (type, payload) => listeners.get(type)?.forEach((fn) => fn(payload));
   // The command producing output: { block, model, resolve, timer, ended, interactive, reported, idleTimer, keyAt }
   let current = null;
+  // The startup files, while they show: { block, model, timer, ended, startup: true, own }. own: it holds the tab's run.
+  let startup = null;
+  let lastSize; // what the shell was last sized to, for a block the backend starts
   let fullscreen = false;
   let hasShell = false;
   let closed = false;
@@ -76,7 +82,7 @@ export function createSession({
     run.timer = null;
     const snapshot = run.model.styled();
     if (ended) snapshot.cursor = null;
-    const erased = run.model.takeErasedScrollback();
+    const erased = run.model.takeErasedScrollback() && !run.startup; // startup files don't get to clear the tab
     if (erased) clearEarlier(tab, run.block);
     setBlockOutput(run.block, snapshot.text, snapshot.styles);
     emit("output", { block: run.block, snapshot, erased });
@@ -121,6 +127,42 @@ export function createSession({
     const output = run.model.text();
     endRun(run);
     run.resolve({ output, shown: true, exit });
+  }
+
+  /** The startup files' block takes the tab's run, so that keys reach them and nothing else starts. */
+  function holdRunForStartup() {
+    startup.own = true;
+    const signal = runs.start(tab.id, startup.block);
+    signal.addEventListener("abort", () => backend.write(tab.id, "\x03"), { once: true });
+    emit("start", { block: startup.block, command: null });
+  }
+
+  function showStartup(data) {
+    if (closed) return;
+    if (!startup) {
+      const block = addTextBlock(tab, "", current?.block ?? null); // above a command that waits on them
+      startup = { block, model: createModel(lastSize), timer: null, ended: false, startup: true, own: false };
+      if (!runs.isRunning(tab.id)) holdRunForStartup();
+    }
+    const run = startup;
+    run.model.write(data, () => {
+      if (!run.ended) run.timer ??= setTimeout(() => flush(run), flushMs);
+    });
+  }
+
+  async function endStartup(event) {
+    const run = startup;
+    if (!run) return;
+    startup = null;
+    if (!current) tab.cwd = event.cwd ?? tab.cwd; // a waiting command's finish says where it ended up
+    if (event.typeahead) tab.draft = typedText(event.typeahead) + tab.draft;
+    await run.model.settled();
+    if (run.ended) return; // the tab closed meanwhile
+    flush(run, true);
+    endRun(run);
+    finishBlock(tab, run.block); // gone if they printed nothing
+    if (run.own) runs.finish(tab.id);
+    emit("finish", { block: run.block, exit: null, closed });
   }
 
   function setFullscreen(on, closing = false) {
@@ -180,12 +222,14 @@ export function createSession({
     prepare(size) {
       if (closed || hasShell) return;
       hasShell = true;
+      lastSize = size;
       backend.prepare(tab.id, { cwd: tab.cwd, ...size });
     },
 
     /** Runs a command in a new block, sized { cols, rows }. Resolves once it has finished. */
     async run(command, size) {
       if (closed || runs.isRunning(tab.id)) return;
+      lastSize = size;
       const block = addCommandBlock(tab, command, tab.cwd);
       const signal = runs.start(tab.id, block);
       emit("start", { block, command });
@@ -205,6 +249,7 @@ export function createSession({
         trimTranscript(tab);
       }
       emit("finish", { block, exit: result.exit, closed });
+      if (startup && !startup.own && !closed) holdRunForStartup(); // still going, and now nothing waits on them
     },
 
     /** Ctrl+C. The command stays "stopping" until the shell says it ended. False if nothing runs. */
@@ -221,6 +266,8 @@ export function createSession({
         emit("typeahead", {});
         return;
       }
+      if (event.type === "startup") return showStartup(event.data);
+      if (event.type === "started") return void endStartup(event);
       if (event.type === "output") emit("data", { data: event.data });
       const run = current;
       if (!run) return;
@@ -247,24 +294,27 @@ export function createSession({
 
     /** A key press for the running program. Returns true if it was used. */
     forwardKey(event) {
-      if (!backend.takesInput || !current) return false;
+      if (!backend.takesInput || !(current ?? startup)) return false;
       const bytes = keyToBytes(event);
       if (bytes === null) return false;
-      current.keyAt = Date.now();
+      if (current) current.keyAt = Date.now();
       backend.write(tab.id, bytes);
       return true;
     },
 
     forwardPaste(text) {
-      if (!backend.takesInput || !current) return false;
-      current.keyAt = Date.now();
-      backend.write(tab.id, pasteBytes(text, current.model.bracketedPaste()));
+      const run = startup ?? current; // while the startup files show, they are who reads
+      if (!backend.takesInput || !run) return false;
+      if (current) current.keyAt = Date.now();
+      backend.write(tab.id, pasteBytes(text, run.model.bracketedPaste()));
       return true;
     },
 
     /** The block view's size changed. A full-screen program's view resizes with resizePty instead. */
     resize(cols, rows) {
       if (!hasShell || fullscreen) return;
+      lastSize = { cols, rows };
+      startup?.model.resize(cols, rows);
       current?.model.resize(cols, rows);
       backend.resize(tab.id, cols, rows);
     },
@@ -281,6 +331,11 @@ export function createSession({
       if (closed) return;
       closed = true;
       runs.stop(tab.id);
+      if (startup) {
+        endRun(startup);
+        if (startup.own) runs.finish(tab.id);
+        startup = null;
+      }
       const run = current;
       if (run) {
         current = null;

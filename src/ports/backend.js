@@ -11,6 +11,9 @@
 // complete(tabId, input, { cwd, history }): Promise<[{ value, label, kind, description? }]>, where value is
 //   the whole new input and always starts with `input`.
 // onEvent(listener): returns a function that stops listening. listener({ tabId, event }) gets:
+//   { type: "startup", data }       the shell's startup files are taking long, maybe asking something:
+//                                   what they print, with or without a command waiting. write() reaches them.
+//   { type: "started", cwd, typeahead? }  they are done; only after a startup. typeahead as for finish.
 //   { type: "output", data }        terminal bytes, escape sequences included
 //   { type: "alt", on }             a program took over the screen, or gave it back
 //   { type: "finish", exit?, cwd, typeahead? }  the command ended. No exit means it isn't known.

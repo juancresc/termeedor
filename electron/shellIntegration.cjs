@@ -41,12 +41,17 @@ unsetopt PROMPT_SP PROMPT_CR # these draw before the finish marker, so they woul
 `;
 
 // Each startup file runs the user's file of the same name, keeping ZDOTDIR pointed here
-// so that zsh goes on to read the next one from this folder.
+// so that zsh goes on to read the next one from this folder. Ctrl+C cuts the user's file short;
+// zsh would then skip every file left, the hooks with them, so the interrupt is cleared (zsh 5.1).
 const zshStartupFile = (name, after = "") => `_tm_user_zdotdir="\${_tm_user_zdotdir:-\${TERMEEDOR_USER_ZDOTDIR:-$HOME}}"
 ZDOTDIR="$_tm_user_zdotdir"
-[[ -r "$ZDOTDIR/${name}" ]] && . "$ZDOTDIR/${name}"
-_tm_user_zdotdir="$ZDOTDIR"
-ZDOTDIR="$TERMEEDOR_ZDOTDIR"
+{
+  [[ -r "$ZDOTDIR/${name}" ]] && . "$ZDOTDIR/${name}"
+} always {
+  TRY_BLOCK_INTERRUPT=0
+  _tm_user_zdotdir="$ZDOTDIR"
+  ZDOTDIR="$TERMEEDOR_ZDOTDIR"
+}
 ${after}`;
 
 const BASH_RC = `

@@ -8,7 +8,7 @@ Electron app with a vanilla JS page. No framework, no build step. The app owns t
 | --- | --- |
 | `electron/main.cjs` | Window, `termeedor://` protocol, IPC |
 | `electron/menu.cjs` | App menu, with no reload items |
-| `electron/shellSessions.cjs` | One PTY per tab (node-pty), started when the tab is first shown so its first command doesn't wait for the shell's startup files |
+| `electron/shellSessions.cjs` | One PTY per tab (node-pty), started when the tab is first shown so its first command doesn't wait for the shell's startup files. Startup files still running after 2s (Oh My Zsh asking whether to update) are reported as `startup` events and get the keys; the tab's session shows them in a block of their own |
 | `electron/shellParser.cjs`, `shellIntegration.cjs` | Shell hooks and OSC 133 markers: command start, finish, cwd |
 | `electron/shellCompleter.cjs`, `zshCompletion.zsh` | Tab completion from a hidden zsh |
 | `electron/completions.cjs` | Tab completion's fallback: PATH commands and paths |

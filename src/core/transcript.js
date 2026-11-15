@@ -34,7 +34,9 @@ export function addCommandBlock(transcript, command, cwd) {
 /** Plain text at the bottom, or above `before`, the running command whose output is still changing. */
 export function addTextBlock(transcript, text, before = null) {
   const at = before ? transcript.blocks.indexOf(before) : -1;
-  transcript.blocks.splice(at === -1 ? transcript.blocks.length : at, 0, textBlock(unixLines(text)));
+  const block = textBlock(unixLines(text));
+  transcript.blocks.splice(at === -1 ? transcript.blocks.length : at, 0, block);
+  return block;
 }
 
 export function appendOutput(block, text) {
