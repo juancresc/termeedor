@@ -44,6 +44,8 @@ test("a tab's spinner comes and goes without rebuilding its row", async () => {
   assert.equal(spinners(), 0);
 
   runs.start(id);
+
+  runs.setBusy(id, true);
   refreshSidebarRuns();
   assert.equal(spinners(), 1);
 

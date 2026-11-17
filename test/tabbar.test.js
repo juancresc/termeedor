@@ -82,11 +82,12 @@ test("a minimized group leaves the group row, with nothing standing in for it", 
   assert.equal(state.ws.groups.includes(kept), true);
 });
 
-test("a group running a command takes the same room selected or not", () => {
+test("a group with a busy command takes the same room selected or not", () => {
   const [running, other] = [addGroup(), addGroup()];
   const heading = () => row("groupTabs").children[0];
   const tab = tabsIn(running.id)[0];
   runs.start(tab.id);
+  runs.setBusy(tab.id, true);
   try {
     activateTab(tabsIn(other.id)[0].id);
     renderTabbar();
@@ -112,6 +113,8 @@ test("a spinner comes and goes without rebuilding the bars", () => {
   assert.equal(tabNode.querySelector(".spinner"), null);
 
   runs.start(tab.id);
+
+  runs.setBusy(tab.id, true);
   refreshTabbarRuns();
   assert.ok(heading.querySelector(".spinner"));
   assert.ok(tabNode.querySelector(".spinner"));

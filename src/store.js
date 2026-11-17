@@ -43,7 +43,7 @@ export const saveNow = () => saver.saveNow(); // no arguments: this is also an e
 // ---------- running commands (runtime only, never saved) ----------
 export const isRunning = (tabId) => runs.isRunning(tabId);
 export const groupHasRunning = (groupId) => state.ws.tabs.some((t) => t.groupId === groupId && runs.isRunning(t.id));
-/** Running and not just waiting for input: what a spinner shows. */
+/** Running and saying it is working: what a spinner shows. */
 export const isBusy = (tabId) => runs.isBusy(tabId);
 export const groupIsBusy = (groupId) => state.ws.tabs.some((t) => t.groupId === groupId && runs.isBusy(t.id));
 

@@ -65,11 +65,12 @@ test("a cwd change, a sidebar width or a font size leave the rows alone", () => 
   assert.deepEqual(allNodes(), before);
 });
 
-test("a background tab starting a command adds its spinners, and nothing else is rebuilt", () => {
+test("a background tab turning busy adds its spinners, and nothing else is rebuilt", () => {
   const background = state.ws.tabs[0];
   assert.notEqual(background, store.activeTab());
   const before = new Set(allNodes());
   runs.start(background.id);
+  runs.setBusy(background.id, true);
   store.commit();
   const rowNow = $("groups").querySelector(".spinner").parentNode.parentNode; // spinner, its slot, the row
   assert.equal(rowNow.dataset.slideKey, background.id);
@@ -86,6 +87,8 @@ test("a spinner's slot still works after a render kept the slot that was on the 
   const onPage = () => [$("groups").querySelector(".spinner"), $("tabs").querySelector(".spinner")];
 
   runs.start(tab.id);
+
+  runs.setBusy(tab.id, true);
   refreshSidebarRuns();
   refreshTabbarRuns();
   assert.ok(onPage().every(Boolean));
@@ -134,6 +137,7 @@ test("a rename survives what happens in the background, with what was typed", ()
 
   const other = state.ws.tabs.find((t) => t !== tab);
   runs.start(other.id);
+  runs.setBusy(other.id, true);
   store.commit();
   runs.finish(other.id);
   store.commit();
@@ -155,6 +159,7 @@ test("a rename survives its own tab's command starting, which adds a spinner bes
   box.value = "typed";
   box.focus();
   runs.start(tab.id);
+  runs.setBusy(tab.id, true);
   store.commit();
   assert.equal($("tabs").querySelector(".inlineInput"), box);
   assert.equal(document.activeElement, box);

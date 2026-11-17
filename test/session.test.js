@@ -6,11 +6,10 @@ import { test } from "node:test";
 
 import { createSession, pasteBytes, typedText } from "../src/terminal/session.js";
 
-const ECHO_MS = 150; // as in session.js
 import { createRunState } from "../src/core/runState.js";
 
 const FLUSH_MS = 5;
-const IDLE_MS = 40;
+const QUIET_MS = 40;
 const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 const SIZE = { cols: 80, rows: 24 };
 
@@ -40,7 +39,7 @@ function setup(options) {
   const plugin = [];
   const runs = createRunState();
   const session = createSession({
-    tab, backend, runs, flushMs: FLUSH_MS, idleMs: IDLE_MS, emitPlugin: (name, data) => plugin.push([name, data]),
+    tab, backend, runs, flushMs: FLUSH_MS, emitPlugin: (name, data) => plugin.push([name, data]),
   });
   const events = [];
   for (const type of ["start", "output", "data", "fullscreen", "busy", "finish", "typeahead"]) session.on(type, (payload) => events.push([type, payload]));
@@ -100,44 +99,23 @@ test("a command's life: start, output, finish, cwd and the finished block", asyn
   assert.equal(events.filter(([type]) => type === "data").length, 2);
 });
 
-test("a plain command is busy for as long as it runs, quiet or not", async () => {
-  const { runs, session, send } = setup();
-  const done = session.run("sleep 10", SIZE);
-  assert.equal(runs.isBusy("t1"), true);
-  await pause(IDLE_MS * 3);
-  assert.equal(runs.isBusy("t1"), true);
-  send({ type: "finish", exit: 0, cwd: "~" });
-  await done;
-  assert.equal(runs.isBusy("t1"), false);
-});
-
-test("an interactive program is busy only while it draws, and a key's echo doesn't count", async () => {
+test("a command is not busy unless it says so, whatever it prints (docker compose up, a REPL)", async () => {
   const { runs, session, send, events } = setup();
-  const done = session.run("claude", SIZE);
-  send({ type: "output", data: "\x1b[?2004h\x1b[?1004h> " });
-  await pause(IDLE_MS * 3);
-  assert.equal(runs.isBusy("t1"), false); // waiting at its prompt
+  const done = session.run("docker compose up", SIZE);
+  assert.equal(runs.isBusy("t1"), false);
+  send({ type: "output", data: "\x1b[?2004h\x1b[?1004hweb-1  | listening" });
+  assert.equal(runs.isBusy("t1"), false);
   assert.equal(session.running, true);
-
-  session.forwardKey({ key: "a", ctrlKey: false, altKey: false, metaKey: false });
-  send({ type: "output", data: "a" });
-  assert.equal(runs.isBusy("t1"), false);
-
-  await pause(ECHO_MS + 20);
-  send({ type: "output", data: "✻ Thinking…" });
-  assert.equal(runs.isBusy("t1"), true);
-  await pause(IDLE_MS * 3);
-  assert.equal(runs.isBusy("t1"), false);
-  assert.deepEqual(events.filter(([type]) => type === "busy").map(([, p]) => p.on), [false, true, false]);
   send({ type: "finish", exit: 0, cwd: "~" });
   await done;
+  assert.deepEqual(events.filter(([type]) => type === "busy"), []);
 });
 
-test("a program reporting its progress (OSC 9;4) is believed over its output", async () => {
+test("a program reporting its progress (OSC 9;4) is busy until it says it is done", async () => {
   const { runs, session, send } = setup();
   const done = session.run("claude", SIZE);
   send({ type: "output", data: "\x1b[?2004h\x1b]9;4;3;\x07working" });
-  await pause(IDLE_MS * 3);
+  await pause(QUIET_MS);
   assert.equal(runs.isBusy("t1"), true); // quiet, but it said it is working
   send({ type: "output", data: "\x1b]9;4;0;\x07done" });
   assert.equal(runs.isBusy("t1"), false);
@@ -145,7 +123,7 @@ test("a program reporting its progress (OSC 9;4) is believed over its output", a
   await done;
 });
 
-test("a title saying it works or waits (claude's ◐ and ✳) is believed over its output", async () => {
+test("a title saying it works or waits (claude's ◐ and ✳) is believed", async () => {
   const { runs, session, send } = setup();
   const done = session.run("claude", SIZE);
   send({ type: "output", data: "\x1b[?2004h\x1b]0;\u2733 Claude Code\x07> " });
@@ -153,7 +131,7 @@ test("a title saying it works or waits (claude's ◐ and ✳) is believed over i
   send({ type: "output", data: "redraw" }); // drawing while waiting: still waiting
   assert.equal(runs.isBusy("t1"), false);
   send({ type: "output", data: "\x1b]0;\u25d0 Claude Code\x07" });
-  await pause(IDLE_MS * 3);
+  await pause(QUIET_MS);
   assert.equal(runs.isBusy("t1"), true); // quiet, but its title says it works
   send({ type: "output", data: "\x1b]2;\u2733 Greeting\x07" });
   assert.equal(runs.isBusy("t1"), false);
@@ -327,7 +305,7 @@ test("a tab closed by a command:start listener never starts a shell", async () =
   const tab = { id: "t1", cwd: "~", blocks: [], draft: "", history: [] };
   let session;
   session = createSession({
-    tab, backend, flushMs: FLUSH_MS, idleMs: IDLE_MS,
+    tab, backend, flushMs: FLUSH_MS,
     emitPlugin: (name) => { if (name === "command:start") session.close(); },
   });
   const finishes = [];

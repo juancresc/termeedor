@@ -3,8 +3,8 @@
 //   idle -> start -> running -> stop -> stopping -> finish -> idle
 //                    running -> finish -> idle
 // A stopped command stays "stopping" until it really ends: a program can ignore Ctrl+C.
-// A run is also busy or not: an interactive program (claude, a REPL) waiting for input still
-// runs, but isn't busy, so it shows no spinner. The session decides (see terminal/session.js).
+// A run is also busy or not, which is what a spinner shows: only a program that says it is
+// working is busy (claude, while it thinks). The session decides (see terminal/session.js).
 // The PTY keeps its own state in the main process (electron/shellSessions.cjs).
 
 export function createRunState() {
@@ -17,7 +17,7 @@ export function createRunState() {
 
     /** Returns the run's abort signal. A tab runs one command at a time, so a running one is kept. */
     start(tabId, block = null) {
-      if (!runs.has(tabId)) runs.set(tabId, { phase: "running", controller: new AbortController(), block, busy: true });
+      if (!runs.has(tabId)) runs.set(tabId, { phase: "running", controller: new AbortController(), block, busy: false });
       return runs.get(tabId).controller.signal;
     },
 

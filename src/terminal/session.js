@@ -24,15 +24,10 @@ import { createTextModel } from "./textModel.js";
 
 export const FLUSH_MS = 50;
 
-// Busy or waiting. A command is busy until it shows it reads input the way an interactive
-// program does, by turning on bracketed paste or focus reports (claude, a REPL). From then on it
-// is busy only while it draws: IDLE_MS of quiet means it waits for the user. Output right after
-// a key is the program echoing it, not working. A program that reports its progress itself
-// (OSC 9;4, as for Ghostty, iTerm and Windows Terminal) is believed instead, and so is a title
-// that says it: claude starts its title with a spinning ◐ ◓ ◑ ◒ (or braille) while it works, ✳ while it waits.
-export const IDLE_MS = 1000;
-const ECHO_MS = 150;
-const INTERACTIVE = /\x1b\[\?(?:2004|1004)h/;
+// Busy or not, as in iTerm: a command is busy only while it says so itself, with a progress
+// report (OSC 9;4, as for Ghostty, iTerm and Windows Terminal) or a title that says it: claude
+// starts its title with a spinning ◐ ◓ ◑ ◒ (or braille) while it works, ✳ while it waits.
+// Output alone says nothing: a server printing its log (docker compose up) isn't busy.
 const PROGRESS = /\x1b\]9;4;(\d)/g;
 const TITLE = /\x1b\][02];([^\x07\x1b]*)/g;
 const TITLE_BUSY = /^[\u25d0-\u25d3\u2801-\u28ff]/;
@@ -63,11 +58,10 @@ export function pasteBytes(text, bracketed) {
 
 export function createSession({
   tab, backend, runs = createRunState(), flushMs = FLUSH_MS, createModel = createTextModel, emitPlugin = () => {},
-  idleMs = IDLE_MS,
 }) {
   const listeners = new Map(); // type -> Set
   const emit = (type, payload) => listeners.get(type)?.forEach((fn) => fn(payload));
-  // The command producing output: { block, model, resolve, timer, ended, interactive, reported, idleTimer, keyAt }
+  // The command producing output: { block, model, resolve, timer, ended }
   let current = null;
   // The startup files, while they show: { block, model, timer, ended, startup: true, own }. own: it holds the tab's run.
   let startup = null;
@@ -93,30 +87,19 @@ export function createSession({
   }
 
   /** What the output says about the program being busy. */
-  function noteActivity(run, data) {
-    if (INTERACTIVE.test(data)) run.interactive = true;
-    for (const [, state] of data.matchAll(PROGRESS)) run.reported = state !== "0";
+  function noteActivity(data) {
+    let busy = null;
+    for (const [, state] of data.matchAll(PROGRESS)) busy = state !== "0";
     for (const [, title] of data.matchAll(TITLE)) {
-      if (TITLE_BUSY.test(title)) run.reported = true;
-      else if (TITLE_IDLE.test(title)) run.reported = false;
+      if (TITLE_BUSY.test(title)) busy = true;
+      else if (TITLE_IDLE.test(title)) busy = false;
     }
-    if (run.reported !== null) {
-      clearTimeout(run.idleTimer);
-      setBusy(run.reported);
-      return;
-    }
-    if (!run.interactive) return;
-    if (Date.now() - run.keyAt < ECHO_MS) {
-      if (!runs.isBusy(tab.id)) return; // the echo of a key: still waiting
-    } else setBusy(true);
-    clearTimeout(run.idleTimer);
-    run.idleTimer = setTimeout(() => { if (current === run) setBusy(false); }, idleMs);
+    if (busy !== null) setBusy(busy);
   }
 
   function endRun(run) {
     run.ended = true;
     clearTimeout(run.timer);
-    clearTimeout(run.idleTimer);
     run.model.dispose();
   }
 
@@ -175,10 +158,7 @@ export function createSession({
   function execute(command, block, size, signal) {
     if (!command || closed) return { output: "" }; // a command:start listener may have closed the tab
     return new Promise((resolve) => {
-      current = {
-        block, model: createModel(size), resolve, timer: null, ended: false,
-        interactive: false, reported: null, idleTimer: null, keyAt: 0,
-      };
+      current = { block, model: createModel(size), resolve, timer: null, ended: false };
       hasShell = true;
       signal.addEventListener("abort", () => backend.write(tab.id, "\x03"), { once: true });
       backend.run(tab.id, command, { cwd: tab.cwd, ...size }).catch((err) => {
@@ -272,7 +252,7 @@ export function createSession({
       const run = current;
       if (!run) return;
       if (event.type === "output") {
-        noteActivity(run, event.data);
+        noteActivity(event.data);
         if (fullscreen) { // the fullscreen view draws the bytes; the model only follows what they ask for
           run.model.write(event.data);
           return;
@@ -297,7 +277,6 @@ export function createSession({
       if (!backend.takesInput || !(current ?? startup)) return false;
       const bytes = keyToBytes(event);
       if (bytes === null) return false;
-      if (current) current.keyAt = Date.now();
       backend.write(tab.id, bytes);
       return true;
     },
@@ -305,7 +284,6 @@ export function createSession({
     forwardPaste(text) {
       const run = startup ?? current; // while the startup files show, they are who reads
       if (!backend.takesInput || !run) return false;
-      if (current) current.keyAt = Date.now();
       backend.write(tab.id, pasteBytes(text, run.model.bracketedPaste()));
       return true;
     },
@@ -321,7 +299,6 @@ export function createSession({
 
     // Raw access, for a view that is a terminal itself: bytes in, and its size.
     write(data) {
-      if (current) current.keyAt = Date.now();
       backend.write(tab.id, data);
     },
     resizePty: (cols, rows) => backend.resize(tab.id, cols, rows),

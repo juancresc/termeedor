@@ -17,7 +17,7 @@ const MOCK_FS = {
 const HELP = [
   "Commands:",
   "  help, clear, echo <text>, date, pwd, ls, cd <dir>, whoami, history",
-  "  sleep <seconds>   wait (shows the running indicator)",
+  "  sleep <seconds>   wait",
   "  build             fake build with streaming output",
   "  rename <name>     rename this tab",
   "  color <1-8|none>  set this tab's color",
