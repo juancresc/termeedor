@@ -63,6 +63,19 @@ for (const candidate of ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", "/usr/
   if (Number(stdout) >= 5) { shells.push(["bash", candidate]); break; }
 }
 
+if (fs.existsSync("/bin/zsh")) {
+  test("zsh keeps its history in the user's folder, not the app's temporary one", { timeout: 15000 }, async () => {
+    // What macOS's /etc/zshrc does, here in the user's own file so it holds on any system.
+    const { sessions, run } = harness("/bin/zsh", '[[ -z $HISTFILE ]] && HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history\n');
+    try {
+      const { text } = await run('print -r -- "file=$HISTFILE"');
+      assert.match(text, new RegExp(`file=${home}/\\.zsh_history`));
+    } finally {
+      sessions.killAll();
+    }
+  });
+}
+
 for (const [name, file] of shells) {
   describe(name, () => {
     const ASKS = "printf 'continue? '; read -r answer\nexport TM_ANSWER=$answer\n";

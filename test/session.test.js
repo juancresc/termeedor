@@ -27,6 +27,7 @@ function fakeBackend({ takesInput = true, fail = null } = {}) {
     resize: (tabId, cols, rows) => backend.resizes.push([tabId, cols, rows]),
     kill: (tabId) => backend.kills.push(tabId),
     complete: async () => [],
+    history: async () => [],
     onEvent(fn) { listener = fn; return () => {}; },
     send: (tabId, event) => listener({ tabId, event }),
   };

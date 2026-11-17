@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld("termeedorHost", {
     resize: (tabId, cols, rows) => ipcRenderer.invoke("shell:resize", tabId, cols, rows),
     kill: (tabId) => ipcRenderer.invoke("shell:kill", tabId),
     complete: (tabId, input, cwd) => ipcRenderer.invoke("shell:complete", tabId, input, cwd),
+    history: () => ipcRenderer.invoke("shell:history"),
     onEvent: (listener) => ipcRenderer.on("shell:event", (_event, message) => listener(message)),
   },
 });

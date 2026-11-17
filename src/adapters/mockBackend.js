@@ -181,6 +181,7 @@ export function createMockBackend({ getTab, stepMs = BUILD_STEP_MS } = {}) {
       stream.send(tabId, { type: "exit" });
     },
 
+    history: async () => [], // no shell, so nothing but the tabs remembers commands
     complete: async (tabId, input, options) => completions(input, options),
   };
 }

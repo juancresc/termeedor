@@ -7,7 +7,7 @@ import { $ } from "../util.js";
 import { isMac } from "../platform.js";
 import { state, activeTab, isRunning, saveSoon, stopRun } from "../store.js";
 import { closeMenu, isMenuOpen, moveSelection, placeMenu, selectedItem, showMenu } from "../completionMenu.js";
-import { forwardKey, forwardPaste, getCompletions } from "./runner.js";
+import { forwardKey, forwardPaste, getCompletions, shellCommands } from "./runner.js";
 import { promptFor } from "../core/transcript.js";
 
 const MAX_ROWS = 12; // past this the input scrolls, so it never pushes the output out of view
@@ -163,12 +163,13 @@ function recallOnArrow(event) {
 
 /**
  * The tab's own commands come last, so Up reaches them first; other open tabs' follow, then closed
- * tabs' (newest closed first), without repeats.
+ * tabs' (newest closed first), then the shell's own history file, without repeats. That file is
+ * what outlives closed tabs and cleared sessions, as it does in any terminal.
  */
 function recallList(tab) {
   if (!state.settings.sharedHistory) return tab.history;
   const closed = [...state.past].reverse().flatMap((entry) => entry.tab.history);
-  const others = closed.concat(state.ws.tabs.filter((t) => t !== tab).flatMap((t) => t.history));
+  const others = shellCommands().concat(closed, state.ws.tabs.filter((t) => t !== tab).flatMap((t) => t.history));
   const own = new Set(tab.history);
   return [...new Set(others.filter((c) => !own.has(c)).reverse())].reverse().concat(tab.history);
 }

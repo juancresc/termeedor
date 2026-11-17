@@ -38,6 +38,7 @@ function fakeShell(overrides = {}) {
     resize: (...args) => { calls.push(["resize", ...args]); },
     kill: (...args) => { calls.push(["kill", ...args]); },
     complete: async (...args) => { calls.push(["complete", ...args]); return []; },
+    history: async () => ["from the shell"],
     onEvent: (fn) => { send = fn; },
     ...overrides,
   };
@@ -59,6 +60,13 @@ test("the chooser takes Electron when there is a shell host, and the mock otherw
   browser.onEvent((message) => events.push(message));
   await browser.run("t1", "whoami");
   assert.equal(outputOf(events), "you\r\n");
+});
+
+test("the shell's history comes from the desktop, and the browser has none", async () => {
+  assert.deepEqual(await chooseBackend(fakeShell().shell).history(), ["from the shell"]);
+  const failing = fakeShell({ history: async () => { throw new Error("no"); } });
+  assert.deepEqual(await chooseBackend(failing.shell).history(), []);
+  assert.deepEqual(await createMockBackend().history(), []);
 });
 
 test("an adapter missing part of the port is refused", () => {

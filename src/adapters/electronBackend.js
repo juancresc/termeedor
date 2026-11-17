@@ -42,6 +42,7 @@ export function createElectronBackend(shell) {
     write: (tabId, data) => shell.write(tabId, data),
     resize: (tabId, cols, rows) => shell.resize(tabId, cols, rows),
     kill: (tabId) => shell.kill(tabId),
+    history: () => shell.history().catch(() => []),
     async complete(tabId, input, { cwd, history }) {
       return withHistory(await shell.complete(tabId, input, cwd), input, history);
     },

@@ -45,6 +45,9 @@ unsetopt PROMPT_SP PROMPT_CR # these draw before the finish marker, so they woul
 // zsh would then skip every file left, the hooks with them, so the interrupt is cleared (zsh 5.1).
 const zshStartupFile = (name, after = "") => `_tm_user_zdotdir="\${_tm_user_zdotdir:-\${TERMEEDOR_USER_ZDOTDIR:-$HOME}}"
 ZDOTDIR="$_tm_user_zdotdir"
+# The system's zshrc names the history file after ZDOTDIR while it points here, to a folder that
+# is deleted when the app quits. It goes where it would have gone without us.
+[[ $HISTFILE == "$TERMEEDOR_ZDOTDIR"/* ]] && HISTFILE="$ZDOTDIR/\${HISTFILE:t}"
 {
   [[ -r "$ZDOTDIR/${name}" ]] && . "$ZDOTDIR/${name}"
 } always {

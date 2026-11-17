@@ -8,6 +8,7 @@ import { emit as emitPluginEvent } from "../plugins/registry.js";
 import { createSession } from "./session.js";
 
 let backend = null;
+let shellHistory = []; // the shell's own history file, oldest first: see refreshShellHistory
 const sessions = new Map(); // tabId -> session
 const listeners = new Map(); // type -> Set of (session, payload)
 const EVENTS = ["start", "output", "data", "fullscreen", "busy", "finish", "typeahead"];
@@ -17,7 +18,17 @@ export function initRunner(given) {
   backend = given;
   backend.onEvent(({ tabId, event }) => sessions.get(tabId)?.handle(event));
   connect({ endSession }); // closing a tab ends its session. Reopened tabs get a new id, so a new one.
+  refreshShellHistory();
+  onSessionEvent("finish", refreshShellHistory); // the shell may have just written the command there
 }
+
+/** Read ahead of time, because Up can't wait for a file. */
+function refreshShellHistory() {
+  backend.history().then((commands) => { shellHistory = commands; }, () => {});
+}
+
+/** Commands the shell remembers from before: earlier runs of the app, closed tabs, other terminals. Oldest first. */
+export const shellCommands = () => shellHistory;
 
 /** The tab's session, made on first use. */
 export function sessionFor(tab) {

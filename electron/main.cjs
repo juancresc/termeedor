@@ -11,7 +11,8 @@ const { menuTemplate } = require("./menu.cjs");
 const { discoverPlugins, resolveInside } = require("./plugins.cjs");
 const pluginHosts = require("./pluginHosts.cjs");
 const { createShellCompleter } = require("./shellCompleter.cjs");
-const { removeIntegrationFiles } = require("./shellIntegration.cjs");
+const { chooseShell, removeIntegrationFiles } = require("./shellIntegration.cjs");
+const { createShellHistory } = require("./shellHistory.cjs");
 const { createShellSessions, resolveCwd } = require("./shellSessions.cjs");
 
 const ORIGIN = "termeedor://app";
@@ -130,6 +131,7 @@ const shells = createShellSessions((tabId, event) => {
 });
 
 const completer = createShellCompleter();
+const shellHistory = createShellHistory({ shell: chooseShell() });
 
 function stopBackgroundWork() {
   shells.killAll();
@@ -207,6 +209,7 @@ if (!app.requestSingleInstanceLock()) {
       completer.closeTab(tabId);
     });
     handle("shell:complete", completeInTab);
+    handle("shell:history", () => shellHistory.read());
     createWindow();
     app.on("activate", () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   });

@@ -10,6 +10,8 @@
 // kill(tabId): ends the tab's shell, and whatever it was running.
 // complete(tabId, input, { cwd, history }): Promise<[{ value, label, kind, description? }]>, where value is
 //   the whole new input and always starts with `input`.
+// history(): Promise<[command]>, what the shell itself remembers (its history file), oldest first.
+//   Empty if there is none. It never rejects.
 // onEvent(listener): returns a function that stops listening. listener({ tabId, event }) gets:
 //   { type: "startup", data }       the shell's startup files are taking long, maybe asking something:
 //                                   what they print, with or without a command waiting. write() reaches them.
@@ -23,7 +25,7 @@
 //                                   A desktop shell that ends between commands isn't reported.
 // takesInput: true if keys and pastes go to a running command. If false, the editor keeps them.
 
-const METHODS = ["run", "prepare", "write", "resize", "kill", "complete", "onEvent"];
+const METHODS = ["run", "prepare", "write", "resize", "kill", "complete", "history", "onEvent"];
 
 export function assertBackend(adapter) {
   for (const method of METHODS) {

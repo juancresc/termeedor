@@ -6,7 +6,7 @@ import { noop, textarea } from "./support/editorDom.js";
 
 let sendEvent;
 globalThis.termeedorHost = {
-  shell: { prepare: async () => {}, run: async () => {}, write: noop, resize: noop, kill: noop, onEvent: (fn) => { sendEvent = fn; }, complete: async () => [] },
+  shell: { prepare: async () => {}, run: async () => {}, write: noop, resize: noop, kill: noop, onEvent: (fn) => { sendEvent = fn; }, complete: async () => [], history: async () => [] },
 };
 
 const { initEditor, renderEditor } = await import("../src/editor.js");

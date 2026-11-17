@@ -12,7 +12,7 @@ const noop = () => {};
 globalThis.termeedorHost = {
   platform: "darwin",
   data: { load: async () => ({}), write: async () => ({ ok: true }), writeSync: () => ({ ok: true }) },
-  shell: { run: async () => {}, write: noop, resize: noop, kill: noop, onEvent: noop, complete: async () => [] },
+  shell: { run: async () => {}, write: noop, resize: noop, kill: noop, onEvent: noop, complete: async () => [], history: async () => [] },
 };
 
 const store = await import("../src/store.js");

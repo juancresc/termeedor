@@ -18,9 +18,11 @@ globalThis.termeedorHost = {
     kill: noop,
     onEvent: (fn) => { sendEvent = fn; },
     complete: async (tabId, input) => completionsFor(input),
+    history: async () => shellHistory,
   },
 };
 let completionsFor = () => [];
+let shellHistory = ["make ancient", "zz from the shell"]; // what the shell's history file holds
 
 const { initEditor, renderEditor, printToTab, focusEditor } = await import("../src/editor.js");
 const { initRunner, forwardKey } = await import("../src/terminal/runner.js");
@@ -206,6 +208,29 @@ test("Up reaches commands run in other tabs, after this tab's own", async () => 
   assert.equal(tab().draft, "npm test");
   press("ArrowDown");
   assert.equal(tab().draft, "np");
+  eraseDraft();
+});
+
+test("Up reaches the shell's own history, after everything the tabs remember", async () => {
+  store.addTab();
+  await run("zz from this tab");
+  type("zz");
+  press("ArrowUp");
+  assert.equal(tab().draft, "zz from this tab");
+  press("ArrowUp");
+  assert.equal(tab().draft, "zz from the shell");
+  press("ArrowUp"); // nothing older
+  assert.equal(tab().draft, "zz from the shell");
+  eraseDraft();
+});
+
+test("with shared history off, Up stays in this tab", async () => {
+  store.updateSettings({ sharedHistory: false });
+  store.addTab();
+  type("zz");
+  press("ArrowUp");
+  assert.equal(tab().draft, "zz");
+  store.updateSettings({ sharedHistory: true });
   eraseDraft();
 });
 
