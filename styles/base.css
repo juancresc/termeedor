@@ -83,7 +83,12 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .x:disabled { pointer-events: none; } /* a click goes to the tab under it */
 
 /* ---------- Sidebar ---------- */
-.sidebar { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; min-width: 0; }
+.sidebar { background: var(--panel); border-right: 1px solid var(--line); overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* Groups and sessions scroll apart, so the groups never leave the screen and a change in one list can't move the other.
+   Groups take the room they need; sessions get the rest, and always keep a few rows. */
+.sidebar > * { flex: none; }
+.sidebar > #groups { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.sidebar > #pastSessions { flex: 1 1 0; min-height: 120px; overflow-y: auto; }
 .app.nosidebar .sidebar { display: none; }
 
 
