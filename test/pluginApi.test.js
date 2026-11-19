@@ -303,6 +303,29 @@ test("the git-branch plugin shows what its host says, with the pull request left
   log.mock.restore();
 });
 
+test("the git-branch plugin offers to create a pull request on a branch without one", async () => {
+  const { activate } = await import("../plugins/git-branch/plugin.js");
+  const log = quietly();
+  const plugin = open("git-branch");
+  const calls = [];
+  const answers = { branch: "feature", dirty: false, pullRequest: { missing: true }, createPullRequest: { error: "push the branch first" } };
+  const withHost = { ...plugin, host: { call: async (method) => { calls.push(method); return answers[method]; } } };
+  const stop = activate(withHost);
+  const settle = async () => { for (let i = 0; i < 3; i++) await new Promise((resolve) => { setImmediate(resolve); }); };
+  await settle();
+  stop();
+  const [create, branch] = registry.statusItems().slice(-3);
+  assert.equal(create.text, "Create PR");
+  assert.equal(branch.text, "⎇ feature");
+  create.onClick();
+  await settle();
+  assert.equal(calls.at(-1), "createPullRequest");
+  assert.match(store.activeTab().blocks.at(-1).output, /Could not create the pull request: push the branch first/);
+  assert.equal(registry.statusItems().slice(-3)[0].text, "Create PR");
+  assert.equal(log.mock.callCount(), 0);
+  log.mock.restore();
+});
+
 test("docs/plugins.md lists the built-in ids and no old form", () => {
   const docs = fs.readFileSync(new URL("../docs/plugins.md", import.meta.url), "utf8");
   for (const id of actionIds().filter((name) => !name.startsWith("past.") && !name.includes("demo") && !name.startsWith("hello."))) {

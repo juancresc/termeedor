@@ -354,6 +354,26 @@ test("Ctrl+W deletes the input's last word and stops at the prompt", { skip: !/M
   assert.equal(textarea.value, "");
 });
 
+test("Ctrl+W keeps a word's opening quote, and takes it once it stands alone", { skip: !/Mac/.test(navigator.platform) }, () => {
+  const ctrlW = key("w", { code: "KeyW", ctrlKey: true });
+  eraseDraft();
+  type('git commit -m "remove tmp ');
+  caretToEnd();
+
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, 'git commit -m "remove ');
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, 'git commit -m "');
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "git commit -m ");
+
+  eraseDraft();
+  type("echo don't");
+  caretToEnd();
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "echo ");
+});
+
 const ctrl = (code) => press(code.at(-1).toLowerCase(), { code, ctrlKey: true });
 
 test("Ctrl+U deletes back to the prompt and keeps what is after the cursor", () => {

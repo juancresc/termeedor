@@ -88,7 +88,7 @@ for (const [name, file] of shells) {
         sessions.prepare("t", { cwd: home });
         await until(() => said(events).includes("continue? "));
         assert.deepEqual([...new Set(events.map((e) => e.type))], ["startup"]);
-        assert.match(said(events), /^Your shell's startup files are still running.*\ncontinue\? $/);
+        assert.match(said(events), /^shell startup running\ncontinue\? $/);
         sessions.write("t", "yes\r");
         await until(() => events.some((e) => e.type === "started"));
         assert.deepEqual(events.at(-1), { tabId: "t", type: "started", cwd: home });

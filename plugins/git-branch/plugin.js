@@ -4,13 +4,17 @@
 const COPY_ICON = "⧉";
 // A program that stays open in the tab (an agent, say) can open a pull request without any command finishing.
 const POLL_MS = 10_000;
+const CREATE_ITEM = { text: "Create PR", title: "Create a pull request for this branch on GitHub" };
 const BRANCH_TITLE = "Git branch of this tab's folder";
+
+/** Tells apart a pull request, a branch that can get one, and nothing to show. */
+const prKey = (pr) => pr?.url ?? (pr?.missing ? "missing" : "");
 
 export function activate(api) {
   let status = api.statusBar.add({ text: "", title: BRANCH_TITLE });
   let branch = null;
   let dirty = false; // the folder has changes not yet committed
-  let pr = null; // { number, url } of the branch's pull request
+  let pr = null; // { number, url } of the branch's pull request, or { missing: true } when one can be created
   let prButton = null;
   let copyButton = null;
   let resetTimer = null;
@@ -34,19 +38,35 @@ export function activate(api) {
     id: "openPullRequest",
     label: "Open the branch's pull request",
     run() {
-      if (pr) window.open(pr.url); // the app opens web links in the browser
+      if (pr?.url) window.open(pr.url); // the app opens web links in the browser
+    },
+  });
+
+  api.actions.register({
+    id: "createPullRequest",
+    label: "Create a pull request for the branch",
+    async run() {
+      const tab = api.workspace.activeTab();
+      if (!tab || !pr?.missing) return;
+      prButton?.update({ text: "Opening…", title: "Opening GitHub in the browser" });
+      const result = await api.host.call("createPullRequest", tab.cwd).catch((err) => ({ error: err.message }));
+      prButton?.update(CREATE_ITEM);
+      if (result?.error) api.workspace.print(tab, `Could not create the pull request: ${result.error}`);
+      else refresh();
     },
   });
 
   /** Status items show in the order they were added, so the pull request goes in first to sit left of the branch. */
   function layout() {
-    const next = `${branch}\n${dirty}\n${pr?.url}`;
+    const next = `${branch}\n${dirty}\n${prKey(pr)}`;
     if (next === shown) return;
     shown = next;
     status.dispose();
     prButton?.dispose();
     copyButton?.dispose();
-    prButton = pr ? api.statusBar.add({ text: `PR #${pr.number}`, title: `Open ${pr.url}`, action: "openPullRequest" }) : null;
+    prButton = pr?.url ? api.statusBar.add({ text: `PR #${pr.number}`, title: `Open ${pr.url}`, action: "openPullRequest" })
+      : pr?.missing ? api.statusBar.add({ ...CREATE_ITEM, action: "createPullRequest" })
+      : null;
     status = api.statusBar.add({
       text: branch ? `⎇ ${branch}${dirty ? "*" : ""}` : "",
       title: dirty ? `${BRANCH_TITLE}. It has uncommitted changes.` : BRANCH_TITLE,
@@ -70,7 +90,7 @@ export function activate(api) {
     if (!branch) return;
     const nextPr = await api.host.call("pullRequest", tab.cwd).catch(() => null);
     prCache.set(key, nextPr);
-    if (ticket !== refreshes || nextPr?.url === pr?.url) return;
+    if (ticket !== refreshes || prKey(nextPr) === prKey(pr)) return;
     pr = nextPr;
     layout();
   }

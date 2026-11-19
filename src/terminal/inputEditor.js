@@ -145,8 +145,12 @@ function deleteLineBack() {
   deleteBack(lineStart(editor.selectionStart));
 }
 
+/** A word's opening quote stays, so the string being typed is still open: `-m "remov` leaves `-m "`. Alone, the quote goes. */
 function deleteWordBack() {
-  deleteBack(editor.value.slice(0, editor.selectionStart).replace(/\S*\s*$/, "").length);
+  const before = editor.value.slice(0, editor.selectionStart);
+  const word = before.match(/\S*\s*$/)[0];
+  const quotes = word.match(/^["'`]+(?=[^\s"'`])/)?.[0].length ?? 0;
+  deleteBack(before.length - word.length + quotes);
 }
 
 // ---------- history ----------

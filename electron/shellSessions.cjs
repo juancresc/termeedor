@@ -14,7 +14,7 @@ const { ACK, chooseShell, shellLaunch } = require("./shellIntegration.cjs");
 
 const STARTUP_SHOWN_AFTER_MS = 2000; // most startup files are done by then, and stay unseen
 const MAX_STARTUP_TEXT = 65536;
-const STARTUP_NOTICE = "\x1b[2mYour shell's startup files are still running. What you type goes to them.\x1b[0m\r\n";
+const STARTUP_NOTICE = "\x1b[2mshell startup running\x1b[0m\r\n";
 const PASTE_START = "\x1b[200~";
 const PASTE_END = "\x1b[201~";
 const DEFAULT_SIZE = { cols: 120, rows: 30 };
