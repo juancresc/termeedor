@@ -56,6 +56,7 @@ const runningNow = () => {
 
 /** Puts the tab's draft in the input. Called on every change of state, so most of the time there is nothing to do. */
 export function renderInput(tab) {
+  if (!tab && document.activeElement === editor) editor.blur(); // a disabled control that keeps focus gets no keys, Cmd+T included
   editor.disabled = !tab;
   const switched = (tab ?? null) !== shownTab;
   if (switched) {
@@ -145,10 +146,13 @@ function deleteLineBack() {
   deleteBack(lineStart(editor.selectionStart));
 }
 
-/** A word's opening quote stays, so the string being typed is still open: `-m "remov` leaves `-m "`. Alone, the quote goes. */
+/**
+ * A path goes one part at a time, its slashes kept: `cd ~/dev/app` leaves `cd ~/dev/`, then `cd ~/`.
+ * A word's opening quote stays, so the string being typed is still open: `-m "remov` leaves `-m "`. Alone, the quote goes.
+ */
 function deleteWordBack() {
   const before = editor.value.slice(0, editor.selectionStart);
-  const word = before.match(/\S*\s*$/)[0];
+  const word = before.match(/(?:[^\s/]+|[^\s/]*\/+)?\s*$/)[0];
   const quotes = word.match(/^["'`]+(?=[^\s"'`])/)?.[0].length ?? 0;
   deleteBack(before.length - word.length + quotes);
 }

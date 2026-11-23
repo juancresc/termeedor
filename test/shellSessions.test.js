@@ -74,6 +74,41 @@ if (fs.existsSync("/bin/zsh")) {
       sessions.killAll();
     }
   });
+
+  // What `omz reload` and `omz update` do. The new shell has to report its commands too.
+  for (const command of ["exec zsh", "exec -l zsh", "reload() { [[ -o login ]] && exec -l zsh || exec zsh }; reload"]) {
+    test(`a zsh that replaces itself (${command}) still runs the tab's commands`, { timeout: 20000 }, async () => {
+      const { sessions, run } = harness("/bin/zsh", 'print -r -- "rc ran"\n');
+      try {
+        assert.equal((await run("echo before")).text, "before\n");
+        const replaced = await run(command);
+        assert.equal(replaced.finish.exit, 0);
+        assert.ok(!replaced.finish.shellExited);
+        assert.equal(replaced.text, "rc ran\n");
+        assert.equal((await run('print -r -- "z=$ZDOTDIR t=${TERMEEDOR_TOKEN-none} p=${TERMEEDOR_PID-none}"')).text, `z=${home} t=none p=none\n`);
+        assert.equal((await run("exec zsh")).finish.exit, 0); // and again, from the new one
+        assert.equal((await run("echo after")).text, "after\n");
+      } finally {
+        sessions.killAll();
+      }
+    });
+  }
+
+  test("a zsh that something else starts gets the user's startup files and none of the app's", { timeout: 20000 }, async () => {
+    const { sessions, run } = harness("/bin/zsh", "RC_RAN=yes\n");
+    const report = `print -r -- "rc=$RC_RAN z=$ZDOTDIR t=\${TERMEEDOR_TOKEN-none} hooks=\${+functions[_tm_precmd]}"`;
+    try {
+      // In a subshell the replaced process is a child, not the tab's shell.
+      assert.equal((await run(`(exec zsh -ic '${report}')`)).text, `rc=yes z=${home} t=none hooks=0\n`);
+      assert.equal((await run(`zsh -ic '${report}'`)).text, `rc=yes z=${home} t=none hooks=0\n`);
+      assert.equal((await run("exec 3>&1; echo kept >&3; echo $ZDOTDIR")).text, `kept\n${home}\n`); // only a redirection: nothing is replaced
+      const script = await run(`exec zsh -c 'print -r -- "z=$ZDOTDIR t=\${TERMEEDOR_TOKEN-none}"'`);
+      assert.equal(script.text, `z=${home} t=none\n`);
+      assert.ok(script.finish.shellExited);
+    } finally {
+      sessions.killAll();
+    }
+  });
 }
 
 for (const [name, file] of shells) {

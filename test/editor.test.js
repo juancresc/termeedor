@@ -374,6 +374,29 @@ test("Ctrl+W keeps a word's opening quote, and takes it once it stands alone", {
   assert.equal(tab().draft, "echo ");
 });
 
+test("Ctrl+W takes a path one part at a time and keeps its slashes", { skip: !/Mac/.test(navigator.platform) }, () => {
+  const ctrlW = key("w", { code: "KeyW", ctrlKey: true });
+  eraseDraft();
+  type("cd ~/dev/app");
+  caretToEnd();
+
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "cd ~/dev/");
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "cd ~/");
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, "cd ");
+
+  eraseDraft();
+  type('cat "src/a b');
+  caretToEnd();
+  textarea.listeners.keydown(ctrlW);
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, 'cat "src/');
+  textarea.listeners.keydown(ctrlW);
+  assert.equal(tab().draft, 'cat "');
+});
+
 const ctrl = (code) => press(code.at(-1).toLowerCase(), { code, ctrlKey: true });
 
 test("Ctrl+U deletes back to the prompt and keeps what is after the cursor", () => {

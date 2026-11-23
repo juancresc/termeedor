@@ -68,6 +68,26 @@ test("a key the running program already took isn't also a shortcut", () => {
   assert.equal(state.ws.tabs.length, before + 1);
 });
 
+test("Cmd+T with no group showing opens a new group with a new tab", () => {
+  const old = state.ws.groups[0];
+  press("KeyW"); // the last tab: its group is minimized
+  assert.equal(state.ws.activeGroup, null);
+  press("KeyT");
+  assert.equal(state.ws.groups.length, 2);
+  assert.ok(old.minimized);
+  const tab = store.activeTab();
+  assert.equal(tab.groupId, state.ws.activeGroup);
+  assert.notEqual(tab.groupId, old.id);
+
+  state.ws.groups = [];
+  state.ws.tabs = [];
+  state.ws.activeTab = null;
+  state.ws.activeGroup = null;
+  press("KeyT");
+  assert.equal(state.ws.groups.length, 1);
+  assert.equal(store.activeTab().groupId, state.ws.groups[0].id);
+});
+
 test("every key in the keymap names a real action, and every action has a label", () => {
   for (const key of builtinShortcutKeys()) {
     const entry = findShortcut({ metaKey: true, ctrlKey: false, altKey: false, shiftKey: key.startsWith("Shift+"), code: key.replace("Shift+", "") });

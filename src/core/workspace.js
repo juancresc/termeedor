@@ -130,8 +130,8 @@ export function activateTab(id) {
   commit();
 }
 
-/** Opens at the end, or right after the `after` tab. */
-export function addTab(groupId = state.ws.activeGroup ?? state.ws.groups[0]?.id, after = null) {
+/** Opens at the end, or right after the `after` tab. With no group selected (all minimized, or none), in a new group. */
+export function addTab(groupId = state.ws.activeGroup, after = null) {
   let group = getGroup(groupId);
   if (!group) {
     group = createGroup();

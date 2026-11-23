@@ -19,7 +19,7 @@ const REPORT_TYPEAHEAD = `[[ -n $typed ]] && printf '\\e]133;T;%s;%s\\a' "$_tm_t
 const ZSH_HOOKS = `
 typeset -g _tm_token="$TERMEEDOR_TOKEN"
 ZDOTDIR="$_tm_user_zdotdir"
-unset TERMEEDOR_TOKEN TERMEEDOR_ZDOTDIR TERMEEDOR_USER_ZDOTDIR _tm_user_zdotdir
+unset TERMEEDOR_TOKEN TERMEEDOR_ZDOTDIR TERMEEDOR_USER_ZDOTDIR TERMEEDOR_PID _tm_user_zdotdir
 _tm_typeahead() {
   local key typed=
   ${ASK_ACK}
@@ -40,10 +40,28 @@ preexec_functions+=(_tm_preexec)
 unsetopt PROMPT_SP PROMPT_CR # these draw before the finish marker, so they would land in the output
 `;
 
+// A shell can replace itself with a new one (`exec zsh`, which is what `omz reload` and `omz update`
+// do). The new one reads its startup files from the environment's ZDOTDIR, which by then is the
+// user's, so it would come up without the hooks and never say that the command finished. So
+// `exec` passes on what the new shell needs to start as this one did, to that process only: an
+// alias, since only the words before a command set its environment, and a function would undo the
+// redirections of an `exec` that has no command. The alias is made before the user's files so that
+// their functions get it. The process it replaces may not be the tab's shell (a subshell's, or a
+// script's), which TERMEEDOR_PID tells: such a shell gets the user's files and nothing from here.
+const ZSH_REPLACED = `if [[ -n $TERMEEDOR_PID && ( $TERMEEDOR_PID != $$ || ! -o interactive ) ]]; then
+  if [[ -n $TERMEEDOR_USER_ZDOTDIR ]]; then ZDOTDIR="$TERMEEDOR_USER_ZDOTDIR"; else unset ZDOTDIR; fi
+  unset TERMEEDOR_TOKEN TERMEEDOR_ZDOTDIR TERMEEDOR_USER_ZDOTDIR TERMEEDOR_PID
+  [[ -r "\${ZDOTDIR:-$HOME}/.zshenv" ]] && . "\${ZDOTDIR:-$HOME}/.zshenv"
+  return
+fi
+typeset -g _tm_dir="$TERMEEDOR_ZDOTDIR"
+alias exec='TERMEEDOR_PID=$$ TERMEEDOR_TOKEN="\${_tm_token:-$TERMEEDOR_TOKEN}" TERMEEDOR_ZDOTDIR="$_tm_dir" TERMEEDOR_USER_ZDOTDIR="$ZDOTDIR" ZDOTDIR="$_tm_dir" exec'
+`;
+
 // Each startup file runs the user's file of the same name, keeping ZDOTDIR pointed here
 // so that zsh goes on to read the next one from this folder. Ctrl+C cuts the user's file short;
 // zsh would then skip every file left, the hooks with them, so the interrupt is cleared (zsh 5.1).
-const zshStartupFile = (name, after = "") => `_tm_user_zdotdir="\${_tm_user_zdotdir:-\${TERMEEDOR_USER_ZDOTDIR:-$HOME}}"
+const zshStartupFile = (name, after = "", before = "") => `${before}_tm_user_zdotdir="\${_tm_user_zdotdir:-\${TERMEEDOR_USER_ZDOTDIR:-$HOME}}"
 ZDOTDIR="$_tm_user_zdotdir"
 # The system's zshrc names the history file after ZDOTDIR while it points here, to a folder that
 # is deleted when the app quits. It goes where it would have gone without us.
@@ -91,10 +109,12 @@ function ensureIntegrationFiles() {
   if (integrationDir) return integrationDir;
   integrationDir = fs.mkdtempSync(path.join(os.tmpdir(), "termeedor-shell-"));
   const write = (name, content) => fs.writeFileSync(path.join(integrationDir, name), content, { mode: 0o600 });
-  write(".zshenv", zshStartupFile(".zshenv"));
+  // The hooks go last: a login shell's last file is .zlogin, any other's is .zshrc.
+  write(".zshenv", zshStartupFile(".zshenv", "", ZSH_REPLACED));
   write(".zprofile", zshStartupFile(".zprofile"));
-  write(".zshrc", zshStartupFile(".zshrc"));
-  write(".zlogin", zshStartupFile(".zlogin", ZSH_HOOKS));
+  write(".zshrc", zshStartupFile(".zshrc", '[[ -o login ]] || . "$TERMEEDOR_ZDOTDIR/hooks.zsh"\n'));
+  write(".zlogin", zshStartupFile(".zlogin", '. "$TERMEEDOR_ZDOTDIR/hooks.zsh"\n'));
+  write("hooks.zsh", ZSH_HOOKS);
   write("bashrc", BASH_RC);
   return integrationDir;
 }
@@ -171,6 +191,8 @@ function shellLaunch(shell, baseEnv = process.env) {
     GIT_PAGER: "cat",
     LANG: baseEnv.LANG || "en_US.UTF-8", // apps opened from the Finder don't get one
   });
+
+  delete env.TERMEEDOR_PID; // the app itself was started by a tab's `exec`: its shells are new ones
 
   if (path.basename(shell) === "zsh") {
     if (baseEnv.ZDOTDIR) env.TERMEEDOR_USER_ZDOTDIR = baseEnv.ZDOTDIR;
