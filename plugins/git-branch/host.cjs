@@ -39,16 +39,18 @@ async function onDefaultBranch(dir) {
 }
 
 /**
- * The current branch's pull request as { number, url }, or { missing: true } when it has none and one could be created.
+ * The current branch's pull request as { number, url, state }, state being "open", "merged" or "closed"
+ * (gh finds a branch's closed and merged pull requests too), or { missing: true } when it has none and one could be created.
  * Null when there is nothing to offer: on the main branch, or gh isn't installed or signed in.
  */
 exports.pullRequest = async (cwd) => {
   const dir = resolveDir(cwd);
-  const { ok, stdout, stderr } = await exec("gh", ["pr", "view", "--json", "number,url"], dir, 8000);
+  const { ok, stdout, stderr } = await exec("gh", ["pr", "view", "--json", "number,url,state"], dir, 8000);
   if (!ok) return /no pull requests found/i.test(stderr) && !(await onDefaultBranch(dir)) ? { missing: true } : null;
   try {
-    const { number, url } = JSON.parse(stdout);
-    return /^https:\/\//.test(url) ? { number, url } : null;
+    const { number, url, state } = JSON.parse(stdout);
+    if (!/^https:\/\//.test(url)) return null;
+    return { number, url, state: ["MERGED", "CLOSED"].includes(state) ? state.toLowerCase() : "open" };
   } catch {
     return null;
   }

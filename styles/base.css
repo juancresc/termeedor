@@ -209,6 +209,10 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 /* A copy of the input's text that is never seen: JS reads from it where the lines wrap and where the caret is. It must wrap as .editor does. */
 .inputMirror { position: absolute; top: 0; left: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 .editor::selection { background: var(--sel); }
+/* The input's part of a selection that goes on up into the output: the text box can't show it while the output's selection is the page's. */
+.inputCarried { position: absolute; overflow: hidden; color: transparent; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; pointer-events: none; user-select: none; }
+.inputCarried mark { background: var(--sel); color: transparent; }
+.inputRow.carried .promptMark { background: var(--sel); }
 /* One line has no number, so it lines up with the command it becomes. */
 .inputRow:not(.multiline) .inputLines { display: none; }
 .app.nolines .inputLines { display: none; }

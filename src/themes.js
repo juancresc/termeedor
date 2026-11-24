@@ -80,6 +80,7 @@ const REFERENCE = `/*
  *              .cursor (a running program's cursor inside its text) .outputTail.cursorPlaced
  *              .ansiBold .ansiDim .ansiItalic .ansiUnderline
  *   Input      .inputRow .inputRow.running .inputRow.multiline .inputLines .promptMark .editor .editor::selection
+ *              .inputRow.carried .inputCarried (the input's part of a selection that goes up into the output)
  *   Full screen .fullTerm (vim, top and friends)
  *   Completion .completions .completions div
  *   Status bar .status .status .sp #stTab #stCwd #stRunning #stPos #stPlugins .stPlugin .zoomBtns #zoomIn #zoomOut

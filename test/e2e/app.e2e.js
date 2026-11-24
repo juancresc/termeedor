@@ -100,6 +100,57 @@ test("copying across blocks gives their text, line for line", async () => {
   assert.equal(text.replace(/\n$/, ""), "~ ❯ echo one\none\n~ ❯ echo two\ntwo\n~ ❯ echo three\nthree");
 });
 
+test("Tab with several matches opens the menu at the caret", async () => {
+  await newTab();
+  await app.run("echo one");
+  await app.type("e");
+  await app.press("Tab");
+  await app.waitFor(() => document.querySelectorAll(".completions [role=option]").length >= 2);
+  const menu = await rect(".completions");
+  const input = await rect("#inputRow");
+  assert.ok(menu.top >= input.bottom - 1 || menu.bottom <= input.top + 1, "the menu covers the input");
+  await app.press("Escape");
+});
+
+describe("selecting from the input into the output", () => {
+  async function dragUp() {
+    await newTab();
+    await app.run("echo one");
+    await app.type("echo two");
+    const input = await rect("#editor");
+    const line = await rect("#output .block:last-child .blockOutput");
+    const x = input.left + (await app.evaluate(() => {
+      const m = document.querySelector("#inputMirror");
+      const probe = Object.assign(document.createElement("span"), { textContent: "echo" });
+      m.replaceChildren(probe);
+      return probe.getBoundingClientRect().width;
+    }));
+    await app.drag({ x, y: (input.top + input.bottom) / 2 }, { x: line.left + 1, y: (line.top + line.bottom) / 2 });
+  }
+
+  test("selects the output up to the pointer, and the input up to where the drag began", async () => {
+    await dragUp();
+    assert.equal(await app.evaluate(() => getSelection().toString()), "one");
+    assert.equal(await app.evaluate(() => document.querySelector("#inputCarried mark")?.textContent), "echo");
+    const copied = await app.evaluate(() => {
+      let text = null;
+      const grab = (e) => { text = e.clipboardData.getData("text/plain"); };
+      document.addEventListener("copy", grab);
+      document.execCommand("copy");
+      document.removeEventListener("copy", grab);
+      return text;
+    });
+    assert.equal(copied, "one\n~ ❯ echo");
+  });
+
+  test("typing afterwards edits the input as it was, and the mark goes", async () => {
+    await dragUp();
+    await app.type("!");
+    assert.equal(await editorValue(), "echo two!");
+    assert.equal(await app.evaluate(() => document.querySelector("#inputRow").classList.contains("carried")), false);
+  });
+});
+
 describe("running", () => {
   test("a command shows its block, hides the input while it runs, and Up recalls it", async () => {
     await newTab();

@@ -3,7 +3,7 @@
 // completes. A line too long for the width wraps, and the input grows with it. While a command runs it is out of sight but keeps focus, so keys and pastes can
 // go to the program.
 
-import { $ } from "../util.js";
+import { $, el } from "../util.js";
 import { isMac } from "../platform.js";
 import { state, activeTab, isRunning, saveSoon, stopRun } from "../store.js";
 import { closeMenu, isMenuOpen, moveSelection, placeMenu, selectedItem, showMenu } from "../completionMenu.js";
@@ -19,6 +19,7 @@ const editor = $("editor");
 const row = $("inputRow");
 const lineNumbers = $("inputLines");
 const mirror = $("inputMirror"); // a hidden copy of the text, as wide as the input, to see where it wraps
+const carriedMark = $("inputCarried"); // paints the input's part of a selection that went on into the output
 let wrapKey = null; // what wrapRows was measured for
 let wrapRows = [];
 let shownTab = null;
@@ -36,14 +37,23 @@ export function initInput(provided) {
     lineNumbers.scrollTop = editor.scrollTop;
     if (isMenuOpen()) placeMenuAtCaret();
   });
-  editor.addEventListener("mousedown", closeMenu);
+  editor.addEventListener("mousedown", (event) => {
+    closeMenu();
+    startDrag(event, null);
+  });
   editor.addEventListener("blur", closeMenu);
+  editor.addEventListener("focus", clearCarried);
   for (const type of ["keyup", "click", "select"]) editor.addEventListener(type, renderCursorPosition);
   row.addEventListener("mousedown", (event) => {
     if (event.target === editor) return;
     event.preventDefault(); // the line numbers and the prompt aren't anything to select
     focusInput();
+    startDrag(event, 0);
   });
+  document.addEventListener("mousemove", onDragMove);
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("selectionchange", onSelectionChange);
+  document.addEventListener("copy", onCopy);
   window.addEventListener("resize", closeMenu);
   // The window, the sidebar or the text size changed how much fits on a row.
   if (typeof ResizeObserver === "function") new ResizeObserver(renderShape).observe(editor);
@@ -429,7 +439,9 @@ function caretOffset() {
   const [before, after] = [editor.value.slice(0, editor.selectionStart), editor.value.slice(editor.selectionStart)];
   mirror.replaceChildren(document.createTextNode(before), marker, document.createTextNode(after));
   wrapKey = null; // the copy no longer holds what rowsPerLine measured
-  return { x: marker.offsetLeft || 0, y: marker.offsetTop || 0 };
+  // An empty inline box starts below its row's top, by half of what the line height adds to the font.
+  const height = lineHeight();
+  return { x: marker.offsetLeft || 0, y: Math.floor((marker.offsetTop || 0) / height) * height };
 }
 
 function placeMenuAtCaret() {
@@ -445,4 +457,77 @@ function revealCaret() {
   if (y < editor.scrollTop) editor.scrollTop = y;
   else if (y + lineHeight() > editor.scrollTop + editor.clientHeight) editor.scrollTop = y + lineHeight() - editor.clientHeight;
   lineNumbers.scrollTop = editor.scrollTop;
+}
+
+// ---------- selecting from the input into the output ----------
+// A textarea keeps a drag's selection to itself. So a drag that starts in the input and goes up
+// past its top is taken over: the output is selected from the pointer to its end, and the input,
+// prompt included, from its start to where the drag began. Copying gives both as one text.
+let drag = null; // { anchor, out }: anchor is where in the draft it began, null until known
+let carried = null; // { selected, text }: the output's part as it was set, and the input's part
+
+function startDrag(event, anchor) {
+  clearCarried();
+  drag = event.button === 0 && !event.shiftKey && event.detail <= 1 && !runningNow() ? { anchor, out: false } : null;
+}
+
+function onDragMove(event) {
+  if (!drag) return;
+  if (!(event.buttons & 1)) return endDrag();
+  // The press left the caret where the drag began, and the first move hasn't moved the selection yet.
+  if (drag.anchor === null) drag.anchor = editor.selectionStart;
+  const above = event.clientY < row.getBoundingClientRect().top;
+  if (!above) {
+    if (drag.out) { // back in the input, where the textarea's own selection goes on
+      drag.out = false;
+      clearCarried();
+      getSelection().removeAllRanges();
+      focusInput({ preventScroll: true });
+    }
+    return;
+  }
+  const point = document.caretRangeFromPoint?.(event.clientX, event.clientY);
+  if (!point || !$("output").contains(point.startContainer)) return;
+  if (!drag.out) {
+    drag.out = true;
+    editor.blur(); // a copy reads the focused text box first
+  }
+  const output = $("output");
+  getSelection().setBaseAndExtent(output, output.childNodes.length, point.startContainer, point.startOffset);
+  carried = { selected: getSelection().toString(), text: $("promptMark").textContent + editor.value.slice(0, drag.anchor) };
+  markCarried(drag.anchor);
+}
+
+function endDrag() {
+  // The text box's own drag selection would be replaced by what is typed next.
+  if (drag?.out) editor.setSelectionRange(editor.value.length, editor.value.length);
+  drag = null;
+}
+
+/** Any other selection, a click or typing ends it. */
+function onSelectionChange() {
+  if (carried && !drag && getSelection().toString() !== carried.selected) clearCarried();
+}
+
+function onCopy(event) {
+  if (!carried || getSelection().toString() !== carried.selected || document.activeElement === editor) return;
+  event.preventDefault();
+  event.clipboardData.setData("text/plain", `${carried.selected.replace(/\n?$/, "\n")}${carried.text}`);
+}
+
+function markCarried(anchor) {
+  row.classList.add("carried");
+  carriedMark.style.left = `${editor.offsetLeft}px`;
+  carriedMark.style.top = `${editor.offsetTop}px`;
+  carriedMark.style.width = `${editor.clientWidth}px`;
+  carriedMark.style.height = `${editor.clientHeight}px`;
+  carriedMark.replaceChildren(el("mark", null, editor.value.slice(0, anchor)), document.createTextNode(editor.value.slice(anchor)));
+  carriedMark.scrollTop = editor.scrollTop;
+}
+
+function clearCarried() {
+  if (!carried && !row.classList.contains("carried")) return;
+  carried = null;
+  row.classList.remove("carried");
+  carriedMark.replaceChildren();
 }

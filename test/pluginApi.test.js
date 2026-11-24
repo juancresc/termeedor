@@ -303,6 +303,20 @@ test("the git-branch plugin shows what its host says, with the pull request left
   log.mock.restore();
 });
 
+test("the git-branch plugin says when the branch's pull request is merged or closed", async () => {
+  const { activate } = await import("../plugins/git-branch/plugin.js");
+  const log = quietly();
+  const plugin = open("git-branch");
+  const answers = { branch: "feature", dirty: false, pullRequest: { number: 42, url: "https://github.com/o/r/pull/42", state: "merged" } };
+  const stop = activate({ ...plugin, host: { call: async (method) => answers[method] } });
+  for (let i = 0; i < 3; i++) await new Promise((resolve) => { setImmediate(resolve); });
+  stop();
+  const [pr] = registry.statusItems().slice(-3);
+  assert.equal(pr.text, "PR #42 merged");
+  assert.equal(log.mock.callCount(), 0);
+  log.mock.restore();
+});
+
 test("the git-branch plugin offers to create a pull request on a branch without one", async () => {
   const { activate } = await import("../plugins/git-branch/plugin.js");
   const log = quietly();

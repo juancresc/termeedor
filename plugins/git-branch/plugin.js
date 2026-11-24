@@ -8,13 +8,16 @@ const CREATE_ITEM = { text: "Create PR", title: "Create a pull request for this 
 const BRANCH_TITLE = "Git branch of this tab's folder";
 
 /** Tells apart a pull request, a branch that can get one, and nothing to show. */
-const prKey = (pr) => pr?.url ?? (pr?.missing ? "missing" : "");
+const prKey = (pr) => pr?.url ? `${pr.url} ${pr.state}` : pr?.missing ? "missing" : ""; // merging keeps the url
+
+/** "PR #42" while open; one that is done says how it ended. */
+const prText = (pr) => `PR #${pr.number}${pr.state && pr.state !== "open" ? ` ${pr.state}` : ""}`;
 
 export function activate(api) {
   let status = api.statusBar.add({ text: "", title: BRANCH_TITLE });
   let branch = null;
   let dirty = false; // the folder has changes not yet committed
-  let pr = null; // { number, url } of the branch's pull request, or { missing: true } when one can be created
+  let pr = null; // { number, url, state } of the branch's pull request, or { missing: true } when one can be created
   let prButton = null;
   let copyButton = null;
   let resetTimer = null;
@@ -64,7 +67,7 @@ export function activate(api) {
     status.dispose();
     prButton?.dispose();
     copyButton?.dispose();
-    prButton = pr?.url ? api.statusBar.add({ text: `PR #${pr.number}`, title: `Open ${pr.url}`, action: "openPullRequest" })
+    prButton = pr?.url ? api.statusBar.add({ text: prText(pr), title: `Open ${pr.url}`, action: "openPullRequest" })
       : pr?.missing ? api.statusBar.add({ ...CREATE_ITEM, action: "createPullRequest" })
       : null;
     status = api.statusBar.add({
