@@ -125,6 +125,27 @@ describe("running", () => {
     assert.ok(grown.height > before.height * 1.6, `${before.height}px became ${grown.height}px`);
     assert.equal(await app.evaluate(() => document.querySelectorAll("#output .block.isCommand").length), 0, "nothing ran");
   });
+  test("a long command wraps in the input, typed or recalled with Up", async () => {
+    await newTab();
+    const long = `echo ${"word ".repeat(80)}end`;
+    const shape = () => app.evaluate(() => {
+      const editor = document.querySelector("#editor");
+      return { height: editor.getBoundingClientRect().height, widths: [editor.scrollWidth, editor.clientWidth], heights: [editor.scrollHeight, editor.clientHeight] };
+    });
+    const one = await shape();
+    await app.type(long);
+    const typed = await shape();
+    assert.ok(typed.height >= one.height * 2, `${one.height}px became ${typed.height}px`);
+    assert.ok(typed.widths[0] <= typed.widths[1], `nothing off to the side: ${typed.widths}`);
+    assert.equal(typed.heights[0], typed.heights[1], "as tall as its text, no more and no less");
+
+    await app.press("Enter");
+    await app.waitFor(() => document.querySelector("#inputRow").getBoundingClientRect().height > 0 && document.querySelector("#editor").value === "");
+    assert.equal((await shape()).height, one.height);
+    await app.press("ArrowUp");
+    assert.equal(await editorValue(), long);
+    assert.deepEqual(await shape(), typed);
+  });
 });
 
 describe("tabs and sidebar", () => {

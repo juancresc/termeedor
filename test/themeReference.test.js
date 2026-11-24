@@ -9,7 +9,7 @@ const css = read("styles/base.css").replace(/\/\*[\s\S]*?\*\//g, "");
 const reference = read("src/themes.js").match(/const REFERENCE = `([\s\S]*?)`;/)[1];
 const missingFrom = (names) => [...new Set(names)].filter((name) => !new RegExp(`${name}(?![\\w-])`).test(reference));
 
-const MEASURING_ONLY = [".lineProbe", ".lineProbeBox"]; // restyling these would break how the text is measured
+const MEASURING_ONLY = [".lineProbe", ".lineProbeBox", ".inputMirror"]; // restyling these would break how the text is measured
 
 test("the theme reference lists every class in the stylesheet", () => {
   const classes = (css.match(/\.[a-zA-Z][\w-]*/g) ?? []).filter((name) => !MEASURING_ONLY.includes(name));

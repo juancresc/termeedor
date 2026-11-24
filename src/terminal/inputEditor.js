@@ -1,6 +1,6 @@
 // The input: a plain textarea holding the tab's draft, with the prompt beside it. Enter runs it,
 // Shift+Enter adds a line, Up and Down browse history from its first and last lines, and Tab
-// completes. While a command runs it is out of sight but keeps focus, so keys and pastes can
+// completes. A line too long for the width wraps, and the input grows with it. While a command runs it is out of sight but keeps focus, so keys and pastes can
 // go to the program.
 
 import { $ } from "../util.js";
@@ -10,7 +10,7 @@ import { closeMenu, isMenuOpen, moveSelection, placeMenu, selectedItem, showMenu
 import { forwardKey, forwardPaste, getCompletions, shellCommands } from "./runner.js";
 import { promptFor } from "../core/transcript.js";
 
-const MAX_ROWS = 12; // past this the input scrolls, so it never pushes the output out of view
+const MAX_ROWS = 12; // past this the input scrolls, so it never pushes the output out of view, wrapped rows included
 const TAB_TEXT = "    ";
 const CARET_KEYS = ["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"];
 const MODIFIER_KEYS = ["Shift", "Control", "Alt", "Meta", "CapsLock", "Fn"];
@@ -18,7 +18,9 @@ const MODIFIER_KEYS = ["Shift", "Control", "Alt", "Meta", "CapsLock", "Fn"];
 const editor = $("editor");
 const row = $("inputRow");
 const lineNumbers = $("inputLines");
-const textMeasure = document.createElement("canvas").getContext("2d");
+const mirror = $("inputMirror"); // a hidden copy of the text, as wide as the input, to see where it wraps
+let wrapKey = null; // what wrapRows was measured for
+let wrapRows = [];
 let shownTab = null;
 let recall = null; // browsing past commands: { tabId, history, index, draft }
 let completionRequest = 0; // only the newest request may show its results
@@ -43,6 +45,8 @@ export function initInput(provided) {
     focusInput();
   });
   window.addEventListener("resize", closeMenu);
+  // The window, the sidebar or the text size changed how much fits on a row.
+  if (typeof ResizeObserver === "function") new ResizeObserver(renderShape).observe(editor);
   document.addEventListener("keydown", onKeyDownElsewhere);
   document.addEventListener("paste", onPasteElsewhere);
 }
@@ -74,18 +78,35 @@ export function renderInput(tab) {
   return switched;
 }
 
+/** How many rows each line takes at the input's width: 1, or more when it wraps. */
+function rowsPerLine(lines) {
+  const width = editor.clientWidth;
+  if (!width) return lines.map(() => 1); // not laid out yet
+  const key = `${width} ${getComputedStyle(editor).font}\n${editor.value}`;
+  if (key === wrapKey) return wrapRows;
+  mirror.style.width = `${width}px`;
+  mirror.replaceChildren(...lines.map((line) => Object.assign(document.createElement("div"), { textContent: line || " " })));
+  const height = lineHeight();
+  wrapKey = key;
+  wrapRows = [...mirror.children].map((node) => Math.max(1, Math.round(node.offsetHeight / height) || 1));
+  return wrapRows;
+}
+
 /** Sets the height, and the line numbers that go with it. */
 function renderShape() {
-  const lines = editor.value.split("\n").length;
-  const rows = Math.min(lines, MAX_ROWS);
-  row.classList.toggle("multiline", lines > 1);
+  const lines = editor.value.split("\n");
+  const wrapped = rowsPerLine(lines);
+  const rows = Math.min(wrapped.reduce((sum, n) => sum + n, 0), MAX_ROWS);
+  row.classList.toggle("multiline", lines.length > 1);
   if (editor.rows !== rows) {
     editor.rows = rows;
     actions.resized();
   }
-  if (lineNumbers.dataset.lines !== `${lines}`) {
-    lineNumbers.dataset.lines = `${lines}`;
-    lineNumbers.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+  // A wrapped line has its number on its first row, and nothing beside the rest.
+  const numbers = lines.map((_, i) => `${i + 1}${"\n".repeat(wrapped[i] - 1)}`).join("\n");
+  if (lineNumbers.dataset.numbers !== numbers) {
+    lineNumbers.dataset.numbers = numbers;
+    lineNumbers.textContent = numbers;
   }
   lineNumbers.scrollTop = editor.scrollTop;
 }
@@ -401,11 +422,14 @@ function handleMenuKey(event) {
 // ---------- caret ----------
 const lineHeight = () => parseFloat(getComputedStyle(editor).lineHeight) || 20;
 
-/** Where the caret is, measured from the top left of the text. Lines never wrap. */
+/** Where the caret is, measured from the top left of the text: a marker at its place in the hidden copy. */
 function caretOffset() {
-  const before = editor.value.slice(0, editor.selectionStart).split("\n");
-  textMeasure.font = getComputedStyle(editor).font;
-  return { x: textMeasure.measureText(before.at(-1)).width, y: (before.length - 1) * lineHeight() };
+  const marker = document.createElement("span");
+  mirror.style.width = `${editor.clientWidth}px`;
+  const [before, after] = [editor.value.slice(0, editor.selectionStart), editor.value.slice(editor.selectionStart)];
+  mirror.replaceChildren(document.createTextNode(before), marker, document.createTextNode(after));
+  wrapKey = null; // the copy no longer holds what rowsPerLine measured
+  return { x: marker.offsetLeft || 0, y: marker.offsetTop || 0 };
 }
 
 function placeMenuAtCaret() {
@@ -413,13 +437,11 @@ function placeMenuAtCaret() {
   const { x, y } = caretOffset();
   const top = box.top + y - editor.scrollTop;
   if (top < box.top || top + lineHeight() > box.bottom + 1) return closeMenu(); // scrolled out of view
-  placeMenu({ left: box.left + x - editor.scrollLeft, top, bottom: top + lineHeight() });
+  placeMenu({ left: box.left + x, top, bottom: top + lineHeight() });
 }
 
 function revealCaret() {
-  const { x, y } = caretOffset();
-  const room = editor.clientWidth - 40;
-  if (x < editor.scrollLeft || x > editor.scrollLeft + room) editor.scrollLeft = Math.max(0, x - room);
+  const { y } = caretOffset();
   if (y < editor.scrollTop) editor.scrollTop = y;
   else if (y + lineHeight() > editor.scrollTop + editor.clientHeight) editor.scrollTop = y + lineHeight() - editor.clientHeight;
   lineNumbers.scrollTop = editor.scrollTop;

@@ -198,14 +198,16 @@ button.chipCount:hover { background: color-mix(in srgb, currentColor 30%, transp
 .ansiItalic { font-style: italic; }
 .ansiUnderline { text-decoration: underline; }
 
-/* the input: grows with its lines, set in JS as rows */
+/* the input: grows with its lines, wrapped ones included, set in JS as rows */
 .inputRow { position: relative; display: flex; padding: 0 16px 0 1.25em; font: var(--font-size)/1.55 var(--mono); cursor: text; }
 /* While a command runs the row is out of sight but its text box keeps focus, so keys still arrive. */
 .inputRow.running { height: 0; padding: 0; border: 0; overflow: hidden; opacity: 0; }
 /* in the left margin, taking no room, so the prompt stays put when the numbers appear. Sizes make up for the smaller text: 1.25em of the row, 1.55 lines. */
 .inputLines { position: absolute; top: 0; bottom: 0; left: 0; box-sizing: border-box; width: 1.667em; padding-right: .3em; overflow: hidden; color: var(--gutter); font-size: .75em; line-height: 2.067; text-align: right; white-space: pre; user-select: none; }
 .promptMark { flex: none; color: var(--dim); white-space: pre; user-select: none; }
-.editor { flex: 1; min-width: 0; padding: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; caret-color: var(--accent); white-space: pre; overflow: auto; scrollbar-width: none; tab-size: 4; }
+.editor { flex: 1; min-width: 0; padding: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; caret-color: var(--accent); white-space: pre-wrap; overflow-wrap: anywhere; overflow: hidden auto; scrollbar-width: none; tab-size: 4; }
+/* A copy of the input's text that is never seen: JS reads from it where the lines wrap and where the caret is. It must wrap as .editor does. */
+.inputMirror { position: absolute; top: 0; left: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 .editor::selection { background: var(--sel); }
 /* One line has no number, so it lines up with the command it becomes. */
 .inputRow:not(.multiline) .inputLines { display: none; }

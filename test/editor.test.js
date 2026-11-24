@@ -144,6 +144,28 @@ test("the input stops growing, and scrolls instead", () => {
   eraseDraft();
 });
 
+test("a line too long for the width wraps: the input grows, and its number stays on its first row", () => {
+  store.addTab();
+  // The stub has no layout, so here the hidden copy's lines say how tall they are: 10 characters a row, 20px each.
+  const create = document.createElement;
+  document.createElement = (tag) => {
+    const node = create(tag);
+    Object.defineProperty(node, "offsetHeight", { get: () => Math.max(1, Math.ceil(node.textContent.length / 10)) * 20 });
+    return node;
+  };
+  type("x".repeat(25));
+  assert.equal(textarea.rows, 3);
+  assert.equal(inputRow.classList.contains("multiline"), false); // still one line, so no numbers
+  type("\nls");
+  assert.equal(textarea.rows, 4);
+  assert.equal(nodeFor("inputLines").textContent, "1\n\n\n2");
+  type(`\n${"y".repeat(200)}`);
+  assert.equal(textarea.rows, 12);
+  document.createElement = create;
+  eraseDraft();
+  assert.equal(textarea.rows, 1);
+});
+
 test("a pasted multi-line draft keeps its line breaks", () => {
   store.addTab();
   type("a\nb\nc");
