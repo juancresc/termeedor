@@ -3,6 +3,7 @@
 // the first command; otherwise on that command. Startup files that are still running some time
 // after the shell started may be asking something (Oh My Zsh asks whether to update), so from then
 // on what they print is reported (startup events) and they get the keys, until the shell is ready.
+// Ones that have printed nothing are only slow, not asking, so they show much later.
 // No Electron imports, so tests can use real shells.
 
 const fs = require("node:fs");
@@ -13,6 +14,7 @@ const { createShellParser } = require("./shellParser.cjs");
 const { ACK, chooseShell, shellLaunch } = require("./shellIntegration.cjs");
 
 const STARTUP_SHOWN_AFTER_MS = 2000; // most startup files are done by then, and stay unseen
+const QUIET_STARTUP_SHOWN_AFTER_MS = 10000; // for ones that printed nothing: a heavy .zshrc is just slow
 const MAX_STARTUP_TEXT = 65536;
 const STARTUP_NOTICE = "\x1b[2mshell startup running\x1b[0m\r\n";
 const PASTE_START = "\x1b[200~";
@@ -56,8 +58,18 @@ function commandBytes(command) {
   return `${PASTE_START}${withoutPasteMarks(text)}${PASTE_END}\r`;
 }
 
+/** Whether startup output has anything a person would see, past escape sequences and blank space. */
+function hasVisibleText(text) {
+  return /\S/.test(text.replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-_])/g, "").replace(/[\x00-\x1f\x7f]/g, ""));
+}
+
 /** send(tabId, event) receives startup, started, output, alt, finish and typeahead events. */
-function createShellSessions(send, { shell = chooseShell(), env = process.env, startupShownAfterMs = STARTUP_SHOWN_AFTER_MS } = {}) {
+function createShellSessions(send, {
+  shell = chooseShell(),
+  env = process.env,
+  startupShownAfterMs = STARTUP_SHOWN_AFTER_MS,
+  quietStartupShownAfterMs = QUIET_STARTUP_SHOWN_AFTER_MS,
+} = {}) {
   const sessions = new Map();
 
   function start(tabId, cwd, size) {
@@ -71,9 +83,13 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, s
       ...DEFAULT_SIZE,
       ...size,
     });
-    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", heldAtAck: 0, lateKeys: null, path: null, cwd: displayCwd(resolveCwd(cwd)), starting: true, startupText: "", showing: false, shown: false, unread: "", showTimer: null };
+    const session = { pty: process_, parser, ready: false, running: false, sent: false, queued: null, heldKeys: "", heldAtAck: 0, lateKeys: null, path: null, cwd: displayCwd(resolveCwd(cwd)), starting: true, startupText: "", due: false, showing: false, shown: false, unread: "", showTimer: null };
     sessions.set(tabId, session);
-    session.showTimer = setTimeout(() => showStartup(tabId, session), startupShownAfterMs);
+    session.showTimer = setTimeout(() => {
+      session.due = true;
+      if (hasVisibleText(session.startupText)) showStartup(tabId, session);
+      else session.showTimer = setTimeout(() => showStartup(tabId, session), Math.max(0, quietStartupShownAfterMs - startupShownAfterMs));
+    }, startupShownAfterMs);
 
     process_.onData((chunk) => {
       for (const event of parser.write(chunk)) handleEvent(tabId, session, event);
@@ -94,7 +110,13 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, s
       session.pty.write(event.data);
     } else if (event.type === "startup") {
       if (session.showing) send(tabId, event);
-      else session.startupText = (session.startupText + event.data).slice(-MAX_STARTUP_TEXT);
+      else {
+        session.startupText = (session.startupText + event.data).slice(-MAX_STARTUP_TEXT);
+        if (session.due && hasVisibleText(session.startupText)) {
+          clearTimeout(session.showTimer);
+          showStartup(tabId, session);
+        }
+      }
     } else if (event.type === "ack") {
       // The shell reads every key sent before this. Keys after it would reach its line editor
       // and join the next command, so they wait here for the finish.
@@ -237,4 +259,4 @@ function createShellSessions(send, { shell = chooseShell(), env = process.env, s
   };
 }
 
-module.exports = { commandBytes, createShellSessions, displayCwd, resolveCwd };
+module.exports = { commandBytes, createShellSessions, displayCwd, hasVisibleText, resolveCwd };

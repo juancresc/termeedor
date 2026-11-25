@@ -172,7 +172,7 @@ for (const [name, file] of shells) {
     });
 
     test("keys the showing startup files never read follow the waiting command", { timeout: 15000 }, async () => {
-      const { sessions, waitFinish, events } = harness(file, "sleep 1.5\n", { startupShownAfterMs: 100 });
+      const { sessions, waitFinish, events } = harness(file, "sleep 1.5\n", { startupShownAfterMs: 100, quietStartupShownAfterMs: 100 });
       try {
         const finished = waitFinish();
         sessions.run("t", 'read answer; echo "got [$answer]"', { cwd: home });
@@ -187,13 +187,35 @@ for (const [name, file] of shells) {
     });
 
     test("with no command waiting, keys the showing startup files never read come back when they are done", { timeout: 15000 }, async () => {
-      const { sessions, events } = harness(file, "sleep 1\n", { startupShownAfterMs: 100 });
+      const { sessions, events } = harness(file, "sleep 1\n", { startupShownAfterMs: 100, quietStartupShownAfterMs: 100 });
       try {
         sessions.prepare("t", { cwd: home });
         await until(() => events.some((e) => e.type === "startup"));
         sessions.write("t", "ab");
         await until(() => events.some((e) => e.type === "started"));
         assert.equal(events.at(-1).typeahead, "ab");
+      } finally {
+        sessions.killAll();
+      }
+    });
+
+    test("slow startup files that print nothing stay unseen until the quiet wait", { timeout: 15000 }, async () => {
+      const { sessions, events } = harness(file, "sleep 1\n", { startupShownAfterMs: 100, quietStartupShownAfterMs: 5000 });
+      try {
+        sessions.prepare("t", { cwd: home });
+        await new Promise((r) => setTimeout(r, 2000));
+        assert.ok(!events.some((e) => e.type === "startup"));
+      } finally {
+        sessions.killAll();
+      }
+    });
+
+    test("quiet startup files show as soon as they print something", { timeout: 15000 }, async () => {
+      const { sessions, events } = harness(file, "sleep 0.5; printf 'continue? '; read -r answer\n", { startupShownAfterMs: 100, quietStartupShownAfterMs: 10000 });
+      try {
+        sessions.prepare("t", { cwd: home });
+        await until(() => said(events).includes("continue? "));
+        assert.match(said(events), /^shell startup running\ncontinue\? $/);
       } finally {
         sessions.killAll();
       }
