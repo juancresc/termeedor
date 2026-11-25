@@ -410,11 +410,19 @@ print "noise from an rc file"
       assert.ok(await until(() => !running("sleep 31.337")));
     });
 
-    test("an idle shell ends by itself", async () => {
-      const shell = setup(COMPINIT, { idleMs: 200 });
-      await shell.ask("true ");
+    test("warm starts the shell before the first Tab, and the last closed tab ends it", async () => {
+      const shell = setup(COMPINIT);
+      shell.completer.warm("t");
       const pid = shell.completer.helperPid();
-      assert.ok(await until(() => shell.completer.helperPid() === null));
+      assert.ok(pid);
+      shell.completer.warm("t2"); // already running: no second shell
+      assert.equal(shell.completer.helperPid(), pid);
+      assert.notEqual(await shell.ask("true "), null); // zsh answered
+      assert.equal(shell.completer.helperPid(), pid);
+      shell.completer.closeTab("t");
+      assert.equal(shell.completer.helperPid(), pid); // t2 still open
+      shell.completer.closeTab("t2");
+      assert.equal(shell.completer.helperPid(), null);
       assert.ok(await until(() => !alive(pid)));
     });
 

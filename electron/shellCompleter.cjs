@@ -1,5 +1,5 @@
-// Tab completion from the user's real zsh: one hidden shell, shared by all tabs and started on
-// the first request, with completions.cjs answering whenever it can't. See zshCompletion.zsh.
+// Tab completion from the user's real zsh: one hidden shell, shared by all tabs, started when the
+// first tab opens (startup files can take seconds) and kept until the last tab closes, with completions.cjs answering whenever it can't. See zshCompletion.zsh.
 // No Electron imports, so tests can use real shells.
 
 const crypto = require("node:crypto");
@@ -13,7 +13,6 @@ const MAX_ITEMS = 200;
 const ANSWER_MS = 1000; // how long Tab waits for zsh before answering from the disk
 const STUCK_MS = 5000; // a request still running after this gets the shell killed
 const START_MS = 15000; // startup files that take longer than this count as stuck
-const IDLE_MS = 10 * 60 * 1000;
 const RETRY_MS = 30000; // first wait after a failed start. It doubles with each failure.
 const FIELDS = 6;
 
@@ -71,7 +70,6 @@ function createShellCompleter({
   answerMs = ANSWER_MS,
   stuckMs = STUCK_MS,
   startMs = START_MS,
-  idleMs = IDLE_MS,
   retryMs = RETRY_MS,
   isSafe = isSafeToComplete,
 } = {}) {
@@ -83,7 +81,6 @@ function createShellCompleter({
   let nextId = 1;
   let failures = 0;
   let retryAt = 0;
-  let idleTimer = null;
 
   function settle(request, items) {
     clearTimeout(request.timer);
@@ -186,14 +183,7 @@ function createShellCompleter({
     target.socket.write(`${sent.id}\0${sent.cwd}\0${sent.pathVar ?? ""}\0${sent.input}\0`);
   }
 
-  function touch() {
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(stop, idleMs);
-    idleTimer.unref?.();
-  }
-
   function stop() {
-    clearTimeout(idleTimer);
     if (helper) killHelper(helper);
     tabs.clear();
   }
@@ -202,7 +192,6 @@ function createShellCompleter({
   function askShell(tabId, input, cwd, pathVar) {
     if (!isZsh || !input.trim() || !isSafe(input)) return Promise.resolve(null);
     if (!helper && Date.now() < retryAt) return Promise.resolve(null);
-    touch();
     tabs.add(tabId);
     for (const request of queue.filter((other) => other.tabId === tabId)) drop(request);
     if (sent?.tabId === tabId) settle(sent, null); // its answer is ignored when it comes
@@ -223,8 +212,21 @@ function createShellCompleter({
     });
   }
 
+  /** Starts the shell ahead of the first Tab, so its startup files have run by then. */
+  function warm(tabId) {
+    if (!isZsh) return;
+    tabs.add(tabId);
+    if (helper || Date.now() < retryAt) return;
+    try {
+      start();
+    } catch {
+      startFailed();
+    }
+  }
+
   return {
     askShell,
+    warm,
     /** Always answers, and soon: zsh's completions if it has any, otherwise the disk's. */
     async complete(tabId, input, cwd, pathVar) {
       const items = await askShell(tabId, input, cwd, pathVar);
