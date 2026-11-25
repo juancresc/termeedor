@@ -10,7 +10,7 @@ const BRANCH_TITLE = "Git branch of this tab's folder";
 /** Tells apart a pull request, a branch that can get one, and nothing to show. */
 const prKey = (pr) => pr?.url ? `${pr.url} ${pr.state}` : pr?.missing ? "missing" : ""; // merging keeps the url
 
-/** "PR #42" while open; one that is done says how it ended. */
+/** "PR #42" while open, "PR #42 merged" once merged. */
 const prText = (pr) => `PR #${pr.number}${pr.state && pr.state !== "open" ? ` ${pr.state}` : ""}`;
 
 export function activate(api) {
@@ -67,7 +67,8 @@ export function activate(api) {
     status.dispose();
     prButton?.dispose();
     copyButton?.dispose();
-    prButton = pr?.url ? api.statusBar.add({ text: prText(pr), title: `Open ${pr.url}`, action: "openPullRequest" })
+    prButton = pr?.state === "closed" ? null // a closed pull request shows nothing
+      : pr?.url ? api.statusBar.add({ text: prText(pr), title: `Open ${pr.url}`, action: "openPullRequest" })
       : pr?.missing ? api.statusBar.add({ ...CREATE_ITEM, action: "createPullRequest" })
       : null;
     status = api.statusBar.add({
