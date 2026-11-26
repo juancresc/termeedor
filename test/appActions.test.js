@@ -151,20 +151,30 @@ test("Cmd+[ and Cmd+] move between groups, going around, back to each group's ta
   assert.equal(store.activeTab(), tabInSecond);
 });
 
-test("Option+Cmd+1-9 go to a group, skipping minimized ones, back to its tab", () => {
+test("Ctrl+1-9 go to a group, skipping minimized ones, back to its tab", () => {
+  const ctrl = { metaKey: false, ctrlKey: true };
   const first = store.activeTab();
   const second = store.addGroup();
   const third = store.addGroup();
   const tabInSecond = store.tabsIn(second.id)[0];
-  press("Digit1", { altKey: true });
+  press("Digit1", ctrl);
   assert.equal(store.activeTab(), first);
-  press("Digit2", { altKey: true });
+  press("Digit2", ctrl);
   assert.equal(store.activeTab(), tabInSecond);
   store.setGroupMinimized(second, true);
-  press("Digit2", { altKey: true });
+  press("Digit2", ctrl);
   assert.equal(state.ws.activeGroup, third.id);
-  press("Digit9", { altKey: true });
+  press("Digit9", ctrl);
   assert.equal(state.ws.activeGroup, third.id);
+});
+
+test("Ctrl's other keys and Option+Cmd+number are left alone", () => {
+  const group = state.ws.activeGroup;
+  store.addGroup();
+  assert.equal(press("KeyT", { metaKey: false, ctrlKey: true }).prevented, undefined);
+  assert.equal(press("Digit1", { metaKey: false, ctrlKey: true, altKey: true }).prevented, undefined);
+  assert.equal(press("Digit1", { altKey: true }).prevented, undefined);
+  assert.notEqual(state.ws.activeGroup, group);
 });
 
 test("Shift+Cmd+3 is left to the system's screenshots", () => {
@@ -177,7 +187,7 @@ test("the shortcut list is split into sections, with group keys under Groups", a
   const { shortcutList } = await import("../src/keymap.js");
   const sections = shortcutList();
   assert.deepEqual(sections.map((s) => s.section), ["Tabs", "Groups", "Window", "Input"]);
-  assert.deepEqual(sections[1].rows.map((r) => `${r.keys} ${r.does}`), ["⌘G new group", "⌘[ previous group", "⌘] next group", "⌥⌘1–9 go to group"]);
+  assert.deepEqual(sections[1].rows.map((r) => `${r.keys} ${r.does}`), ["⌘G new group", "⌘[ previous group", "⌘] next group", "⌃1–9 go to group"]);
   assert.match(sections[0].rows.find((r) => r.does === "go to tab").note, /Show all tabs/);
 });
 

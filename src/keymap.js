@@ -19,8 +19,10 @@ const GROUP_KEYS = isMac
     { action: "nextGroup", code: "PageDown", key: "PageDown", does: "next group" },
   ];
 
-// macOS takes Shift+Cmd+3, 4 and 5 for screenshots, so there the group numbers go on Option+Cmd.
-const GROUP_NUMBER = isMac ? { alt: true } : { shift: true };
+// macOS takes Shift+Cmd+3, 4 and 5 for screenshots, and Option+number types | @ # on a Spanish
+// keyboard, so there the group numbers go on Ctrl alone (`ctrl`: Ctrl instead of Cmd). Ctrl+number
+// sends nothing a shell uses. Off the Mac Ctrl is the modifier already, so they take Shift.
+const GROUP_NUMBER = isMac ? { ctrl: true } : { shift: true };
 
 const DESKTOP_KEYS = [
   { action: "newTab", code: "KeyT", key: "T", does: "new tab", section: "Tabs", note: "Opens in the selected group." },
@@ -62,32 +64,40 @@ const modifierHeld = (e) => {
   return isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
 };
 const altHeld = (e) => isDesktop && e.altKey;
+const macCtrlHeld = (e) => isDesktop && isMac && e.ctrlKey && !e.metaKey;
 
 /** Plugin shortcuts use the same modifier as the built-ins. "KeyJ" | "Shift+KeyJ", or null if it isn't held. */
 export const pluginShortcutKey = (e) => (modifierHeld(e) && !altHeld(e) ? `${e.shiftKey ? "Shift+" : ""}${e.code}` : null);
 
-/** Keys plugins can't take: every built-in shortcut, in the form pluginShortcutKey returns. Ones with Alt are out of their reach anyway. */
-export const builtinShortcutKeys = () => KEYS.filter((k) => k.code && !k.alt).map((k) => `${k.shift ? "Shift+" : ""}${k.code}`);
+/** Keys plugins can't take: every built-in shortcut, in the form pluginShortcutKey returns. Ones with Alt or Ctrl alone are out of their reach anyway. */
+export const builtinShortcutKeys = () => KEYS.filter((k) => k.code && !k.alt && !k.ctrl).map((k) => `${k.shift ? "Shift+" : ""}${k.code}`);
 
 /** The entry a keydown event triggers, if any. An entry by character wins over one by key position. */
 export const findShortcut = (e) => {
+  if (macCtrlHeld(e)) return e.altKey ? undefined : KEYS.find((k) => k.ctrl && k.code === e.code && !!k.shift === e.shiftKey);
   if (!modifierHeld(e)) return undefined;
   const alt = altHeld(e);
   return KEYS.find((k) => !alt && k.chars?.includes(e.key))
-    ?? KEYS.find((k) => k.code && k.code === e.code && !!k.shift === e.shiftKey && !!k.alt === alt);
+    ?? KEYS.find((k) => k.code && !k.ctrl && k.code === e.code && !!k.shift === e.shiftKey && !!k.alt === alt);
 };
 
-function keyLabel({ key, shift, alt }) {
+function keyLabel({ key, shift, alt, ctrl }) {
   if (!isDesktop) return `Alt+${shift ? "Shift+" : ""}${key}`;
-  if (isMac) return `${alt ? "⌥" : ""}${shift ? "⇧" : ""}⌘${key}`;
+  if (isMac) return `${ctrl ? "⌃" : ""}${alt ? "⌥" : ""}${shift ? "⇧" : ""}${ctrl ? "" : "⌘"}${key}`;
   return `Ctrl+${alt ? "Alt+" : ""}${shift ? "Shift+" : ""}${key}`;
 }
 
-/** The key that, held alone, shows which number jumps where. Desktop only: the browser has no number keys. */
-export const hintModifier = isDesktop ? (isMac ? "Meta" : "Control") : null;
+/**
+ * The keys that, held alone, show which number jumps where, and the classes each puts on <html>:
+ * "showHints" badges the tabs, "showGroupHints" the groups. On a Mac Cmd numbers the tabs and Ctrl
+ * the groups; elsewhere Ctrl does both. Desktop only: the browser has no number keys.
+ */
+export const hintModifiers = !isDesktop ? null
+  : isMac ? { Meta: ["showHints"], Control: ["showGroupHints"] }
+    : { Control: ["showHints", "showGroupHints"] };
 
-/** The badge on the nth tab or group (from 1) while hintModifier is held, or null past 9. */
-export const jumpHint = (kind, n) => (n >= 1 && n <= 9 ? `${kind === "group" ? (isMac ? "⌥" : "⇧") : ""}${n}` : null);
+/** The badge on the nth tab or group (from 1) while its hint key is held, or null past 9. */
+export const jumpHint = (kind, n) => (n >= 1 && n <= 9 ? `${kind === "group" ? (isMac ? "⌃" : "⇧") : ""}${n}` : null);
 
 /** Tooltip text: adds the key when this action has one here. */
 export function withShortcut(label, action) {

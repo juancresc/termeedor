@@ -219,7 +219,7 @@ test("Cmd+number badges: tabs and groups numbered the way the keys count, and th
   setGroupMinimized(addGroup(), true); // not in the bar: no number
   renderTabbar();
   const hints = (id) => row(id).querySelectorAll(id === "tabs" ? ".tab" : ".groupTab").map((node) => node.dataset.hint);
-  assert.deepEqual(hints("groupTabs"), ["⌥1", "⌥2"]);
+  assert.deepEqual(hints("groupTabs"), ["⌃1", "⌃2"]);
   assert.deepEqual(hints("tabs"), ["1", "2", "3"]); // show all: across every group
 
   state.settings.showAllGroups = false;

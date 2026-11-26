@@ -4,6 +4,8 @@
 
 import { $, el } from "../util.js";
 import { keyToBytes } from "./keys.js";
+import { isMac } from "../platform.js";
+import { findShortcut } from "../keymap.js";
 
 const terminals = new Map(); // tabId -> { term, fit, node, queue, ready }
 let modules = null;
@@ -54,6 +56,7 @@ export function openFullscreen(tabId, { onData, onResize, modes = "" }) {
     // Cmd's line-editing keys go to the program as in other macOS terminals (xterm drops them);
     // the app's own shortcuts (Cmd+T and so on) pass through.
     // Shift+Enter too: xterm sends a plain Enter, which would submit in claude instead of adding a line.
+    // On a Mac, Ctrl+number is the app's too (groups), where xterm would send a control byte.
     entry.term.attachCustomKeyEventHandler((event) => {
       if (event.key === "Enter" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
         if (event.type === "keydown") {
@@ -62,7 +65,7 @@ export function openFullscreen(tabId, { onData, onResize, modes = "" }) {
         }
         return false;
       }
-      if (!event.metaKey) return true;
+      if (!event.metaKey) return !(isMac && findShortcut(event));
       const bytes = event.type === "keydown" ? keyToBytes(event) : null;
       if (bytes) {
         event.preventDefault();

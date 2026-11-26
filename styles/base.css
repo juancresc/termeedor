@@ -374,8 +374,8 @@ button.stPlugin:hover { background: var(--panel2); color: var(--text); }
 #stRunning { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .spinner::before { animation: none; } }
 
-/* Cmd held (keyHints.js): which number jumps to which tab or group. Laid over the tab, so nothing moves. */
-.showHints :is(.tab, .groupTab)[data-hint]::after {
+/* Cmd or Ctrl held (keyHints.js): which number jumps to which tab or group. Laid over the tab, so nothing moves. */
+:is(.showHints .tab, .showGroupHints .groupTab)[data-hint]::after {
   content: attr(data-hint); position: absolute; left: 2px; top: 50%; transform: translateY(-50%); z-index: 1;
   padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--term); color: var(--text);
   font: 600 10px/15px var(--mono); pointer-events: none;

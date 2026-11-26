@@ -11,9 +11,9 @@ function setup() {
   };
   const classes = new Set();
   const root = { classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c) } };
-  const stop = initKeyHints({ target, root, modifier: "Meta", delay: 400 });
+  const stop = initKeyHints({ target, root, modifiers: { Meta: ["showHints"], Control: ["showGroupHints"] }, delay: 400 });
   const fire = (type, key, extra = {}) => listeners[type]?.({ key, ...extra });
-  return { fire, shown: () => classes.has("showHints"), stop };
+  return { fire, shown: () => classes.has("showHints"), groupsShown: () => classes.has("showGroupHints"), stop };
 }
 
 test("holding the key a moment shows the badges; letting go hides them", (t) => {
@@ -24,7 +24,7 @@ test("holding the key a moment shows the badges; letting go hides them", (t) => 
   assert.equal(shown(), false);
   mock.timers.tick(1);
   assert.equal(shown(), true);
-  fire("keydown", "Alt"); // for the group keys (Shift off the Mac)
+  fire("keydown", "Shift");
   fire("keydown", "1"); // jumping while they show keeps them up
   assert.equal(shown(), true);
   fire("keyup", "Meta");
@@ -54,5 +54,25 @@ test("leaving the window hides them, since the key-up never arrives", (t) => {
 });
 
 test("off the desktop there is nothing to show", () => {
-  assert.doesNotThrow(() => initKeyHints({ modifier: null })());
+  assert.doesNotThrow(() => initKeyHints({ modifiers: null })());
+});
+
+test("Cmd badges the tabs and Ctrl the groups, each on its own", (t) => {
+  const { fire, shown, groupsShown, stop } = setup();
+  t.after(() => { stop(); mock.timers.reset(); });
+  fire("keydown", "Control");
+  mock.timers.tick(400);
+  assert.equal(groupsShown(), true);
+  assert.equal(shown(), false);
+  fire("keyup", "Control");
+  assert.equal(groupsShown(), false);
+});
+
+test("Cmd and Ctrl together are a shortcut, not a hint", (t) => {
+  const { fire, shown, groupsShown, stop } = setup();
+  t.after(() => { stop(); mock.timers.reset(); });
+  fire("keydown", "Meta");
+  fire("keydown", "Control");
+  mock.timers.tick(1000);
+  assert.equal(shown() || groupsShown(), false);
 });
